@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Órdenes Activas - Cocina{% endblock %}
+{% block content %}
+<h2 class="mb-4">Órdenes en preparación - Estación {{ session.rol|capitalize }}</h2>
+<table class="table table-striped">
+  <thead class="table-dark">
+    <tr>
+      <th>ID</th>
+      <th>Estado</th>
+      <th>Para Llevar</th>
+      <th>Mesa</th>
+      <th>Registrado</th>
+      <th>Acciones</th>
+    </tr>
+  </thead>
+  <tbody id="orders-table">
+    {% for orden in ordenes_cocina %}
+    <tr id="orderRow{{ orden.id }}">
+      <td>{{ orden.id }}</td>
+      <td id="estado{{ orden.id }}">
+        <span class="badge bg-{{ 'secondary' if orden.estado == 'pendiente' else 'success' }}">
+          {{ orden.estado }}
+        </span>
+      </td>
+      <td>{{ 'Sí' if orden.es_para_llevar else 'No' }}</td>
+      <td>
+        {% if not orden.es_para_llevar and orden.mesa %}
+          {{ orden.mesa.numero }}
+        {% else %}
+          -
+        {% endif %}
+      </td>
+      <td>{{ orden.tiempo_registro }}</td>
+      <td>
+        <!-- Ejemplo de botón para marcar la orden como lista -->
+        <button class="btn btn-sm btn-success" onclick="marcarOrdenLista(parseInt('{{ orden.id }}'))">Orden Preparada</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Función para marcar la orden como lista
+  function marcarOrdenLista(ordenId) {
+    fetch(`/api/ordenes/${ordenId}/estado`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: 'lista' })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.error) {
+        alert('Error: ' + data.error);
+      } else {
+        const estadoCelda = document.getElementById('estado' + ordenId);
+        estadoCelda.innerHTML = '<span class="badge bg-success">lista</span>';
+        
+        // Ocultar la fila después de 5 minutos (300,000 ms)
+        const fila = document.getElementById('orderRow' + ordenId);
+        setTimeout(() => {
+          if (fila) {
+            fila.remove();
+          }
+        }, 300000); // 5 minutos
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  // (Opcional) Suscribirte a WebSockets para actualizaciones en tiempo real
+  // socket.on('order_created', function(data) { ... })
+  // socket.on('order_updated', function(data) { ... })
+</script>
+{% endblock %}

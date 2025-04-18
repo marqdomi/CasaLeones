@@ -1,0 +1,12 @@
+{
+    "name": "monorepo",
+    "private": true,
+    "scripts": {
+      "start:backend": "cd backend && flask --app app.py --debug run",
+      "start:frontend": "cd frontend && npm start",
+      "start": "concurrently \"npm: start:backend\" \"npm: start:frontend\""
+    },
+    "devDependencies": {
+      "concurrently": "^8.0.1"
+    }
+  }

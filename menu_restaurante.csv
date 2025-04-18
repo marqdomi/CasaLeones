@@ -1,0 +1,59 @@
+nombre,precio,estacion
+1 kg Barbacoa,550,taquero
+3/4 kg Barbacoa,415,taquero
+1/2 kg Barbacoa,280,taquero
+1/4 kg Barbacoa,140,taquero
+1 kg Carnitas,300,taquero
+3/4 kg Carnitas,225,taquero
+1/2 kg Carnitas,150,taquero
+1/4 kg Carnitas,80,taquero
+1 Pollo para llevar,80,taquero
+1 Pollo para comer aquí,90,taquero
+2 Pollos con 1 lt consomé,190,taquero
+Taco de espaldilla,35,taquero
+Taco de falda,35,taquero
+Taco de costilla,35,taquero
+Taco de maciza,35,taquero
+Taco de panza,35,taquero
+Taco de cabeza,35,taquero
+Taco de ojo,35,taquero
+Taco de lengua,35,taquero
+Taco de cachete,35,taquero
+Taco de pescuezo,35,taquero
+Taco de espinazo (surtida),35,taquero
+Campechano maciza con panza,38,taquero
+Campechano espaldilla con panza,38,taquero
+Campechano falda con panza,38,taquero
+Campechano costilla con panza,38,taquero
+Quesadilla chicharrón prensado,33,comal
+Quesadilla champiñón,33,comal
+Quesadilla flor de calabaza,33,comal
+Quesadilla huitlacoche,33,comal
+Quesadilla mole verde,33,comal
+Quesadilla tinga,33,comal
+Quesadilla jamón con queso,33,comal
+Quesadilla de queso,33,comal
+Quesadilla de barbacoa (especial),65,comal
+Quesadilla de carnitas (especial),40,comal
+Tlacoyo de frijol,33,comal
+Tlacoyo de requesón,33,comal
+Tlacoyo de albahaca,33,comal
+Tlacoyo de chicharrón prensado,33,comal
+Tlacoyo con barbacoa (especial),65,comal
+Tlacoyo con carnitas (especial),55,comal
+Tortillas hechas a mano (kg),30,comal
+Orden de tacos dorados (3 flautas),90,comal
+Flauta individual,33,comal
+Plato de consomé,35,taquero
+1/2 litro de consomé,35,taquero
+1 litro de consomé,60,taquero
+Paquete: 1/4 kg barbacoa + 1 plato consomé,175,taquero
+Paquete: 1/2 kg barbacoa + 1 lt consomé,340,taquero
+Paquete: 3/4 kg barbacoa + 1/2 lt consomé,500,taquero
+Paquete: 1 kg barbacoa + 2 lt consomé,670,taquero
+Refresco Coca-Cola,25,bebidas
+Jugo Boing (mango),25,bebidas
+Jugo Boing (guayaba),25,bebidas
+Agua fresca (Jamaica),40,bebidas
+Agua fresca (otro sabor),40,bebidas
+Café,25,bebidas

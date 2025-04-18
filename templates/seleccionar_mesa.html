@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Seleccionar Mesa</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootswatch@5.3.0/dist/cosmo/bootstrap.min.css">
+</head>
+<body>
+<div class="container mt-5">
+  <h2 class="text-center mb-4">Selecciona una Mesa</h2>
+  <p class="text-center mb-4">Toca una mesa para comenzar una nueva orden.</p>
+  <form method="POST" action="{{ url_for('meseros.seleccionar_mesa') }}">
+    <div class="row g-4 justify-content-center">
+      {% if mesas %}
+        {% for mesa in mesas %}
+          <div class="col-6 col-sm-4 col-md-3">
+            <button type="submit" name="mesa_id" value="{{ mesa.id }}" class="btn btn-outline-primary btn-lg w-100 py-4">
+              Mesa {{ mesa.numero }}
+            </button>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="col-12">
+          <div class="alert alert-warning text-center" role="alert">
+            No hay mesas disponibles en este momento.
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </form>
+</div>
+</body>
+</html>
