@@ -1,8 +1,8 @@
 # utils.py
 from functools import wraps
 from flask import session, redirect, url_for, flash
-from models.models import Orden, OrdenDetalle
-from models.database import db
+from .models.models import Orden, OrdenDetalle
+from .models.database import db
 
 def verificar_orden_completa(orden_id):
     detalles = OrdenDetalle.query.filter_by(orden_id=orden_id).all()

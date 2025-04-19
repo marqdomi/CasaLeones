@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, session
-from utils import login_required
+from backend.utils import login_required
 from backend.models.models import Orden, OrdenDetalle, Producto
 from backend.models.database import db
 from backend.app import socketio
