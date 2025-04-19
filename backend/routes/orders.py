@@ -1,10 +1,10 @@
 from flask import Blueprint, request, jsonify, session
-from models.models import Orden, OrdenDetalle, Producto
-from flask_socketio import socketio
-from flask_login import login_required
-from models.models import db
+from utils import login_required
+from backend.models.models import Orden, OrdenDetalle, Producto
+from backend.models.database import db
+from backend.app import socketio
 
-orders_bp = Blueprint('orders', __name__)
+orders_bp = Blueprint('orders', __name__, url_prefix='/api')
 
 @orders_bp.route('/ordenes', methods=['POST'])
 @login_required

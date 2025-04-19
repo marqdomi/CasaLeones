@@ -12,6 +12,8 @@ from backend.routes.cocina import cocina_bp
 from backend.routes.auth import auth_bp
 from backend.routes.admin_routes import admin_bp
 from backend.routes.api import api_bp
+from backend.models.models import Orden, OrdenDetalle, Producto
+from backend.models.database import db
 
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
