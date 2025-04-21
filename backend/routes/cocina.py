@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, session, flash, redirect, url_for, jsonify
-from models.models import Orden, OrdenDetalle
-from utils import login_required
-from models.database import db
+from backend.models.models import Orden, OrdenDetalle
+from backend.utils import login_required
+from backend.utils import verificar_orden_completa
+from backend.extensions import db
 
 cocina_bp = Blueprint('cocina', __name__, url_prefix='/cocina')
 
@@ -50,17 +51,18 @@ def view_comal():
     return render_template('Comal.html', ordenes_por_estacion=ordenes_por_estacion)
 
 @cocina_bp.route('/bebidas')
-@login_required(rol='bebidas')
+@login_required(rol='mesero')
 def view_bebidas():
     ordenes_por_estacion = obtener_ordenes_por_estacion('bebidas')
     return render_template('bebidas.html', ordenes_por_estacion=ordenes_por_estacion)
 
 @cocina_bp.route('/bebidas/marcar/<int:orden_id>/<int:detalle_id>', methods=['POST'])
-@login_required(rol='bebidas')
+@login_required(rol='mesero')
 def marcar_bebida_producto_listo(orden_id, detalle_id):
     detalle = OrdenDetalle.query.get_or_404(detalle_id)
     detalle.estado = 'listo'
     db.session.commit()
+    verificar_orden_completa(orden_id)
     flash('Producto de Bebidas marcado como listo', 'success')
     return redirect(url_for('cocina.view_bebidas'))
 
@@ -70,6 +72,7 @@ def marcar_producto_listo(orden_id, detalle_id):
     detalle = OrdenDetalle.query.get_or_404(detalle_id)
     detalle.estado = 'listo'
     db.session.commit()
+    verificar_orden_completa(orden_id)
     flash('Producto marcado como listo', 'success')
     return redirect(url_for('cocina.view_taqueros'))
 
@@ -79,5 +82,6 @@ def marcar_comal_producto_listo(orden_id, detalle_id):
     detalle = OrdenDetalle.query.get_or_404(detalle_id)
     detalle.estado = 'listo'
     db.session.commit()
+    verificar_orden_completa(orden_id)
     flash('Producto marcado como listo', 'success')
     return redirect(url_for('cocina.view_comal'))

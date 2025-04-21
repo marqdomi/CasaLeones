@@ -1,9 +1,9 @@
 # admin.py
 from flask_admin import Admin
 from flask_admin.contrib.sqla import ModelView
-from app import create_app, socketio
-from models.database import db
-from models.models import Usuario, Categoria, Producto, Mesa, Silla, Orden, OrdenDetalle
+from backend.app import create_app, socketio
+from backend.models.database import db
+from backend.models.models import Usuario, Categoria, Producto, Mesa, Silla, Orden, OrdenDetalle
 
 # Crear la aplicación
 app = create_app()

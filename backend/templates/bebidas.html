@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Órdenes - Estación Taqueros{% endblock %}
+{% block title %}Órdenes - Estación Bebidas{% endblock %}
 
 {% block navbar %}
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
@@ -17,12 +17,9 @@
 {% endblock %}
 
 {% block content %}
-<pre>
-  {{ ordenes_por_estacion | pprint }}
-</pre>
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
 <div class="container mt-4">
-  <h2 class="mb-4 text-center">Órdenes para Taquero</h2>
+  <h2 class="mb-4 text-center">Órdenes para Bebidas</h2>
   <div class="alert alert-info text-center">
     Total de productos pendientes: {{ total_productos }}
   </div>
@@ -43,9 +40,8 @@
               <td>{{ orden_id }}</td>
               <td>{{ item.producto.nombre }}</td>
               <td>
-                {# Placeholder until 'cocina.marcar_producto_listo' route is implemented #}
-                <form method="POST" action="#">
-                  <button type="submit" class="btn btn-sm btn-outline-secondary" disabled>Marcar como listo</button>
+                <form method="POST" action="{{ url_for('cocina.marcar_bebida_producto_listo', orden_id=orden_id, detalle_id=item.id) }}">
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Marcar como listo</button>
                 </form>
               </td>
             </tr>
@@ -54,7 +50,7 @@
       </tbody>
     </table>
   {% else %}
-    <p class="text-center">No hay órdenes pendientes para taqueros.</p>
+    <p class="text-center">No hay órdenes pendientes para Bebidas.</p>
   {% endif %}
 </div>
 {% endblock %}

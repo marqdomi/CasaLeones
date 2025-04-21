@@ -1,7 +1,7 @@
 
 
-from models.models import db, Producto, Estacion
-from app import create_app
+from backend.extensions import db, Producto, Estacion
+from backend.app import create_app
 
 app = create_app()
 

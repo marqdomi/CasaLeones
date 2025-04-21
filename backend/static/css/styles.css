@@ -1,0 +1,111 @@
+
+
+/*====================================
+  Global Theme Overrides
+====================================*/
+body {
+  background-color: #000;
+  color: #fff;
+}
+
+/*====================================
+  Navbar
+====================================*/
+/* Custom class to push items to the right */
+.navbar .nav-right {
+  margin-left: auto;
+}
+
+/*====================================
+  Buttons
+====================================*/
+/* Small wide button */
+.btn-wide-sm {
+  padding: 0.35rem 1rem;
+  font-size: 0.875rem;
+}
+
+/*====================================
+  Inputs
+====================================*/
+/* Fixed-width quantity input */
+.qty-input {
+  width: 50px;
+  text-align: center;
+}
+
+/*====================================
+  Cards
+====================================*/
+/* Light shadow cards */
+.card-light {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Tight-spacing cards */
+.card-tight {
+  margin-bottom: 0.5rem;
+  padding: 0.75rem;
+}
+
+/*====================================
+  Accordion (Detalle de Orden)
+====================================*/
+.accordion .accordion-header {
+  background-color: #111;
+  color: #fff;
+}
+.accordion .accordion-button {
+  background-color: #222;
+  color: #fff;
+}
+.accordion .accordion-button:not(.collapsed) {
+  background-color: #333;
+  color: #fff;
+}
+
+/*====================================
+  Utility Spacing
+====================================*/
+.m-1 { margin: 0.25rem !important; }
+.m-2 { margin: 0.5rem !important; }
+.m-3 { margin: 1rem !important; }
+.p-1 { padding: 0.25rem !important; }
+.p-2 { padding: 0.5rem !important; }
+.p-3 { padding: 1rem !important; }
+
+/*====================================
+  Helpers
+====================================*/
+/* Hide element */
+.hidden {
+  display: none !important;
+}
+
+/*====================================
+  Product Cards (clickable items)
+====================================*/
+.product-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+.product-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.2);
+}
+.product-card:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(255, 255, 255, 0.1);
+}
+
+/*====================================
+  List Group Dark Items
+====================================*/
+.list-group-item-dark {
+  background-color: #222;
+  color: #fff;
+  border: 1px solid #333;
+}
+.list-group-item-dark + .list-group-item-dark {
+  border-top: none;
+}

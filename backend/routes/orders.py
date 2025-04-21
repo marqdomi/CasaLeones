@@ -1,13 +1,12 @@
 from flask import Blueprint, request, jsonify, session
-from backend.utils import login_required
+from backend.utils import login_required, verificar_orden_completa
 from backend.models.models import Orden, OrdenDetalle, Producto
-from backend.models.database import db
-from backend.app import socketio
+from backend.extensions import db, socketio
 
 orders_bp = Blueprint('orders', __name__, url_prefix='/api')
 
 @orders_bp.route('/ordenes', methods=['POST'])
-@login_required
+@login_required()
 def create_order():
     data = request.get_json()
     es_para_llevar = data.get('es_para_llevar', False)
@@ -25,7 +24,7 @@ def create_order():
     return jsonify({'message': 'Orden creada exitosamente.', 'orden_id': nueva_orden.id}), 201
 
 @orders_bp.route('/ordenes/<int:orden_id>/estado', methods=['PUT'])
-@login_required
+@login_required()
 def update_order_status(orden_id):
     data = request.get_json()
     nuevo_estado = data.get('estado')
@@ -41,7 +40,7 @@ def update_order_status(orden_id):
     return jsonify({'message': 'Estado actualizado.', 'orden_id': orden.id}), 200
 
 @orders_bp.route('/ordenes/<int:orden_id>/detalle', methods=['POST'])
-@login_required
+@login_required()
 def add_product_to_order(orden_id):
     data = request.get_json()
     producto_id = data.get('producto_id')
@@ -56,10 +55,25 @@ def add_product_to_order(orden_id):
     )
     db.session.add(detalle)
     db.session.commit()
-    return jsonify({"message": "Producto agregado a la orden."}), 201
+    # Emit real-time update and check if order is now complete
+    socketio.emit('order_detail_added', {
+        'orden_id': orden.id,
+        'detalle': {
+            'id': detalle.id,
+            'producto_id': producto.id,
+            'producto_nombre': producto.nombre,
+            'cantidad': cantidad,
+            'notas': detalle.notas
+        }
+    })
+    verificar_orden_completa(orden.id)
+    return jsonify({
+        'message': 'Producto agregado a la orden.',
+        'detalle_id': detalle.id
+    }), 201
 
 @orders_bp.route('/ordenes/<int:orden_id>/detalle', methods=['GET'])
-@login_required
+@login_required()
 def get_order_details(orden_id):
     detalles = OrdenDetalle.query.filter_by(orden_id=orden_id).all()
     detalles_data = []

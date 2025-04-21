@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config['VERSION'] }}">
+{% endblock %}
+
+{% block title %}Dashboard de Meseros{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard de Meseros</h2>
+
+<div class="meseros-dashboard mb-3 text-end">
+  <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-primary">Orden Para Llevar</a>
+  <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="btn btn-secondary">Orden Para Mesa</a>
+</div>
+
+<!-- Tabla de Órdenes Activas -->
+<div class="mt-4">
+  <h5>Órdenes Activas</h5>
+  <div class="table-responsive">
+    <table class="table table-dark table-striped">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cliente / Mesa</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for orden in ordenes_mesero %}
+        <tr>
+          <td>{{ orden.id }}</td>
+          <td>
+            {% if orden.es_para_llevar %}
+              Para Llevar
+            {% else %}
+              Mesa {{ orden.mesa.numero }}
+            {% endif %}
+          </td>
+          <td>{{ orden.estado }}</td>
+          <td>
+            <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-info btn-sm">Ver Detalle</a>
+            <form method="POST" action="{{ url_for('meseros.finalizar_orden', orden_id=orden.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-success btn-sm">Finalizar</button>
+            </form>
+            <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
+            </form>
+            <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}" class="d-inline">
+              <button type="submit" class="btn btn-primary btn-sm">Pagar</button>
+            </form>
+            <a href="{{ url_for('meseros.pago_orden', orden_id=orden.id) }}" class="btn btn-warning btn-sm">Pago</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

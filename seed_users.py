@@ -1,5 +1,6 @@
-from app import create_app
-from models.models import db, Usuario
+from backend.app import create_app
+from backend.extensions import db
+from backend.models.models import Usuario
 
 def seed_users():
     usuarios_data = [

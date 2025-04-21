@@ -1,0 +1,6 @@
+Flask==3.1.0
+Flask-Login
+Flask-SQLAlchemy
+Flask-SocketIO
+Flask-Cors
+eventlet

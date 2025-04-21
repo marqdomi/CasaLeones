@@ -1,9 +1,8 @@
-from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
-db = SQLAlchemy()
+from backend.extensions import db
 
 # -------------------- MODELOS --------------------
 
@@ -67,6 +66,18 @@ class Orden(db.Model):
 
     mesero = db.relationship('Usuario', backref='ordenes')
     detalles = db.relationship('OrdenDetalle', backref='orden', lazy=True)
+    productos = db.relationship('Producto', secondary='orden_detalle', viewonly=True, backref='ordenes')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'mesa_id': self.mesa_id,
+            'mesero_id': self.mesero_id,
+            'estado': self.estado,
+            'es_para_llevar': self.es_para_llevar,
+            'tiempo_registro': self.tiempo_registro.isoformat(),
+            'detalles': [detalle.to_dict() for detalle in self.detalles]
+        }
 
 class OrdenDetalle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -74,5 +85,16 @@ class OrdenDetalle(db.Model):
     producto_id = db.Column(db.Integer, db.ForeignKey('producto.id'))
     cantidad = db.Column(db.Integer, default=1)
     notas = db.Column(db.String(200))
-
+    estado      = db.Column(db.String(20), nullable=False, default='pendiente') 
+    
     producto = db.relationship('Producto', backref='orden_detalles')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'orden_id': self.orden_id,
+            'producto_id': self.producto_id,
+            'cantidad': self.cantidad,
+            'notas': self.notas,
+            'producto': self.producto.to_dict()
+        }

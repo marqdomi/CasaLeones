@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>¡Estoy en Pago!</h1>
+  <p>Orden: {{ orden.id }}, total: {{ total }}</p>
+
+{% endblock %}
+
+{% extends 'base.html' %}
+
+{% block title %}Pago Orden #{{ orden.id }}{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h1>Pago Orden #{{ orden.id }}</h1>
+    <p>Mesa: {{ orden.mesa_id or 'Para llevar' }}</p>
+
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Precio Unitario</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for linea in lineas %}
+          <tr>
+            <td>{{ linea.producto }}</td>
+            <td>{{ linea.cantidad }}</td>
+            <td>{{ linea.precio_unitario }}</td>
+            <td>{{ linea.subtotal }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3"><strong>Total</strong></td>
+            <td><strong>{{ total }}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}">
+      <button type="submit" class="btn btn-success">Confirmar Pago</button>
+      <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+  </div>
+{% endblock %}

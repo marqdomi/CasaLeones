@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h2 class="mt-4">Detalle de Orden #{{ orden.id }}</h2>
+  {% if orden.es_para_llevar %}
+    <p><strong>Tipo de orden:</strong> Para llevar</p>
+  {% else %}
+    <p><strong>Mesa:</strong> {{ orden.mesa.numero }}</p>
+  {% endif %}
+  <p><strong>Estado:</strong> {{ orden.estado }}</p>
+  <p><strong>Tiempo de Registro:</strong> {{ orden.tiempo_registro }}</p>
+  
+  <div class="accordion" id="accordionCategorias">
+    {% for categoria, productos_categoria in productos_por_categoria.items() %}
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="heading-{{ loop.index }}">
+          <button class="accordion-button collapsed" type="button"
+                  data-bs-toggle="collapse"
+                  data-bs-target="#collapse-{{ loop.index }}"
+                  aria-expanded="false"
+                  aria-controls="collapse-{{ loop.index }}">
+            {{ categoria }}
+          </button>
+        </h2>
+        <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse"
+             aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#accordionCategorias">
+          <div class="accordion-body">
+            <div class="row mb-3">
+              {% for producto in productos_categoria %}
+                <div class="col-md-3 mb-2">
+                  <div class="card text-center product-card" data-orden-id="{{ orden.id }}" data-producto-id="{{ producto.id }}" onclick="agregarProductoDirecto(this)">
+                    <div class="card-body">
+                      <h6 class="card-title">{{ producto.nombre }}</h6>
+                      <p class="card-text">${{ producto.precio }}</p>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  
+  <!-- Sección para mostrar el detalle de productos agregados -->
+  <div id="detalleProductos">
+    <h4>Productos en la Orden</h4>
+    <div id="productosList"></div>
+  </div>
+  
+  <div class="d-flex justify-content-between mt-4">
+    <form method="POST" action="{{ url_for('meseros.enviar_orden_a_cocina', orden_id=orden.id) }}">
+      <button type="submit" class="btn btn-danger">Enviar a Cocina</button>
+    </form>
+    <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}" onsubmit="return confirm('¿Estás seguro de cancelar esta orden?');">
+      <button type="submit" class="btn btn-secondary">Cancelar Orden</button>
+    </form>
+    <form method="POST" action="{{ url_for('meseros.finalizar_orden', orden_id=orden.id) }}" onsubmit="return confirm('¿Marcar esta orden como pagada y finalizada?');">
+      <button type="submit" class="btn btn-success">Finalizar Orden</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Función para agregar un producto a la orden vía AJAX
+  function agregarProducto(ordenId) {
+    const form = document.getElementById('agregarProductoForm');
+    const formData = new FormData(form);
+    const producto_id = parseInt(formData.get('producto_id'));
+    const cantidad = parseInt(formData.get('cantidad'));
+    
+    const data = {
+      producto_id: producto_id,
+      cantidad: cantidad
+    };
+    
+    fetch(`/api/ordenes/${ordenId}/detalle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.error) {
+        alert('Error: ' + result.error);
+      } else {
+        cargarDetalleProductos(ordenId);
+      }
+    })
+    .catch(error => console.error('Error:', error));
+  }
+  
+  // Función para cargar y mostrar el detalle de productos de la orden
+  function cargarDetalleProductos(ordenId) {
+    fetch(`/api/ordenes/${ordenId}/detalle`)
+      .then(response => response.json())
+      .then(data => {
+        let html = '<ul class="list-group">';
+        data.forEach(item => {
+          html += `<li class="list-group-item">
+                     ${item.cantidad} x ${item.producto_nombre}
+                   </li>`;
+        });
+        html += '</ul>';
+        document.getElementById('productosList').innerHTML = html;
+      })
+      .catch(error => console.error('Error al cargar detalle:', error));
+  }
+  
+  // Al cargar la página, actualiza el detalle de productos
+  document.addEventListener('DOMContentLoaded', function() {
+    cargarDetalleProductos(parseInt('{{ orden.id }}'));
+  });
+
+  function agregarProductoDirecto(el) {
+    const ordenId = el.dataset.ordenId;
+    const productoId = el.dataset.productoId;
+    fetch(`/api/ordenes/${ordenId}/detalle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ producto_id: Number(productoId), cantidad: 1 })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        alert('Error: ' + data.error);
+      } else {
+        cargarDetalleProductos(ordenId);
+      }
+    })
+    .catch(console.error);
+  }
+</script>
+</div>
+{% endblock %}

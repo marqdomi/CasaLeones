@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
-from models.models import Mesa, Orden, Producto, OrdenDetalle
+from backend.models.models import Mesa, Orden, Producto, OrdenDetalle
 import json
-from models.database import db
-from utils import login_required
+from backend.extensions import db
+from backend.utils import login_required
 from collections import defaultdict
 
 
@@ -115,3 +115,23 @@ def cancelar_orden(orden_id):
         db.session.commit()
         flash('La orden ha sido cancelada correctamente.', 'success')
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
+
+@meseros_bp.route('/ordenes/<int:orden_id>/pagar', methods=['POST'])
+@login_required(rol='mesero')
+def pagar_orden(orden_id):
+    orden = Orden.query.get_or_404(orden_id)
+    if orden.estado == 'pagado':
+        flash('La orden ya está pagada.', 'warning')
+    else:
+        orden.estado = 'pagado'
+        db.session.commit()
+        flash('Orden marcada como pagada correctamente.', 'success')
+    return redirect(url_for('meseros.view_meseros'))
+
+@meseros_bp.route('/meseros/ordenes/<int:orden_id>/pago', methods=['GET'])
+@login_required('mesero')
+def pago_orden(orden_id):
+    orden = Orden.query.get_or_404(orden_id)
+    detalles = OrdenDetalle.query.filter_by(orden_id=orden_id).all()
+    total = sum(det.producto.precio * det.cantidad for det in detalles)
+    return render_template('pago.html', orden=orden, detalles=detalles, total=total)

@@ -1,0 +1,13 @@
+# backend/extensions.py
+
+from flask_socketio import SocketIO
+from flask_login    import LoginManager
+from flask_cors     import CORS
+from flask_sqlalchemy import SQLAlchemy
+
+# Ya existentes
+socketio      = SocketIO()
+login_manager = LoginManager()
+cors          = CORS()
+# Nueva única instancia de DB
+db            = SQLAlchemy()

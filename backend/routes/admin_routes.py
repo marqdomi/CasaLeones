@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required
-from models.models import db, Usuario
+from backend.extensions import db
+from backend.models.models import Usuario
 from werkzeug.security import generate_password_hash
 from .decorators import rol_requerido
-from routes.meseros import meseros_bp
+from flask import current_app
 
 print("Cargando admin_routes.py...")
 
@@ -36,3 +37,6 @@ def crear_usuario():
         return redirect(url_for('admin.crear_usuario'))
 
     return render_template('admin_crear_usuario.html')
+
+from backend.routes.meseros import meseros_bp
+admin_bp.register_blueprint(meseros_bp, url_prefix="/meseros")

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Órdenes Activas - Cocina{% endblock %}
 {% block content %}
+<div class="container-fluid mt-4">
 <h2 class="mb-4">Órdenes en preparación - Estación {{ session.rol|capitalize }}</h2>
 <table class="table table-striped">
   <thead class="table-dark">
@@ -39,10 +40,37 @@
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
 <script>
+  const socket = io();
+  socket.on('order_created', function(data) {
+    const tbody = document.getElementById('orders-table');
+    const row = document.createElement('tr');
+    row.id = 'orderRow' + data.orden_id;
+    row.innerHTML = `
+      <td>${data.orden_id}</td>
+      <td id="estado${data.orden_id}">
+        <span class="badge bg-secondary">${data.estado}</span>
+      </td>
+      <td>${data.es_para_llevar ? 'Sí' : 'No'}</td>
+      <td>${data.mesa_numero || '-'}</td>
+      <td>${new Date(data.tiempo_registro).toLocaleString()}</td>
+      <td><button class="btn btn-sm btn-success" onclick="marcarOrdenLista(${data.orden_id})">Orden Preparada</button></td>
+    `;
+    tbody.prepend(row);
+  });
+  socket.on('order_updated', function(data) {
+    const badgeEl = document.querySelector('#estado' + data.orden_id + ' span');
+    if (badgeEl) {
+      badgeEl.className = 'badge bg-success';
+      badgeEl.textContent = data.nuevo_estado;
+    }
+  });
+
   // Función para marcar la orden como lista
   function marcarOrdenLista(ordenId) {
     fetch(`/api/ordenes/${ordenId}/estado`, {
@@ -70,8 +98,5 @@
     .catch(error => console.error('Error:', error));
   }
 
-  // (Opcional) Suscribirte a WebSockets para actualizaciones en tiempo real
-  // socket.on('order_created', function(data) { ... })
-  // socket.on('order_updated', function(data) { ... })
 </script>
 {% endblock %}

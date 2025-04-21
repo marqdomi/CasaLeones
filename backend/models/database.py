@@ -1,9 +1,8 @@
 # backend/models/database.py
-from flask_sqlalchemy import SQLAlchemy
 
-db = SQLAlchemy()
+from backend.extensions import db
 
 def init_db():
-    # Import model modules so they are registered with SQLAlchemy
+    # Importar los modelos para que db conozca todas las tablas
     import backend.models.models  # noqa: F401
     db.create_all()

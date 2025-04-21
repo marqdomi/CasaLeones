@@ -18,7 +18,7 @@
 
 {% block content %}
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
-<div class="container mt-4">
+<div class="container-fluid mt-4">
   <h2 class="mb-4 text-center">Órdenes para Comal</h2>
   <div class="alert alert-info text-center">
     Total de productos pendientes: {{ total_productos }}
@@ -33,7 +33,7 @@
           <th>Acciones</th>
         </tr>
       </thead>
-      <tbody>
+      <tbody id="orders-table-body">
         {% for orden_id, detalles in ordenes_por_estacion.items() %}
           {% for item in detalles %}
             <tr>
@@ -53,4 +53,37 @@
     <p class="text-center">No hay órdenes pendientes para Comal.</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+<script>
+  const socket = io();
+
+  socket.on('order_created', function(data) {
+    if (data.station === 'comal') {
+      const newRow = `<tr>
+        <td>${data.orden_id}</td>
+        <td>${data.producto_nombre}</td>
+        <td>
+          <form method="POST" action="{{ url_for('cocina.marcar_comal_producto_listo', orden_id='${data.orden_id}', detalle_id='${data.detalle_id}') }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary">Marcar como listo</button>
+          </form>
+        </td>
+      </tr>`;
+      document.getElementById('orders-table-body').insertAdjacentHTML('beforeend', newRow);
+    }
+  });
+
+  socket.on('order_updated', function(data) {
+    if (data.station === 'comal') {
+      const rows = document.querySelectorAll('#orders-table-body tr');
+      rows.forEach(row => {
+        if (row.cells[0].textContent === data.orden_id) {
+          row.remove();
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}

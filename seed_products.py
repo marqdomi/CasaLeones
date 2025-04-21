@@ -1,6 +1,6 @@
-from app import create_app
-from models.database import db
-from models.models import Categoria, Producto, Estacion
+from backend.app import create_app
+from backend.extensions import db
+from backend.models.models import Categoria, Producto, Estacion
 
 def seed_menu():
     # Definir las categorías del menú

@@ -1,18 +1,19 @@
-# seed_tables.py
-from app import create_app
-from models.database import db
-from models.models import Mesa
+#!/usr/bin/env python3
+from backend.app import create_app
+from backend.extensions import db
+from backend.models.models import Mesa
 
-def seed_tables():
-    for numero in range(1, 9):
-        mesa_existente = Mesa.query.filter_by(numero=numero).first()
-        if not mesa_existente:
-            nueva_mesa = Mesa(numero=numero)
-            db.session.add(nueva_mesa)
-    db.session.commit()
-    print("Mesas sembradas correctamente.")
-
-if __name__ == "__main__":
+def seed_mesas():
     app = create_app()
     with app.app_context():
-        seed_tables()
+        # Eliminar mesas existentes (opcional)
+        db.session.query(Mesa).delete()
+        # Crear 8 mesas numeradas del 1 al 8
+        for numero in range(1, 9):
+            mesa = Mesa(numero=numero)
+            db.session.add(mesa)
+        db.session.commit()
+        print("Se han sembrado las 8 mesas (1–8) con éxito.")
+
+if __name__ == "__main__":
+    seed_mesas()
