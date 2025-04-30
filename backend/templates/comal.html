@@ -1,89 +1,81 @@
-{% extends "base.html" %}
-{% block title %}Órdenes - Estación Comal{% endblock %}
-
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
+{% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
-    <a class="navbar-brand" href="#">Restaurante</a>
+    <a class="navbar-brand" href="/">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" width="120" height="40">
+    </a>
     <div class="collapse navbar-collapse justify-content-end">
       <ul class="navbar-nav">
         <li class="nav-item">
-          <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
+          <a class="nav-link" href="{{ url_for('auth.logout') }}">Cerrar sesión</a>
         </li>
       </ul>
     </div>
   </div>
 </nav>
-{% endblock %}
-
-{% block content %}
-{% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
-<div class="container-fluid mt-4">
+<div class="container mt-4" id="contenedor-comal">
   <h2 class="mb-4 text-center">Órdenes para Comal</h2>
   <div class="alert alert-info text-center">
     Total de productos pendientes: {{ total_productos }}
   </div>
 
   {% if total_productos > 0 %}
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th># Orden</th>
-          <th>Producto</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody id="orders-table-body">
-        {% for orden_id, detalles in ordenes_por_estacion.items() %}
-          {% for item in detalles %}
-            <tr>
-              <td>{{ orden_id }}</td>
-              <td>{{ item.producto.nombre }}</td>
-              <td>
-                <form method="POST" action="{{ url_for('cocina.marcar_comal_producto_listo', orden_id=orden_id, detalle_id=item.id) }}">
-                  <button type="submit" class="btn btn-sm btn-outline-primary">Marcar como listo</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="row">
+      {% for orden_id, detalles in ordenes_por_estacion.items() %}
+        <div class="col-md-6 col-lg-4 mb-4 orden-comal" data-productos-pendientes="{{ detalles | length }}" data-orden-id="{{ orden_id }}">
+          <div class="card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white">
+              Orden #{{ orden_id }}
+            </div>
+            <div class="card-body">
+              <ul class="list-group list-group-flush">
+                {% for item in detalles %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ item.producto.nombre }}
+                    <button
+                      class="btn btn-sm btn-outline-success"
+                      data-orden-id="{{ orden_id }}"
+                      data-detalle-id="{{ item.id }}"
+                      data-action="marcar-listo">
+                      Listo
+                    </button>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   {% else %}
     <p class="text-center">No hay órdenes pendientes para Comal.</p>
   {% endif %}
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
 <script>
-  const socket = io();
-
-  socket.on('order_created', function(data) {
-    if (data.station === 'comal') {
-      const newRow = `<tr>
-        <td>${data.orden_id}</td>
-        <td>${data.producto_nombre}</td>
-        <td>
-          <form method="POST" action="{{ url_for('cocina.marcar_comal_producto_listo', orden_id='${data.orden_id}', detalle_id='${data.detalle_id}') }}">
-            <button type="submit" class="btn btn-sm btn-outline-primary">Marcar como listo</button>
-          </form>
-        </td>
-      </tr>`;
-      document.getElementById('orders-table-body').insertAdjacentHTML('beforeend', newRow);
-    }
-  });
-
-  socket.on('order_updated', function(data) {
-    if (data.station === 'comal') {
-      const rows = document.querySelectorAll('#orders-table-body tr');
-      rows.forEach(row => {
-        if (row.cells[0].textContent === data.orden_id) {
-          row.remove();
-        }
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('button[data-action="marcar-listo"]').forEach(button => {
+      button.addEventListener('click', () => {
+        const ordenId = button.getAttribute('data-orden-id');
+        const detalleId = button.getAttribute('data-detalle-id');
+        fetch(`/cocina/comal/marcar/${ordenId}/${detalleId}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Error al marcar como listo');
+          // Actualizar interfaz:
+          const listItem = button.closest('li');
+          listItem.remove();
+          const ordenCard = button.closest('.orden-comal');
+          if (ordenCard.querySelectorAll('li').length === 0) {
+            ordenCard.remove();
+          }
+        })
+        .catch(err => console.error(err));
       });
-    }
+    });
   });
 </script>
 {% endblock %}

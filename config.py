@@ -6,4 +6,4 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///casa_leones.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Bump this whenever any static asset (CSS/JS) changes, to force browser reload
-    VERSION = '1.0.3'
+    VERSION = '1.2.2'

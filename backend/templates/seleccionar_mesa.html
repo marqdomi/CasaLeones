@@ -1,15 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Seleccionar Mesa{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
+{% endblock %}
 {% block content %}
-<div class="container mt-5">
-  <h2 class="text-center mb-4">Selecciona una Mesa</h2>
-  <p class="text-center mb-4">Toca una mesa para comenzar una nueva orden.</p>
+<div class="container mt-5 page-background">
+  <h2 class="text-center section-title">Selecciona una Mesa</h2>
+  <p class="text-center section-subtitle">Toca una mesa para comenzar una nueva orden.</p>
   <form method="POST" action="{{ url_for('meseros.seleccionar_mesa') }}">
     <div class="row g-4 justify-content-center">
       {% if mesas %}
         {% for mesa in mesas %}
           <div class="col-6 col-sm-4 col-md-3">
-            <button type="submit" name="mesa_id" value="{{ mesa.id }}" class="btn btn-outline-primary btn-lg w-100 py-4">
+            <button type="submit" name="mesa_id" value="{{ mesa.id }}" class="mesa-btn btn btn-outline-dark btn-lg w-100 py-4">
               Mesa {{ mesa.numero }}
             </button>
           </div>

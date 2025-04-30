@@ -3,11 +3,12 @@ from backend.models.models import Orden, OrdenDetalle
 from backend.utils import login_required
 from backend.utils import verificar_orden_completa
 from backend.extensions import db
+from datetime import date
 
 cocina_bp = Blueprint('cocina', __name__, url_prefix='/cocina')
 
 def obtener_ordenes_por_estacion(estacion_nombre):
-    ordenes = Orden.query.filter(Orden.estado != 'pagado').all()
+    ordenes = Orden.query.filter(Orden.estado != 'pagado', Orden.estado != 'finalizada').all()
     ordenes_por_estacion = {
         orden.id: [
             detalle for detalle in orden.detalles
@@ -17,20 +18,11 @@ def obtener_ordenes_por_estacion(estacion_nombre):
     }
     return ordenes_por_estacion
 
-@cocina_bp.route('/')
-@login_required(rol='admin')
-def view_cocina():
-    ordenes_cocina = Orden.query.filter(Orden.estado != 'pagado').all()
-    ordenes_por_estacion = obtener_ordenes_por_estacion('taquero')
-    return render_template(
-        'taqueros.html',
-        ordenes_por_estacion=ordenes_por_estacion   # exactamente este nombre
-    )
 
 @cocina_bp.route('/api/orders')
 @login_required(rol='taquero')
 def api_orders():
-    ordenes = Orden.query.filter(Orden.estado != 'pagado').all()
+    ordenes = Orden.query.filter(Orden.estado != 'pagado', Orden.estado != 'finalizada').all()
     orders_data = [{
         'id': orden.id,
         'estado': orden.estado,
@@ -85,3 +77,14 @@ def marcar_comal_producto_listo(orden_id, detalle_id):
     verificar_orden_completa(orden_id)
     flash('Producto marcado como listo', 'success')
     return redirect(url_for('cocina.view_comal'))
+
+@cocina_bp.route('/historial')
+@login_required()
+def historial_dia():
+    hoy = date.today()
+    ordenes = Orden.query.filter(
+        db.func.date(Orden.timestamp) == hoy,
+        Orden.estado.in_(['finalizada', 'pagada'])
+    ).order_by(Orden.timestamp.desc()).all()
+    
+    return render_template('historial_dia.html', ordenes=ordenes)

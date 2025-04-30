@@ -86,6 +86,7 @@ class OrdenDetalle(db.Model):
     cantidad = db.Column(db.Integer, default=1)
     notas = db.Column(db.String(200))
     estado      = db.Column(db.String(20), nullable=False, default='pendiente') 
+    entregado = db.Column(db.Boolean, default=False)
     
     producto = db.relationship('Producto', backref='orden_detalles')
 
@@ -96,5 +97,6 @@ class OrdenDetalle(db.Model):
             'producto_id': self.producto_id,
             'cantidad': self.cantidad,
             'notas': self.notas,
-            'producto': self.producto.to_dict()
+            'producto': self.producto.to_dict(),
+            'entregado': self.entregado
         }

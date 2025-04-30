@@ -49,7 +49,7 @@ def listar_ordenes():
 
 @api_bp.route('/ordenes/<int:orden_id>/detalle/<int:detalle_id>/listo', methods=['POST'])
 @login_required()
-def api_marcar_detalle_listo(orden_id, detalle_id):
+def marcar_detalle_listo(orden_id, detalle_id):
     detalle = OrdenDetalle.query.get_or_404(detalle_id)
     detalle.estado = 'listo'
     db.session.commit()
@@ -58,7 +58,7 @@ def api_marcar_detalle_listo(orden_id, detalle_id):
 
 @api_bp.route('/ordenes/<int:orden_id>/pagar', methods=['POST'])
 @login_required()
-def api_pagar_orden(orden_id):
+def pagar_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     orden.estado = 'pagado'
     db.session.commit()
@@ -66,7 +66,7 @@ def api_pagar_orden(orden_id):
 
 @api_bp.route('/ordenes/<int:orden_id>/detalle', methods=['GET', 'POST'])
 @login_required()
-def api_order_details(orden_id):
+def order_details(orden_id):
     if request.method == 'POST':
         data = request.get_json() or {}
         producto_id = data.get('producto_id')

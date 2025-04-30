@@ -1,20 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Órdenes - Estación Bebidas{% endblock %}
 
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">Restaurante</a>
-    <div class="collapse navbar-collapse justify-content-end">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">Cerrar Sesión</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
-{% endblock %}
 
 {% block content %}
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
@@ -25,32 +11,76 @@
   </div>
 
   {% if total_productos > 0 %}
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th># Orden</th>
-          <th>Producto</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for orden_id, detalles in ordenes_por_estacion.items() %}
+<div class="row">
+  {% for orden_id, detalles in ordenes_por_estacion.items() %}
+    <div class="col-md-6 mb-4 orden-card" id="orden-{{ orden_id }}">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          Orden #{{ orden_id }}
+        </div>
+        <ul class="list-group list-group-flush">
           {% for item in detalles %}
-            <tr>
-              <td>{{ orden_id }}</td>
-              <td>{{ item.producto.nombre }}</td>
-              <td>
-                <form method="POST" action="{{ url_for('cocina.marcar_bebida_producto_listo', orden_id=orden_id, detalle_id=item.id) }}">
-                  <button type="submit" class="btn btn-sm btn-outline-primary">Marcar como listo</button>
-                </form>
-              </td>
-            </tr>
+            <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ item.id }}">
+              {{ item.producto.nombre }}
+              <button class="btn btn-sm btn-outline-success btn-listo"
+                      data-orden-id="{{ orden_id }}"
+                      data-detalle-id="{{ item.id }}">Listo</button>
+            </li>
           {% endfor %}
-        {% endfor %}
-      </tbody>
-    </table>
+        </ul>
+      </div>
+    </div>
+  {% endfor %}
+</div>
   {% else %}
     <p class="text-center">No hay órdenes pendientes para Bebidas.</p>
   {% endif %}
 </div>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Attach click handlers
+    document.querySelectorAll('.btn-listo').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const ordenId = this.getAttribute('data-orden-id');
+        const detalleId = this.getAttribute('data-detalle-id');
+        marcarBebidaListo(ordenId, detalleId, this);
+      });
+    });
+  });
+
+  function marcarBebidaListo(ordenId, detalleId, buttonEl) {
+    const urlTemplate = "{{ url_for('cocina.marcar_bebida_producto_listo', orden_id=0, detalle_id=0) }}";
+    const url = urlTemplate.replace(/0\/0$/, `${ordenId}/${detalleId}`);
+    fetch(url, { method: 'POST' })
+      .then(response => {
+        if (!response.ok) throw new Error('Error en la petición');
+        // Remove item
+        const listItem = buttonEl.closest(".producto-item");
+        listItem.remove();
+        // Remove card if empty
+        const card = document.getElementById(`orden-${ordenId}`);
+        if (card.querySelectorAll(".producto-item").length === 0) {
+          card.remove();
+        }
+      })
+      .catch(err => console.error(err));
+  }
+</script>
+<script src="//localhost:5000/socket.io/socket.io.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const socket = io();
+    socket.on('item_status_updated', (data) => {
+      const { orden_id, detalle_id } = data;
+      const listItem = document.getElementById(`item-${detalle_id}`);
+      if (listItem) {
+        listItem.remove();
+      }
+      const card = document.getElementById(`orden-${orden_id}`);
+      if (card && card.querySelectorAll(".producto-item").length === 0) {
+        card.remove();
+      }
+    });
+  });
+</script>
 {% endblock %}

@@ -1,23 +1,47 @@
 {% extends "base.html" %}
 {% block head %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config['VERSION'] }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
 {% endblock %}
 
 {% block title %}Dashboard de Meseros{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">Dashboard de Meseros</h2>
+{# Debug: plantilla cargada correctamente 5 #}
+<h2 class="mb-4 encabezado-principal">Dashboard de Meseros</h2>
 
-<div class="meseros-dashboard mb-3 text-end">
+{% if ordenes_mesero|length == 0 %}
+  <div class="alert alert-info">No hay órdenes activas actualmente.</div>
+{% endif %}
+
+<div class="meseros-dashboard acciones-superiores mb-3 text-end">
   <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-primary">Orden Para Llevar</a>
   <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="btn btn-secondary">Orden Para Mesa</a>
 </div>
 
 <!-- Tabla de Órdenes Activas -->
-<div class="mt-4">
+<div class="mt-4 contenido-principal">
   <h5>Órdenes Activas</h5>
+  {% set tiene_pendientes = false %}
+  {% set alert_shown = false %}
+  {% for orden in ordenes_mesero %}
+    {% set orden_tiene_pendiente = false %}
+    {% for detalle in orden.detalles %}
+      {% if detalle.estado == 'pendiente' %}
+        {% set orden_tiene_pendiente = true %}
+        {% set tiene_pendientes = true %}
+      {% endif %}
+    {% endfor %}
+    {% if orden_tiene_pendiente and not alert_shown %}
+      <div class="alert alert-warning">Algunas órdenes tienen productos pendientes de preparación.</div>
+      {% set alert_shown = true %}
+    {% endif %}
+  {% endfor %}
+  {% if ordenes_mesero|length == 0 %}
+    <p class="text-muted">No hay órdenes activas en este momento.</p>
+  {% endif %}
+  {% if ordenes_mesero|length > 0 %}
   <div class="table-responsive">
-    <table class="table table-dark table-striped">
+    <table class="ordenes-table table table-striped table-hover table-bordered">
       <thead>
         <tr>
           <th>#</th>
@@ -39,22 +63,145 @@
           </td>
           <td>{{ orden.estado }}</td>
           <td>
-            <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-info btn-sm">Ver Detalle</a>
-            <form method="POST" action="{{ url_for('meseros.finalizar_orden', orden_id=orden.id) }}" class="d-inline">
-              <button type="submit" class="btn btn-success btn-sm">Finalizar</button>
-            </form>
-            <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}" class="d-inline">
-              <button type="submit" class="btn btn-danger btn-sm">Cancelar</button>
-            </form>
-            <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}" class="d-inline">
-              <button type="submit" class="btn btn-primary btn-sm">Pagar</button>
-            </form>
-            <a href="{{ url_for('meseros.pago_orden', orden_id=orden.id) }}" class="btn btn-warning btn-sm">Pago</a>
+            <button class="btn btn-sm btn-ver-detalle" type="button" data-bs-toggle="collapse" data-bs-target="#orden-{{ orden.id }}" aria-expanded="false" aria-controls="orden-{{ orden.id }}">
+              Ver Detalles
+            </button>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="4">
+            <div class="collapse mt-2" id="orden-{{ orden.id }}">
+              <div class="card card-body text-dark bg-light">
+                <ul class="mb-2">
+                  {% for detalle in orden.detalles %}
+                    <li>
+                      {{ detalle.producto.nombre }} - {{ detalle.cantidad }} {{ detalle.producto.unidad }}
+                      {% if detalle.estado == 'listo' %}
+                        <form method="POST" action="{{ url_for('meseros.marcar_producto_entregado', orden_id=orden.id, detalle_id=detalle.id) }}" class="d-inline">
+                          <button type="submit" class="btn btn-success btn-sm">Entregado</button>
+                        </form>
+                      {% elif detalle.estado == 'entregado' %}
+                        <span class="badge bg-success">Entregado</span>
+                      {% endif %}
+                      {% if detalle.estado and detalle.estado not in ['listo', 'entregado'] %} ({{ detalle.estado }}){% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+                <div class="text-center mt-3">
+                  <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-primary btn-sm mx-2">Modificar</a>
+                  <button type="button" class="btn btn-warning btn-sm mx-2 btn-cobrar" data-orden-id="{{ orden.id }}">Cobrar</button>
+                </div>
+              </div>
+            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% endif %}
 </div>
+
+<!-- Modal para mostrar el desglose del cobro -->
+<div class="modal fade" id="modalCobro" tabindex="-1" aria-labelledby="modalCobroLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content modal-cobro-contenido">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalCobroLabel">Detalle de Cobro</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="modalCobroBody">
+        <div class="text-center py-3">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+          <p class="mt-2">Cargando detalle de la cuenta...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <form method="POST" id="formCobrar" onsubmit="return procesarPago(event)">
+          <button type="submit" class="btn btn-success" id="confirmarPagoBtn" disabled>Confirmar Pago</button>
+        </form>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
+<script>
+  function mostrarCobro(ordenId) {
+    fetch(`/meseros/ordenes/${ordenId}/detalles_json`, { credentials: 'same-origin' })
+      .then(response => response.json())
+      .then(data => {
+        let contenido = `<h5>Detalle de la cuenta</h5><ul>`;
+        let total = 0;
+        data.forEach(item => {
+          const subtotal = item.cantidad * item.precio;
+          total += subtotal;
+          contenido += `<li>${item.nombre} - ${item.cantidad} x $${item.precio} = $${subtotal.toFixed(2)}</li>`;
+        });
+        contenido += `</ul><strong>Total: $${total.toFixed(2)}</strong>`;
+        const modalBody = document.getElementById('modalCobroBody');
+        if (!modalBody) {
+          console.error('Modal body element not found');
+          return;
+        }
+        modalBody.innerHTML = contenido;
+        const formCobrar = document.getElementById('formCobrar');
+        formCobrar.action = `/meseros/ordenes/${ordenId}/cobrar`;
+        formCobrar.setAttribute('data-orden-id', ordenId);
+        document.getElementById('confirmarPagoBtn').disabled = data.length === 0;
+        const modal = new bootstrap.Modal(document.getElementById('modalCobro'));
+        modal.show();
+      });
+  }
+
+  function procesarPago(event) {
+    event.preventDefault();
+    const form = event.target;
+    const ordenId = form.getAttribute('data-orden-id');
+    fetch(`/meseros/ordenes/${ordenId}/cobrar`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify({ pagar: true })
+    })
+    .then(response => {
+      if (response.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      if (response.ok) {
+        // Ocultar el modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCobro'));
+        modal.hide();
+        // Recargar la página para reflejar el nuevo estado
+        location.reload();
+      } else {
+        alert('Error al procesar el pago.');
+      }
+    })
+    .catch(error => {
+      console.error('Error al enviar la solicitud de pago:', error);
+      alert('Error al procesar el pago.');
+    });
+    return false;
+  }
+
+  document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.btn-cobrar').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const ordenId = this.getAttribute('data-orden-id');
+        mostrarCobro(ordenId);
+      });
+    });
+  });
+</script>
+{# Scripts de funcionalidad del dashboard de meseros #}
 {% endblock %}

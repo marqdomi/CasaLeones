@@ -1,14 +1,8 @@
 {% extends "base.html" %}
-{% block content %}
-  <h1>¡Estoy en Pago!</h1>
-  <p>Orden: {{ orden.id }}, total: {{ total }}</p>
-
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
 {% endblock %}
-
-{% extends 'base.html' %}
-
 {% block title %}Pago Orden #{{ orden.id }}{% endblock %}
-
 {% block content %}
   <div class="container">
     <h1>Pago Orden #{{ orden.id }}</h1>

@@ -1,3 +1,7 @@
+import os
+import sys
+# Add the project root to Python path so the 'backend' package can be found
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from flask import Flask
 
 from backend.models.models import Usuario
@@ -10,6 +14,7 @@ from backend.routes.meseros import meseros_bp
 from backend.routes.admin_routes import admin_bp
 from backend.routes.api import api_bp
 from backend.routes.orders import orders_bp
+from backend.extensions import db, migrate
 
 login_manager.login_view = 'auth.login'
 
@@ -30,6 +35,7 @@ def create_app():
     app.config.from_object('config.Config')
 
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     socketio.init_app(app)
     # Disable Jinja2 template caching for development
@@ -49,6 +55,9 @@ def create_app():
 
     #print(app.url_map)
     return app
+
+# Expose the Flask app for Flask CLI discovery
+app = create_app()
 
 if __name__ == "__main__":
     app = create_app()

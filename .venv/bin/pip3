@@ -1,4 +1,4 @@
-#!/Users/marco.dominguez/Library/CloudStorage/OneDrive-SoleraHoldings,Inc/Documents/Scripts/CasaLeones/.venv/bin/python
+#!/Users/marco.dominguez/Projects/CasaLeones/.venv/bin/python3
 # -*- coding: utf-8 -*-
 import re
 import sys

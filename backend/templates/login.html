@@ -1,28 +1,39 @@
 {% extends 'base.html' %}
+{% block navbar %}{% endblock %}
 {% block title %}Login - Restaurante{% endblock %}
+{# 
+  NOTE: The stylesheet link below should be included in base.html inside the <head> section:
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
+  If it is already present there, no further action is needed here.
+#}
 {% block content %}
-  <div class="container mt-5 login-card-container">
-    <div class="card mx-auto login-card">
-      <div class="card-body">
-        <h2 class="card-title text-center mb-4">Iniciar Sesión</h2>
-        {%- with messages = get_flashed_messages(with_categories=true) %}
-          {%- if messages %}
-            {%- for category, message in messages %}
-              <div class="alert alert-{{ category }}">{{ message }}</div>
-            {%- endfor %}
-          {%- endif %}
-        {%- endwith %}
-        <form method="POST" action="{{ url_for('auth.login') }}">
-          <div class="mb-3">
-            <label for="email" class="form-label">Correo electrónico</label>
-            <input type="email" class="form-control" name="email" id="email" required>
+  <div class="login-page-background">
+    <div class="container login-card-container">
+      <div class="card mx-auto login-card shadow login-card-max">
+        <div class="card-body">
+          <div class="text-center mb-4">
+            <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo Restaurante" class="logo-login" title="Inicio">
           </div>
-          <div class="mb-3">
-            <label for="password" class="form-label">Contraseña</label>
-            <input type="password" class="form-control" name="password" id="password" required>
-          </div>
-          <button type="submit" class="btn btn-primary w-100">Ingresar</button>
-        </form>
+          <h2 class="card-title text-center mb-4">Iniciar Sesión</h2>
+          {%- with messages = get_flashed_messages(with_categories=true) %}
+            {%- if messages %}
+              {%- for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+              {%- endfor %}
+            {%- endif %}
+          {%- endwith %}
+          <form method="POST" action="{{ url_for('auth.login') }}">
+            <div class="mb-3">
+              <label for="email" class="form-label">Correo electrónico</label>
+              <input type="email" class="form-control form-control-sm" name="email" id="email" required>
+            </div>
+            <div class="mb-3">
+              <label for="password" class="form-label">Contraseña</label>
+              <input type="password" class="form-control form-control-sm" name="password" id="password" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm w-100">Ingresar</button>
+          </form>
+        </div>
       </div>
     </div>
   </div>
