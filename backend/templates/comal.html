@@ -1,90 +1,60 @@
-{% extends 'base.html' %}
-{% block title %}Órdenes - Comal{% endblock %}
-{% block content %}
-{% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
-<div class="container mt-4" id="contenedor-comal">
-  <h2 class="mb-4 text-center">Órdenes para Comal</h2>
-  <div id="pendingCount" class="alert alert-info text-center">
-    Total de productos pendientes: {{ total_productos }}
-  </div>
-
-  {% if total_productos > 0 %}
-    <div class="row">
-      {% for orden_id, detalles in ordenes_por_estacion.items() if detalles|length > 0 %}
-        <div class="col-md-6 col-lg-4 mb-4 orden-comal" id="orden-{{ orden_id }}" data-productos-pendientes="{{ detalles | length }}" data-orden-id="{{ orden_id }}">
-          <div class="card h-100 shadow-sm">
-            {% set first_detalle = detalles|first %}
-            {% set es_para_llevar = first_detalle and first_detalle.orden.es_para_llevar %}
-            <div class="card-header text-white {{ 'bg-success' if es_para_llevar else 'bg-primary' }}">
-              Orden #{{ orden_id }} &ndash; {{ detalles|length }} productos
-              <span class="badge ms-2 {% if detalles[0].orden.es_para_llevar %}bg-light text-dark{% else %}bg-warning text-dark{% endif %}">
-                {{ detalles[0].orden.es_para_llevar and 'Para Llevar' or 'Para Mesa' }}
-              </span>
-            </div>
-            <div class="card-body">
-              <ul class="list-group list-group-flush">
-                {% for group in detalles|groupby('producto.nombre') %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ group.list[0].id }}">
-                    <span>{{ group.grouper }} &ndash; {{ group.list|length }}</span>
-                    <button class="btn btn-sm btn-success btn-listo"
-                            data-orden-id="{{ orden_id }}"
-                            data-detalle-id="{{ group.list[0].id }}">
-                      ✓ Listo
-                    </button>
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          </div>
-        </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <p class="text-center">No hay órdenes pendientes para Comal.</p>
-  {% endif %}
-</div>
-{% endblock %}
 {% block scripts %}
 <script src="/socket.io/socket.io.js"></script>
 <script>
-  const socket = io();
-  socket.on('new_order', () => { location.reload(); });
-  socket.on('order_updated', ({ orden_id, detalle_id }) => {
-    const listItem = document.getElementById(`item-${detalle_id}`);
-    if (listItem) {
-      listItem.classList.add('producto-listo');
-      const btn = listItem.querySelector('.btn-listo');
-      if (btn) btn.disabled = true;
-      const card = document.getElementById(`orden-${orden_id}`);
-      if (card) {
-        const remaining = card.querySelectorAll('.btn-listo:not(:disabled)').length;
-        if (remaining === 0) card.remove();
-      }
-    }
-  });
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll('.btn-listo').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const ordenId = this.getAttribute('data-orden-id');
-        const detalleId = this.getAttribute('data-detalle-id');
-        marcarListo('comal', ordenId, detalleId, this);
-      });
+$(document).ready(function() {
+    var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+
+    socket.on('connect', function() {
+        console.log('Conectado al servidor de WebSockets! (Comal)');
     });
-  });
-  function marcarListo(estacion, ordenId, detalleId, buttonEl) {
-    fetch(`/cocina/${estacion}/marcar/${ordenId}/${detalleId}`, { method: 'POST' })
-      .then(response => {
-        if (!response.ok) throw new Error();
-        const listItem = buttonEl.closest('li');
-        listItem.remove();
-        const card = document.getElementById(`orden-${ordenId}`);
-        if (card.querySelectorAll('li').length === 0) card.remove();
-        const remainingItems = document.querySelectorAll('.producto-item').length;
-        document.getElementById('pendingCount').textContent = `Total de productos pendientes: ${remainingItems}`;
-      })
-      .catch(err => console.error(err));
-  }
+
+    socket.on('disconnect', function() {
+        console.log('Desconectado del servidor de WebSockets. (Comal)');
+    });
+
+    function cargarOrdenesPendientes() {
+        let fragmentUrl = "/cocina/comal/fragmento_ordenes"; // Específico para comal
+        console.log(`Recibido evento, actualizando órdenes para Comal desde ${fragmentUrl}...`);
+        $.ajax({
+            url: fragmentUrl,
+            type: 'GET',
+            success: function(newHtml) {
+                $('#ordenes-pendientes-lista').html(newHtml);
+                console.log('Lista de órdenes de Comal actualizada.');
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al actualizar la lista de órdenes de Comal:", error);
+            }
+        });
+    }
+
+    socket.on('nueva_orden_cocina', function(data) {
+        console.log('Evento nueva_orden_cocina recibido en Comal:', data);
+        cargarOrdenesPendientes();
+    });
+
+    socket.on('item_listo_notificacion', function(data) {
+        console.log('Evento item_listo_notificacion recibido en Comal:', data);
+        cargarOrdenesPendientes();
+    });
+
+    $('#ordenes-pendientes-lista').on('click', '.marcar-listo-btn', function() {
+        var itemId = $(this).data('item-id');
+        $.ajax({
+            url: '/cocina/marcar_listo/' + itemId,
+            type: 'POST',
+            success: function(response) {
+                if(response.success) {
+                    console.log('Item ' + itemId + ' marcado como listo, esperando recarga por evento.');
+                } else {
+                    alert('Error al marcar como listo: ' + (response.mensaje || 'Error desconocido'));
+                }
+            },
+            error: function() {
+                alert('Error de comunicación al marcar como listo.');
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

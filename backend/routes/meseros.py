@@ -95,7 +95,11 @@ def enviar_orden_a_cocina(orden_id):
         orden.estado = 'enviado'
         db.session.commit()
         flash('Orden enviada a cocina correctamente.', 'success')
-        socketio.emit('new_order', {'orden_id': orden_id})
+        socketio.emit(
+            'nueva_orden_cocina',
+            {'orden_id': orden.id, 'mensaje': f'Nueva orden {orden.id} para cocina.'},
+            broadcast=True
+        )
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
 @meseros_bp.route('/ordenes/<int:orden_id>/finalizar', methods=['POST'])

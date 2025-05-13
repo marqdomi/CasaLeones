@@ -10,7 +10,7 @@
   </div>
 
   {% if total_productos > 0 %}
-  <div class="row">
+  <div class="row" id="ordenes-pendientes-lista">
     {% for orden_id, detalles in ordenes_por_estacion.items() if detalles|length > 0 %}
       <div class="col-md-6 mb-4 orden-card" id="orden-{{ orden_id }}">
         <div class="card shadow-sm">
@@ -24,9 +24,8 @@
             {% for group in detalles|groupby('producto.nombre') %}
             <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ group.list[0].id }}">
                 <span>{{ group.grouper }} &ndash; {{ group.list|length }}</span>
-                <button class="btn btn-sm btn-success btn-listo"
-                        data-orden-id="{{ orden_id }}"
-                        data-detalle-id="{{ group.list[0].id }}">
+                <button class="btn btn-sm btn-success marcar-listo-btn"
+                        data-item-id="{{ group.list[0].id }}">
                   ✓ Listo
                 </button>
               </li>
@@ -44,63 +43,62 @@
 
 {% block scripts %}
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-  const socket = io();
-  // Reload the taqueros dashboard when a new order arrives
-  socket.on('new_order', () => {
-    location.reload();
-  });
-  // Update UI when an order item is marked ready
-  socket.on('order_updated', ({ orden_id, detalle_id }) => {
-    const listItem = document.getElementById(`item-${detalle_id}`);
-    if (listItem) {
-      // Shade the item and disable its button
-      listItem.classList.add('producto-listo');
-      const btn = listItem.querySelector('.btn-listo');
-      if (btn) btn.disabled = true;
+$(document).ready(function() {
+    var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
-      // If all items in the order are now ready, remove the whole card
-      const card = document.getElementById(`orden-${orden_id}`);
-      if (card) {
-        const remaining = card.querySelectorAll('.btn-listo:not(:disabled)').length;
-        if (remaining === 0) {
-          card.remove();
-        }
-      }
-    }
-  });
-</script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll('.btn-listo').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const ordenId = this.getAttribute('data-orden-id');
-        const detalleId = this.getAttribute('data-detalle-id');
-        marcarTaqueroListo(ordenId, detalleId, this);
-      });
+    socket.on('connect', function() {
+        console.log('Conectado al servidor de WebSockets! (Taquero)');
     });
-  });
 
-  function marcarTaqueroListo(ordenId, detalleId, buttonEl) {
-    const urlTemplate = "{{ url_for('cocina.marcar_producto_listo', orden_id=0, detalle_id=0) }}";
-    const url = urlTemplate.replace(/0\/0$/, `${ordenId}/${detalleId}`);
-    fetch(url, { method: 'POST' })
-      .then(response => {
-        if (!response.ok) throw new Error('Error en la petición');
-        // Remove the item from UI
-        const listItem = buttonEl.closest(".producto-item");
-        listItem.remove();
-        // If no more items in this order, remove the card
-        const card = document.getElementById(`orden-${ordenId}`);
-        if (card.querySelectorAll(".producto-item").length === 0) {
-          card.remove();
-        }
-        // Update the badge count in the alert
-        const remainingItems = document.querySelectorAll('.producto-item').length;
-        document.getElementById('pendingCount').textContent =
-          `Total de productos pendientes: ${remainingItems}`;
-      })
-      .catch(err => console.error('Error marcando producto listo:', err));
-  }
+    socket.on('disconnect', function() {
+        console.log('Desconectado del servidor de WebSockets. (Taquero)');
+    });
+
+    function cargarOrdenesPendientes() {
+        let fragmentUrl = "/cocina/taquero/fragmento_ordenes";
+        console.log(`Recibido evento, actualizando órdenes para Taquero desde ${fragmentUrl}...`);
+        $.ajax({
+            url: fragmentUrl,
+            type: 'GET',
+            success: function(newHtml) {
+                $('#ordenes-pendientes-lista').html(newHtml);
+                console.log('Lista de órdenes de Taquero actualizada.');
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al actualizar la lista de órdenes de Taquero:", error);
+            }
+        });
+    }
+
+    socket.on('nueva_orden_cocina', function(data) {
+        console.log('Evento nueva_orden_cocina recibido en Taquero:', data);
+        cargarOrdenesPendientes();
+    });
+
+    socket.on('item_listo_notificacion', function(data) {
+        console.log('Evento item_listo_notificacion recibido en Taquero:', data);
+        cargarOrdenesPendientes();
+    });
+
+    $('#ordenes-pendientes-lista').on('click', '.marcar-listo-btn', function() {
+        var itemId = $(this).data('item-id');
+        $.ajax({
+            url: '/cocina/marcar_listo/' + itemId,
+            type: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    console.log('Item ' + itemId + ' marcado como listo, esperando recarga por evento.');
+                } else {
+                    alert('Error al marcar como listo: ' + (response.mensaje || 'Error desconocido'));
+                }
+            },
+            error: function() {
+                alert('Error de comunicación al marcar como listo.');
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

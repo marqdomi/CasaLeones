@@ -188,6 +188,16 @@
         btnEntregar.disabled = false;
       }
     });
+
+    socket.on('item_listo_notificacion', function(data) {
+      console.log('Notificación de item listo recibida por mesero:', data);
+      alert(`¡ATENCIÓN MESERO! El producto "${data.producto_nombre}" de la orden #${data.orden_id} (${data.mesa_nombre || 'Para Llevar'}) está LISTO para recoger.`);
+      // Opcional: si existe función para actualizar vista, llamarla aquí.
+    });
+    socket.on('nueva_orden_cocina', function(data) {
+      console.log('Nueva orden para mesero recibida:', data);
+      window.location.reload();
+    });
   });
 </script>
 <script>

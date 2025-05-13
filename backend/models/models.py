@@ -112,8 +112,6 @@ class CorteCaja(db.Model):
     fecha = db.Column(db.Date, nullable=False, unique=True)
     total_ingresos = db.Column(db.Numeric(10,2), nullable=False)
     num_ordenes = db.Column(db.Integer, nullable=False)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    usuario = db.relationship('Usuario', backref=db.backref('cortes_caja', lazy=True))
 
 class Sale(db.Model):
     __tablename__ = 'sales'
