@@ -1,16 +1,17 @@
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
-from backend.models.models import Mesa, Orden, Producto, OrdenDetalle
+from backend.models.models import Mesa, Orden, Producto, OrdenDetalle, Sale, SaleItem
 import json
-from backend.extensions import db
+from backend.extensions import db, socketio
 from backend.utils import login_required
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
+from datetime import datetime
 
 
 meseros_bp = Blueprint('meseros', __name__)
 print(">>> Cargando rutas de meseros desde:", __file__)
 @meseros_bp.route('/meseros')
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def view_meseros():
     user_id = session.get('user_id')
     ordenes_mesero = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).filter(
@@ -20,7 +21,7 @@ def view_meseros():
     return render_template('meseros.html', ordenes_mesero=ordenes_mesero)
 
 @meseros_bp.route('/crear_orden_para_llevar')
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def crear_orden_para_llevar():
     nueva_orden = Orden(mesero_id=session.get('user_id'), es_para_llevar=True, estado='pendiente')
     db.session.add(nueva_orden)
@@ -28,7 +29,7 @@ def crear_orden_para_llevar():
     return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
 
 @meseros_bp.route('/seleccionar_mesa', methods=['GET', 'POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def seleccionar_mesa():
     if request.method == 'POST':
         mesa_id = request.form.get('mesa_id')
@@ -50,7 +51,7 @@ def seleccionar_mesa():
     return render_template('seleccionar_mesa.html', mesas=mesas)
 
 @meseros_bp.route('/ordenes/<int:orden_id>/detalle')
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def detalle_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     productos = Producto.query.all()
@@ -61,7 +62,7 @@ def detalle_orden(orden_id):
     return render_template('detalle_orden.html', orden=orden, productos_por_categoria=productos_por_categoria)
 
 @meseros_bp.route('/ordenes/<int:orden_id>/detalle', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def agregar_producto_orden(orden_id):
     data = request.form.get('productos_json')
     if not data:
@@ -85,7 +86,7 @@ def agregar_producto_orden(orden_id):
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
 @meseros_bp.route('/ordenes/<int:orden_id>/enviar_a_cocina', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def enviar_orden_a_cocina(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     if orden.estado != 'pendiente':
@@ -94,10 +95,11 @@ def enviar_orden_a_cocina(orden_id):
         orden.estado = 'enviado'
         db.session.commit()
         flash('Orden enviada a cocina correctamente.', 'success')
+        socketio.emit('new_order', {'orden_id': orden_id})
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
 @meseros_bp.route('/ordenes/<int:orden_id>/finalizar', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def finalizar_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     if orden.estado != 'enviado':
@@ -109,7 +111,7 @@ def finalizar_orden(orden_id):
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
 @meseros_bp.route('/ordenes/<int:orden_id>/cancelar', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def cancelar_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     if orden.estado in ['finalizada', 'cancelada']:
@@ -120,20 +122,9 @@ def cancelar_orden(orden_id):
         flash('La orden ha sido cancelada correctamente.', 'success')
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
-@meseros_bp.route('/ordenes/<int:orden_id>/pagar', methods=['POST'])
-@login_required(rol='mesero')
-def pagar_orden(orden_id):
-    orden = Orden.query.get_or_404(orden_id)
-    if orden.estado == 'pagado':
-        flash('La orden ya está pagada.', 'warning')
-    else:
-        orden.estado = 'pagado'
-        db.session.commit()
-        flash('Orden marcada como pagada correctamente.', 'success')
-    return redirect(url_for('meseros.view_meseros'))
 
 @meseros_bp.route('/ordenes/<int:orden_id>/confirmar_pago', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def confirmar_pago(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     if orden.estado not in ['pagado']:
@@ -144,7 +135,7 @@ def confirmar_pago(orden_id):
         return jsonify({"success": False, "message": "La orden ya está pagada."}), 400
 
 @meseros_bp.route('/ordenes/<int:orden_id>/pago', methods=['GET'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def pago_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     detalles = OrdenDetalle.query.filter_by(orden_id=orden_id).all()
@@ -152,10 +143,12 @@ def pago_orden(orden_id):
     return render_template('pago.html', orden=orden, detalles=detalles, total=total)
 
 @meseros_bp.route('/ordenes/<int:orden_id>/cobrar', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def cobrar_orden(orden_id):
-    orden = Orden.query.get_or_404(orden_id)
-    # Verificar que todos los productos hayan sido entregados
+    if not request.is_json:
+        return jsonify({"success": False, "message": "Content-Type must be application/json."}), 400
+    orden = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).get_or_404(orden_id)
+    # Check for undelivered items
     pendientes = [d for d in orden.detalles if not getattr(d, 'entregado', False)]
     if pendientes:
         return jsonify({
@@ -167,23 +160,80 @@ def cobrar_orden(orden_id):
             ]
         }), 400
 
-    if orden.estado in ['finalizada', 'enviado']:
-        orden.estado = 'pagado'
-        db.session.commit()
-        return jsonify({"success": True, "message": "Orden marcada como pagada."})
-    return jsonify({"success": False, "message": "Solo se pueden cobrar órdenes finalizadas o enviadas."}), 400
+    data = request.get_json() or {}
+    recibido = float(data.get('monto_recibido', 0))
+    total = sum(d.producto.precio * d.cantidad for d in orden.detalles)
+    if recibido < total:
+        return jsonify({
+            "success": False,
+            "message": "El monto recibido es insuficiente.",
+            "total": total
+        }), 400
+
+    # update order status
+    orden.monto_recibido = recibido
+    orden.cambio = recibido - total
+    orden.fecha_pago = datetime.utcnow()
+    orden.estado = 'pagado'
+
+    # record sale
+    sale = Sale(
+        mesa_id=orden.mesa_id,
+        usuario_id=session.get('user_id'),
+        total=total,
+        estado='cerrada'
+    )
+    db.session.add(sale)
+    db.session.flush()  # ensure sale.id is populated
+    for d in orden.detalles:
+        item = SaleItem(
+            sale_id=sale.id,
+            producto_id=d.producto_id,
+            cantidad=d.cantidad,
+            precio_unitario=d.producto.precio,
+            subtotal=d.producto.precio * d.cantidad
+        )
+        db.session.add(item)
+
+    db.session.commit()
+    return jsonify({
+        "success": True,
+        "total": total,
+        "cambio": orden.cambio
+    })
+
 
 @meseros_bp.route('/ordenes/<int:orden_id>/producto/<int:detalle_id>/entregar', methods=['POST'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def marcar_producto_entregado(orden_id, detalle_id):
     detalle = OrdenDetalle.query.get_or_404(detalle_id)
     detalle.entregado = True
     db.session.commit()
-    flash(f'Producto {detalle.producto.nombre} marcado como entregado.', 'success')
-    return redirect(url_for('meseros.view_meseros'))
+    socketio.emit('order_updated', {'orden_id': orden_id, 'detalle_id': detalle_id})
+    return jsonify({"success": True, "message": f"Producto {detalle.producto.nombre} marcado como entregado."})
+
+@meseros_bp.route('/ordenes/<int:orden_id>/entregar/<int:producto_id>', methods=['POST'])
+@login_required(roles='mesero')
+def marcar_producto_grupo_entregado(orden_id, producto_id):
+    detalles = OrdenDetalle.query.filter_by(orden_id=orden_id, producto_id=producto_id).all()
+    for d in detalles:
+        d.entregado = True
+        d.estado = 'listo'
+    db.session.commit()
+    socketio.emit('order_updated', {'orden_id': orden_id, 'producto_id': producto_id})
+    return jsonify({"success": True, "message": f"Todos los '{detalles[0].producto.nombre}' marcados como entregados."})
+
+# DELETE endpoint to eliminar detalle de orden
+@meseros_bp.route('/api/ordenes/<int:orden_id>/detalle/<int:detalle_id>', methods=['DELETE'])
+@login_required(roles='mesero')
+def eliminar_detalle_orden(orden_id, detalle_id):
+    detalle = OrdenDetalle.query.get_or_404(detalle_id)
+    db.session.delete(detalle)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @meseros_bp.route('/ordenes/<int:orden_id>/detalles_json', methods=['GET'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def detalles_orden_json(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     detalles = [
@@ -197,29 +247,28 @@ def detalles_orden_json(orden_id):
     ]
     return jsonify({"orden_id": orden.id, "detalles": detalles})
 
-@meseros_bp.route('/orden/<int:orden_id>/info', methods=['GET'])
-@login_required(rol='mesero')
-def orden_info(orden_id):
-    orden = Orden.query.get_or_404(orden_id)
-    detalles_data = [
+
+# Cobrar modal order info endpoint
+# New GET endpoint path: /meseros/ordenes/<orden_id>/cobrar_info
+@meseros_bp.route('/ordenes/<int:orden_id>/cobrar_info', methods=['GET'])
+@login_required(roles='mesero')
+def get_cobrar_orden(orden_id):
+    orden = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).get_or_404(orden_id)
+    detalles = [
         {
             "id": d.id,
             "nombre": d.producto.nombre,
             "cantidad": d.cantidad,
             "precio": d.producto.precio,
-            "subtotal": d.producto.precio * d.cantidad
-        }
-        for d in orden.detalles
+            "subtotal": d.producto.precio * d.cantidad,
+            "entregado": getattr(d, 'entregado', False)
+        } for d in orden.detalles
     ]
-    total = sum(item["subtotal"] for item in detalles_data)
-    return jsonify({
-        "orden_id": orden.id,
-        "detalles": detalles_data,
-        "total": total
-    })
+    total = sum(item["subtotal"] for item in detalles)
+    return jsonify({"orden_id": orden.id, "detalles": detalles, "total": total})
 
 @meseros_bp.route('/cocina/bebidas')
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def view_bebidas():
     ordenes = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).filter(
         Orden.estado.notin_(['pagado', 'finalizada', 'cancelada'])
@@ -237,7 +286,7 @@ def view_bebidas():
 
 # Nuevo endpoint: total de órdenes activas de un mesero
 @meseros_bp.route('/ordenes/activas/total', methods=['GET'])
-@login_required(rol='mesero')
+@login_required(roles='mesero')
 def total_ordenes_activas():
     user_id = session.get('user_id')
     total = Orden.query.filter(

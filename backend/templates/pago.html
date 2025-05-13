@@ -19,12 +19,12 @@
           </tr>
         </thead>
         <tbody>
-          {% for linea in lineas %}
+          {% for detalle in detalles %}
           <tr>
-            <td>{{ linea.producto }}</td>
-            <td>{{ linea.cantidad }}</td>
-            <td>{{ linea.precio_unitario }}</td>
-            <td>{{ linea.subtotal }}</td>
+            <td>{{ detalle.producto.nombre }}</td>
+            <td>{{ detalle.cantidad }}</td>
+            <td>{{ detalle.producto.precio }}</td>
+            <td>{{ (detalle.cantidad * detalle.producto.precio) | round(2) }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -37,9 +37,38 @@
       </table>
     </div>
 
+    <!-- Sección de cobro -->
+    <div class="row mb-4">
+      <div class="col-md-4">
+        <label for="monto_recibido" class="form-label">Monto recibido:</label>
+        <input type="number" step="0.01" id="monto_recibido" class="form-control" min="0" />
+      </div>
+      <div class="col-md-4">
+        <label for="cambio" class="form-label">Cambio:</label>
+        <input type="text" id="cambio" class="form-control" readonly />
+      </div>
+    </div>
+
     <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}">
       <button type="submit" class="btn btn-success">Confirmar Pago</button>
       <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-secondary">Cancelar</a>
     </form>
   </div>
+
+{% block scripts %}
+<script>
+  // Deshabilitar botón de confirmar hasta que el monto recibido cubra el total
+  const btnConfirm = document.querySelector('button[type="submit"]');
+  btnConfirm.disabled = true;
+  const montoInput = document.getElementById('monto_recibido');
+  const cambioInput = document.getElementById('cambio');
+  montoInput.addEventListener('input', () => {
+   const total = parseFloat("{{ total }}");
+    const recibido = parseFloat(montoInput.value) || 0;
+    const cambio = recibido - total;
+    cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
+    btnConfirm.disabled = recibido < total;
+  });
+</script>
+{% endblock %}
 {% endblock %}

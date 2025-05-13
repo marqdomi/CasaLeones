@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block head %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
 {% endblock %}
@@ -72,24 +73,61 @@
           <td colspan="4">
             <div class="collapse mt-2" id="orden-{{ orden.id }}">
               <div class="card card-body text-dark bg-light">
-                <ul class="mb-2">
-                  {% for detalle in orden.detalles %}
-                    <li>
-                      {{ detalle.producto.nombre }} - {{ detalle.cantidad }} {{ detalle.producto.unidad }}
-                      {% if detalle.estado == 'listo' %}
-                        <form method="POST" action="{{ url_for('meseros.marcar_producto_entregado', orden_id=orden.id, detalle_id=detalle.id) }}" class="d-inline">
-                          <button type="submit" class="btn btn-success btn-sm">Entregado</button>
-                        </form>
-                      {% elif detalle.estado == 'entregado' %}
-                        <span class="badge bg-success">Entregado</span>
-                      {% endif %}
-                      {% if detalle.estado and detalle.estado not in ['listo', 'entregado'] %} ({{ detalle.estado }}){% endif %}
-                    </li>
-                  {% endfor %}
-                </ul>
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Producto</th>
+                      <th>Cantidad</th>
+                      <th>Estado</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for nombre, group in orden.detalles|groupby('producto.nombre') %}
+                      {% set cantidad = group|sum(attribute='cantidad') %}
+                      {% set estados = group|map(attribute='estado')|list %}
+                      {% set entregados = group|map(attribute='entregado')|list %}
+                      {% set todos_entregados = entregados|min %}
+                      <tr>
+                        <td>{{ nombre }}</td>
+                        <td>{{ cantidad }}</td>
+                        <td id="estado-orden-{{ orden.id }}-producto-{{ group[0].producto_id }}">
+                          {% if 'pendiente' in estados %}pendiente{% else %}listo{% endif %}
+                        </td>
+                        <td>
+                          {% if 'listo' in estados and not todos_entregados %}
+                            <button
+                              class="btn btn-sm btn-success btn-entregar"
+                              onclick="marcarEntregadoGrupo('{{ orden.id }}', '{{ group[0].producto_id }}')"
+                              data-url="{{ url_for('meseros.marcar_producto_grupo_entregado',
+                                                  orden_id=orden.id,
+                                                  producto_id=group[0].producto_id) }}"
+                            >
+                              Entregar
+                            </button>
+                          {% elif todos_entregados %}
+                            <span class="text-success">Entregado</span>
+                          {% else %}
+                            <span class="text-muted">Pendiente</span>
+                          {% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
                 <div class="text-center mt-3">
-                  <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-primary btn-sm mx-2">Modificar</a>
-                  <button type="button" class="btn btn-warning btn-sm mx-2 btn-cobrar" data-orden-id="{{ orden.id }}">Cobrar</button>
+                  <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-primary btn-sm me-2">
+                    Modificar
+                  </a>
+                  <button 
+                    type="button" 
+                    class="btn btn-warning btn-sm btn-cobrar" 
+                    data-orden-id="{{ orden.id }}" 
+                    onclick="mostrarCobro('{{ orden.id }}')" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#modalCobro">
+                    Cobrar
+                  </button>
                 </div>
               </div>
             </div>
@@ -118,12 +156,6 @@
           <p class="mt-2">Cargando detalle de la cuenta...</p>
         </div>
       </div>
-      <div class="modal-footer">
-        <form method="POST" id="formCobrar" onsubmit="return procesarPago(event)">
-          <button type="submit" class="btn btn-success" id="confirmarPagoBtn" disabled>Confirmar Pago</button>
-        </form>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-      </div>
     </div>
   </div>
 </div>
@@ -131,29 +163,75 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const socket = io();
+
+    socket.on('connect', () => {
+      console.log('Socket.IO connected');
+    });
+
+    socket.on('producto_listo', function(data) {
+      // data: { orden_id, producto_id }
+      const estadoElem = document.querySelector(
+        `#estado-orden-${data.orden_id}-producto-${data.producto_id}`
+      );
+      if (estadoElem) {
+        estadoElem.textContent = 'listo';
+      }
+      // Enable the deliver button if present
+      const btnEntregar = document.querySelector(
+        `button.btn-entregar[data-url*="/entregar/${data.producto_id}"]`
+      );
+      if (btnEntregar) {
+        btnEntregar.disabled = false;
+      }
+    });
+  });
+</script>
 <script>
   function mostrarCobro(ordenId) {
     fetch(`/meseros/ordenes/${ordenId}/detalles_json`, { credentials: 'same-origin' })
       .then(response => response.json())
       .then(data => {
-        let contenido = `<h5>Detalle de la cuenta</h5><ul>`;
+        const detalles = data.detalles || [];
+        // Verificar si hay productos pendientes de entrega
+        const pendientes = detalles.some(item => item.estado !== 'listo');
+        let contenido = '';
+        if (pendientes) {
+          contenido += `<div class="alert alert-warning">Hay productos pendientes de entrega. Por favor verifica antes de cobrar.</div>`;
+        }
+        contenido += `<h5>Detalle de la cuenta</h5><ul>`;
         let total = 0;
-        data.forEach(item => {
-          const subtotal = item.cantidad * item.precio;
+        const agrupados = {};
+        detalles.forEach(item => {
+          if (!agrupados[item.nombre]) {
+            agrupados[item.nombre] = { cantidad: 0, precio: item.precio };
+          }
+          agrupados[item.nombre].cantidad += item.cantidad;
+        });
+        Object.entries(agrupados).forEach(([nombre, info]) => {
+          const subtotal = info.cantidad * info.precio;
           total += subtotal;
-          contenido += `<li>${item.nombre} - ${item.cantidad} x $${item.precio} = $${subtotal.toFixed(2)}</li>`;
+          contenido += `<li>${nombre} - ${info.cantidad} x $${info.precio} = $${subtotal.toFixed(2)}</li>`;
         });
         contenido += `</ul><strong>Total: $${total.toFixed(2)}</strong>`;
+        contenido += `
+          <div class="mb-3">
+            <label for="monto_recibido">Monto recibido:</label>
+            <input type="number" step="0.01" id="monto_recibido" class="form-control">
+          </div>
+        `;
         const modalBody = document.getElementById('modalCobroBody');
         if (!modalBody) {
           console.error('Modal body element not found');
           return;
         }
         modalBody.innerHTML = contenido;
-        const formCobrar = document.getElementById('formCobrar');
-        formCobrar.action = `/meseros/ordenes/${ordenId}/cobrar`;
-        formCobrar.setAttribute('data-orden-id', ordenId);
-        document.getElementById('confirmarPagoBtn').disabled = data.length === 0;
+        const confirmBtn = document.getElementById('confirmarPagoBtn');
+        confirmBtn.disabled = pendientes || detalles.length === 0;
+        confirmBtn.setAttribute('data-orden-id', ordenId);
         const modal = new bootstrap.Modal(document.getElementById('modalCobro'));
         modal.show();
       });
@@ -161,8 +239,15 @@
 
   function procesarPago(event) {
     event.preventDefault();
-    const form = event.target;
-    const ordenId = form.getAttribute('data-orden-id');
+    const btn = event.target;
+    const ordenId = btn.getAttribute('data-orden-id');
+    const totalText = document.querySelector('#modalCobroBody strong').textContent;
+    const total = parseFloat(totalText.replace('Total: $', ''));
+    const recibido = parseFloat(document.getElementById('monto_recibido').value);
+    if (isNaN(recibido) || recibido < total) {
+      alert('El monto recibido es inválido o insuficiente.');
+      return false;
+    }
     fetch(`/meseros/ordenes/${ordenId}/cobrar`, {
       method: 'POST',
       credentials: 'same-origin',
@@ -170,26 +255,31 @@
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest'
       },
-      body: JSON.stringify({ pagar: true })
+      body: JSON.stringify({ monto_recibido: recibido })
     })
-    .then(response => {
-      if (response.status === 401) {
-        window.location.href = '/login';
-        return;
+    .then(async response => {
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        console.error('No JSON in response body', e);
       }
-      if (response.ok) {
-        // Ocultar el modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('modalCobro'));
-        modal.hide();
-        // Recargar la página para reflejar el nuevo estado
-        location.reload();
-      } else {
-        alert('Error al procesar el pago.');
+      if (!response.ok) {
+        console.error(`Error al procesar pago (${response.status}):`, data);
+        const mensaje = data?.error || `Error ${response.status}: ${response.statusText}`;
+        throw new Error(mensaje);
       }
+      return data;
+    })
+    .then(data => {
+      // Ocultar el modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCobro'));
+      modal.hide();
+      alert(`Pago registrado. Cambio: $${data.cambio.toFixed(2)}`);
     })
     .catch(error => {
       console.error('Error al enviar la solicitud de pago:', error);
-      alert('Error al procesar el pago.');
+      alert(error.message);
     });
     return false;
   }
@@ -202,6 +292,29 @@
       });
     });
   });
+
+  function marcarEntregadoGrupo(ordenId, productoId) {
+    fetch(`/meseros/ordenes/${ordenId}/entregar/${productoId}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(r => {
+      if (!r.ok) throw new Error(`Error ${r.status}`);
+      return r.json();
+    })
+    .then(data => {
+      // reload or update row
+      window.location.reload();
+    })
+    .catch(err => {
+      console.error(err);
+      alert('No se pudo marcar el grupo como entregado');
+    });
+  }
+//# Scripts de funcionalidad del dashboard de meseros #
 </script>
-{# Scripts de funcionalidad del dashboard de meseros #}
 {% endblock %}

@@ -4,3 +4,6 @@ Flask-SQLAlchemy
 Flask-SocketIO
 Flask-Cors
 eventlet
+Flask-Migrate
+python-dotenv
+Flask-WTF>=1.0.0

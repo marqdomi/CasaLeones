@@ -1,45 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}Órdenes - Comal{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="/">
-      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" width="120" height="40">
-    </a>
-    <div class="collapse navbar-collapse justify-content-end">
-      <ul class="navbar-nav">
-        <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('auth.logout') }}">Cerrar sesión</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
 <div class="container mt-4" id="contenedor-comal">
   <h2 class="mb-4 text-center">Órdenes para Comal</h2>
-  <div class="alert alert-info text-center">
+  <div id="pendingCount" class="alert alert-info text-center">
     Total de productos pendientes: {{ total_productos }}
   </div>
 
   {% if total_productos > 0 %}
     <div class="row">
-      {% for orden_id, detalles in ordenes_por_estacion.items() %}
-        <div class="col-md-6 col-lg-4 mb-4 orden-comal" data-productos-pendientes="{{ detalles | length }}" data-orden-id="{{ orden_id }}">
+      {% for orden_id, detalles in ordenes_por_estacion.items() if detalles|length > 0 %}
+        <div class="col-md-6 col-lg-4 mb-4 orden-comal" id="orden-{{ orden_id }}" data-productos-pendientes="{{ detalles | length }}" data-orden-id="{{ orden_id }}">
           <div class="card h-100 shadow-sm">
-            <div class="card-header bg-primary text-white">
-              Orden #{{ orden_id }}
+            {% set first_detalle = detalles|first %}
+            {% set es_para_llevar = first_detalle and first_detalle.orden.es_para_llevar %}
+            <div class="card-header text-white {{ 'bg-success' if es_para_llevar else 'bg-primary' }}">
+              Orden #{{ orden_id }} &ndash; {{ detalles|length }} productos
+              <span class="badge ms-2 {% if detalles[0].orden.es_para_llevar %}bg-light text-dark{% else %}bg-warning text-dark{% endif %}">
+                {{ detalles[0].orden.es_para_llevar and 'Para Llevar' or 'Para Mesa' }}
+              </span>
             </div>
             <div class="card-body">
               <ul class="list-group list-group-flush">
-                {% for item in detalles %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    {{ item.producto.nombre }}
-                    <button
-                      class="btn btn-sm btn-outline-success"
-                      data-orden-id="{{ orden_id }}"
-                      data-detalle-id="{{ item.id }}"
-                      data-action="marcar-listo">
-                      Listo
+                {% for group in detalles|groupby('producto.nombre') %}
+                  <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ group.list[0].id }}">
+                    <span>{{ group.grouper }} &ndash; {{ group.list|length }}</span>
+                    <button class="btn btn-sm btn-success btn-listo"
+                            data-orden-id="{{ orden_id }}"
+                            data-detalle-id="{{ group.list[0].id }}">
+                      ✓ Listo
                     </button>
                   </li>
                 {% endfor %}
@@ -53,29 +43,48 @@
     <p class="text-center">No hay órdenes pendientes para Comal.</p>
   {% endif %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script src="/socket.io/socket.io.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('button[data-action="marcar-listo"]').forEach(button => {
-      button.addEventListener('click', () => {
-        const ordenId = button.getAttribute('data-orden-id');
-        const detalleId = button.getAttribute('data-detalle-id');
-        fetch(`/cocina/comal/marcar/${ordenId}/${detalleId}`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-        })
-        .then(response => {
-          if (!response.ok) throw new Error('Error al marcar como listo');
-          // Actualizar interfaz:
-          const listItem = button.closest('li');
-          listItem.remove();
-          const ordenCard = button.closest('.orden-comal');
-          if (ordenCard.querySelectorAll('li').length === 0) {
-            ordenCard.remove();
-          }
-        })
-        .catch(err => console.error(err));
+  const socket = io();
+  socket.on('new_order', () => { location.reload(); });
+  socket.on('order_updated', ({ orden_id, detalle_id }) => {
+    const listItem = document.getElementById(`item-${detalle_id}`);
+    if (listItem) {
+      listItem.classList.add('producto-listo');
+      const btn = listItem.querySelector('.btn-listo');
+      if (btn) btn.disabled = true;
+      const card = document.getElementById(`orden-${orden_id}`);
+      if (card) {
+        const remaining = card.querySelectorAll('.btn-listo:not(:disabled)').length;
+        if (remaining === 0) card.remove();
+      }
+    }
+  });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.btn-listo').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const ordenId = this.getAttribute('data-orden-id');
+        const detalleId = this.getAttribute('data-detalle-id');
+        marcarListo('comal', ordenId, detalleId, this);
       });
     });
   });
+  function marcarListo(estacion, ordenId, detalleId, buttonEl) {
+    fetch(`/cocina/${estacion}/marcar/${ordenId}/${detalleId}`, { method: 'POST' })
+      .then(response => {
+        if (!response.ok) throw new Error();
+        const listItem = buttonEl.closest('li');
+        listItem.remove();
+        const card = document.getElementById(`orden-${ordenId}`);
+        if (card.querySelectorAll('li').length === 0) card.remove();
+        const remainingItems = document.querySelectorAll('.producto-item').length;
+        document.getElementById('pendingCount').textContent = `Total de productos pendientes: ${remainingItems}`;
+      })
+      .catch(err => console.error(err));
+  }
 </script>
 {% endblock %}

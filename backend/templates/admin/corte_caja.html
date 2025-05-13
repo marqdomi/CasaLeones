@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+{% set existing_cortes = cortes | selectattr('fecha', 'equalto', resumen.fecha) | list %}
+<div class="container-fluid">
+  <h1 class="mt-4">Corte de Caja</h1>
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
+  </ul>
+  <div class="card mb-4">
+    <div class="card-body">
+      <p><strong>Fecha:</strong> {{ resumen.fecha }}</p>
+      <p><strong>Total Ingresos:</strong> ${{ '%.2f'|format(resumen.total_ingresos) }}</p>
+      <p><strong>Órdenes Hoy:</strong> {{ resumen.num_ordenes }}</p>
+      <p><strong>Ticket Promedio:</strong> ${{ '%.2f'|format(resumen.ticket_promedio) }}</p>
+      <form method="POST">
+        <button type="submit" class="btn btn-success"
+          {% if existing_cortes | length %}disabled{% endif %}>
+          Generar Corte de Caja
+        </button>
+      </form>
+    </div>
+  </div>
+  <h2>Historial de Cortes</h2>
+  <table class="table table-striped table-bordered">
+    <thead>
+      <tr><th>Fecha</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      {% for c in cortes %}
+      <tr>
+        <td>{{ c.fecha }}</td>
+        <td>${{ '%.2f'|format(c.total_ingresos) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

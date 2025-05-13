@@ -6,25 +6,30 @@
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
 <div class="container mt-4">
   <h2 class="mb-4 text-center">Órdenes para Bebidas</h2>
-  <div class="alert alert-info text-center">
+  <div id="pendingCount" class="alert alert-info text-center">
     Total de productos pendientes: {{ total_productos }}
   </div>
 
   {% if total_productos > 0 %}
 <div class="row">
-  {% for orden_id, detalles in ordenes_por_estacion.items() %}
+  {% for orden_id, detalles in ordenes_por_estacion.items() if detalles|length > 0 %}
     <div class="col-md-6 mb-4 orden-card" id="orden-{{ orden_id }}">
       <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-          Orden #{{ orden_id }}
+        <div class="card-header text-white {% if detalles[0].orden.es_para_llevar %}bg-success{% else %}bg-primary{% endif %}">
+          Orden #{{ orden_id }} &ndash; {{ detalles|length }} productos
+          <span class="badge ms-2 {% if detalles[0].orden.es_para_llevar %}bg-light text-dark{% else %}bg-warning text-dark{% endif %}">
+            {{ detalles[0].orden.es_para_llevar and 'Para Llevar' or 'Para Mesa' }}
+          </span>
         </div>
         <ul class="list-group list-group-flush">
-          {% for item in detalles %}
-            <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ item.id }}">
-              {{ item.producto.nombre }}
-              <button class="btn btn-sm btn-outline-success btn-listo"
+          {% for group in detalles|groupby('producto.nombre') %}
+            <li class="list-group-item d-flex justify-content-between align-items-center producto-item" id="item-{{ group.list[0].id }}">
+              <span>{{ group.grouper }} &ndash; {{ group.list|length }}</span>
+              <button class="btn btn-sm btn-success btn-listo"
                       data-orden-id="{{ orden_id }}"
-                      data-detalle-id="{{ item.id }}">Listo</button>
+                      data-detalle-id="{{ group.list[0].id }}">
+                ✓ Listo
+              </button>
             </li>
           {% endfor %}
         </ul>
@@ -36,50 +41,45 @@
     <p class="text-center">No hay órdenes pendientes para Bebidas.</p>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/socket.io/socket.io.js"></script>
 <script>
-  document.addEventListener("DOMContentLoaded", function () {
-    // Attach click handlers
+  const socket = io();
+  socket.on('new_order', () => { location.reload(); });
+  socket.on('order_updated', ({ orden_id, detalle_id }) => {
+    const listItem = document.getElementById(`item-${detalle_id}`);
+    if (listItem) {
+      listItem.classList.add('producto-listo');
+      const btn = listItem.querySelector('.btn-listo');
+      if (btn) btn.disabled = true;
+      const card = document.getElementById(`orden-${orden_id}`);
+      if (card) {
+        const remaining = card.querySelectorAll('.btn-listo:not(:disabled)').length;
+        if (remaining === 0) card.remove();
+      }
+    }
+  });
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
     document.querySelectorAll('.btn-listo').forEach(btn => {
       btn.addEventListener('click', function() {
         const ordenId = this.getAttribute('data-orden-id');
         const detalleId = this.getAttribute('data-detalle-id');
-        marcarBebidaListo(ordenId, detalleId, this);
+        fetch(`/cocina/bebidas/marcar/${ordenId}/${detalleId}`, { method: 'POST' })
+          .then(response => {
+            if (!response.ok) throw new Error();
+            const listItem = this.closest('li');
+            listItem.remove();
+            const card = document.getElementById(`orden-${ordenId}`);
+            if (card.querySelectorAll('li').length === 0) card.remove();
+            const remainingItems = document.querySelectorAll('.producto-item').length;
+            document.getElementById('pendingCount').textContent = `Total de productos pendientes: ${remainingItems}`;
+          })
+          .catch(err => console.error(err));
       });
-    });
-  });
-
-  function marcarBebidaListo(ordenId, detalleId, buttonEl) {
-    const urlTemplate = "{{ url_for('cocina.marcar_bebida_producto_listo', orden_id=0, detalle_id=0) }}";
-    const url = urlTemplate.replace(/0\/0$/, `${ordenId}/${detalleId}`);
-    fetch(url, { method: 'POST' })
-      .then(response => {
-        if (!response.ok) throw new Error('Error en la petición');
-        // Remove item
-        const listItem = buttonEl.closest(".producto-item");
-        listItem.remove();
-        // Remove card if empty
-        const card = document.getElementById(`orden-${ordenId}`);
-        if (card.querySelectorAll(".producto-item").length === 0) {
-          card.remove();
-        }
-      })
-      .catch(err => console.error(err));
-  }
-</script>
-<script src="//localhost:5000/socket.io/socket.io.js"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const socket = io();
-    socket.on('item_status_updated', (data) => {
-      const { orden_id, detalle_id } = data;
-      const listItem = document.getElementById(`item-${detalle_id}`);
-      if (listItem) {
-        listItem.remove();
-      }
-      const card = document.getElementById(`orden-${orden_id}`);
-      if (card && card.querySelectorAll(".producto-item").length === 0) {
-        card.remove();
-      }
     });
   });
 </script>

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Admin{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h1 class="mb-4">Panel de Administración</h1>
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
+  </ul>
+  <!-- Aquí irán las tarjetas de métricas -->
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div class="card text-white bg-primary">
+        <div class="card-body">
+          <h5 class="card-title">Ventas Hoy</h5>
+          <p class="card-text display-6" id="ventasHoy">--</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-white bg-success">
+        <div class="card-body">
+          <h5 class="card-title">Órdenes Hoy</h5>
+          <p class="card-text display-6" id="ordenesHoy">--</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-white bg-warning">
+        <div class="card-body">
+          <h5 class="card-title">Ticket Promedio</h5>
+          <p class="card-text display-6" id="ticketPromedio">--</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Más secciones: gráficas, listados, etc. -->
+  <div class="mt-5">
+    <h2>Top Productos</h2>
+    <canvas id="chartTopProductos" height="100"></canvas>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{{ url_for('static', filename='js/admin-dashboard.js') }}?v={{ config.VERSION }}"></script>
+{% endblock %}

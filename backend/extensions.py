@@ -8,7 +8,6 @@ from flask_migrate import Migrate
 
 migrate = Migrate()
 # Ya existentes
-socketio      = SocketIO()
 login_manager = LoginManager()
 cors          = CORS()
 # Nueva única instancia de DB

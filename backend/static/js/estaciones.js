@@ -1,4 +1,15 @@
 
+// Initialize Socket.IO for real-time updates
+if (typeof io !== 'undefined') {
+  const socket = io();
+  socket.on('order_updated', () => {
+    window.location.reload();
+  });
+  socket.on('new_order', () => {
+    window.location.reload();
+  });
+}
+
 
 
 document.addEventListener("DOMContentLoaded", () => {

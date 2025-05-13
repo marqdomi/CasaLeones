@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    {{ titulo }}
+  </div>
+  <div class="card-body">
+<form method="post">
+  {{ form.hidden_tag() }}
+  <div class="mb-3">{{ form.nombre.label }} {{ form.nombre(class="form-control") }}</div>
+  <div class="mb-3">{{ form.precio_unitario.label }} {{ form.precio_unitario(class="form-control") }}</div>
+  <div class="mb-3">{{ form.categoria.label }} {{ form.categoria(class="form-control") }}</div>
+  <div class="mb-3">{{ form.estacion.label }} {{ form.estacion(class="form-select") }}</div>
+  {{ form.submit(class="btn btn-success") }}
+</form>
+  </div>
+</div>
+{% endblock %}

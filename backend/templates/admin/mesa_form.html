@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <h1 class="mt-4">{{ mesa and 'Editar Mesa #' ~ mesa.numero or 'Nueva Mesa' }}</h1>
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
+    <li class="nav-item"><a class="nav-link active" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
+  </ul>
+  <form method="POST">
+    <div class="mb-3">
+      <label for="numero" class="form-label">Número de Mesa</label>
+      <input type="text" class="form-control" id="numero" name="numero"
+             value="{{ mesa.numero if mesa else '' }}" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('admin.lista_mesas') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

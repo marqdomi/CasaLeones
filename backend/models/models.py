@@ -10,7 +10,7 @@ class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(100), nullable=False)
     rol = db.Column(db.String(50), nullable=False)  # mesero, taquero, comal, admin
-    email = db.Column(db.String(120), unique=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128))
 
     def set_password(self, password):
@@ -18,6 +18,9 @@ class Usuario(UserMixin, db.Model):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f"<Usuario id={self.id} email={self.email}>"
 
 class Categoria(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -63,6 +66,9 @@ class Orden(db.Model):
     estado = db.Column(db.String(50), default='pendiente')  # pendiente, en_preparacion, lista, entregada
     es_para_llevar = db.Column(db.Boolean, default=False)
     tiempo_registro = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_pago = db.Column(db.DateTime, nullable=True)
+    monto_recibido = db.Column(db.Float, nullable=True)
+    cambio = db.Column(db.Float, nullable=True)
 
     mesero = db.relationship('Usuario', backref='ordenes')
     detalles = db.relationship('OrdenDetalle', backref='orden', lazy=True)
@@ -100,3 +106,35 @@ class OrdenDetalle(db.Model):
             'producto': self.producto.to_dict(),
             'entregado': self.entregado
         }
+
+class CorteCaja(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.Date, nullable=False, unique=True)
+    total_ingresos = db.Column(db.Numeric(10,2), nullable=False)
+    num_ordenes = db.Column(db.Integer, nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    usuario = db.relationship('Usuario', backref=db.backref('cortes_caja', lazy=True))
+
+class Sale(db.Model):
+    __tablename__ = 'sales'
+    id = db.Column(db.Integer, primary_key=True)
+    fecha_hora = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    mesa_id = db.Column(db.Integer, db.ForeignKey('mesa.id'), nullable=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    total = db.Column(db.Numeric(10,2), default=0, nullable=False)
+    estado = db.Column(
+        db.Enum('abierta', 'cerrada', name='sale_status'),
+        default='abierta', nullable=False
+    )
+    usuario = db.relationship('Usuario', backref='ventas')
+    items = db.relationship('SaleItem', backref='sale', cascade='all, delete-orphan')
+
+class SaleItem(db.Model):
+    __tablename__ = 'sale_items'
+    id = db.Column(db.Integer, primary_key=True)
+    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
+    producto_id = db.Column(db.Integer, db.ForeignKey('producto.id'), nullable=False)
+    cantidad = db.Column(db.Integer, nullable=False)
+    precio_unitario = db.Column(db.Numeric(10,2), nullable=False)
+    subtotal = db.Column(db.Numeric(10,2), nullable=False)
+    producto = db.relationship('Producto')

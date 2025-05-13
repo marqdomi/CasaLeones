@@ -1,5 +1,5 @@
 from functools import wraps
-from flask import session, redirect, url_for, flash
+from flask import session, redirect, url_for, flash, request, jsonify
 from backend.models.models import Orden, OrdenDetalle, Producto
 from backend.extensions import db
 
@@ -19,25 +19,32 @@ def verificar_orden_completa(orden_id):
         return False
     return False
 
-def login_required(rol=None):
+def login_required(roles=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            from flask import request, jsonify
             # Si no hay sesión iniciada:
             if 'user_id' not in session:
-                if request.blueprint == 'api':
-                    return jsonify({'error': 'Authentication required'}), 401
+                # Responder JSON para llamadas AJAX
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'error': 'Debes iniciar sesión'}), 401
+                # Mantener comportamiento anterior para navegadores
                 flash('Debes iniciar sesión', 'warning')
                 return redirect(url_for('auth.login'))
-            # Si hay rol y no coincide:
-            if rol and session.get('rol') != rol:
-                if request.blueprint == 'api':
-                    return jsonify({'error': 'Forbidden'}), 403
-                flash('No tienes permiso para acceder a esta página', 'danger')
-                if session.get('rol') == 'mesero':
-                    return redirect(url_for('meseros.view_meseros'))
-                return redirect(url_for('cocina.view_cocina'))
+            # Si hay roles y no coincide (permitir siempre a superadmin):
+            if roles:
+                allowed = roles if isinstance(roles, (list, tuple)) else [roles]
+                user_role = session.get('rol')
+                if user_role != 'superadmin' and user_role not in allowed:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return jsonify({'error': 'No tienes permiso'}), 403
+                    flash('No tienes permiso para acceder a esta página', 'danger')
+                    # Redirect based on the user's actual role
+                    if user_role == 'mesero':
+                        return redirect(url_for('meseros.view_meseros'))
+                    elif user_role in ('cocinero', 'comal', 'taqueros', 'bebidas'):
+                        return redirect(url_for('cocina.view_cocina'))
+                    return redirect(url_for('auth.login'))
             return func(*args, **kwargs)
         return wrapper
     return decorator

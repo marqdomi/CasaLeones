@@ -4,12 +4,14 @@ from backend.models.models import Usuario
 
 def seed_users():
     usuarios_data = [
+        {'nombre': 'Superadmin', 'email': 'superadmin@casa.com', 'password': 'superpass', 'rol': 'superadmin'},
         {'nombre': 'Mesero Uno', 'email': 'mesero1@casa.com', 'password': 'password1', 'rol': 'mesero'},
         {'nombre': 'Mesero Dos', 'email': 'mesero2@casa.com', 'password': 'password2', 'rol': 'mesero'},
         {'nombre': 'Mesero Tres', 'email': 'mesero3@casa.com', 'password': 'password3', 'rol': 'mesero'},
         {'nombre': 'Taquero Uno', 'email': 'taquero1@casa.com', 'password': 'password4', 'rol': 'taquero'},
         {'nombre': 'Comal Uno', 'email': 'comal1@casa.com', 'password': 'password5', 'rol': 'comal'},
         {'nombre': 'Administrador', 'email': 'admin@casa.com', 'password': 'adminpass', 'rol': 'admin'},
+        {'nombre': 'marco', 'email': 'marco@casa.com', 'password': 'test123', 'rol': 'mesero'},
     ]
 
     for data in usuarios_data:

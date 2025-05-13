@@ -1,13 +1,12 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container mt-4 me-5">
-  <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-outline-secondary mb-3">← Regresar</a>
   <h2 class="mt-4">Detalle de Orden #{{ orden.id }}</h2>
   <!-- Cart icon with badge to toggle order summary dropdown -->
   <button id="toggleResumen" type="button" class="btn btn-outline-primary position-relative ms-3">
     🛒 <span id="badgeCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
   </button>
-  <div id="resumenDropdown" class="dropdown-menu p-3" style="min-width: 200px;">
+  <div id="resumenDropdown" class="dropdown-menu p-3 resumen-amazon">
     <h6 class="dropdown-header">Resumen de Orden</h6>
     <div id="productosList" class="list-group"></div>
   </div>
@@ -20,10 +19,18 @@
   <p><strong>Tiempo de Registro:</strong> {{ orden.tiempo_registro }}</p>
   
   <!-- Tabs de categorías -->
-  <ul class="nav nav-tabs" id="tabCategorias" role="tablist">
+  <ul class="nav nav-tabs mb-3" id="tabCategorias" role="tablist">
     {% for categoria, productos_categoria in productos_por_categoria.items() %}
       <li class="nav-item" role="presentation">
-        <button class="nav-link {% if loop.first %}active{% endif %}" id="tab-{{ loop.index }}-tab" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button" role="tab" aria-controls="{{ 'tab-' ~ loop.index }}" aria-selected="{{ 'true' if loop.first else 'false' }}">{{ categoria }}</button>
+        {% if loop.first %}
+          <button class="nav-link active" id="tab-{{ loop.index }}-tab" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button" role="tab">
+            {{ categoria }}
+          </button>
+        {% else %}
+          <button class="nav-link" id="tab-{{ loop.index }}-tab" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button" role="tab">
+            {{ categoria }}
+          </button>
+        {% endif %}
       </li>
     {% endfor %}
   </ul>
@@ -37,7 +44,6 @@
               <div class="card text-center product-card" data-orden-id="{{ orden.id }}" data-producto-id="{{ producto.id }}" onclick="agregarProductoDirecto(this)">
                 <div class="card-body">
                   <h6 class="card-title">{{ producto.nombre }}</h6>
-                  <p class="card-text">${{ producto.precio }}</p>
                 </div>
               </div>
             </div>
@@ -46,21 +52,18 @@
       </div>
     {% endfor %}
   </div>
-  
-  <div class="d-flex justify-content-between mt-4">
+  <div class="d-flex justify-content-start gap-2 mt-4">
+    <a href="{{ url_for('meseros.view_meseros') }}" class="btn" style="background-color: #d2b38b; color: #fff;">Regresar</a>
     <form method="POST" action="{{ url_for('meseros.enviar_orden_a_cocina', orden_id=orden.id) }}">
       <button type="submit" class="btn btn-danger">Enviar a Cocina</button>
     </form>
     <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}" onsubmit="return confirm('¿Estás seguro de cancelar esta orden?');">
       <button type="submit" class="btn btn-secondary">Cancelar Orden</button>
     </form>
-    <form method="POST" action="{{ url_for('meseros.finalizar_orden', orden_id=orden.id) }}" onsubmit="return confirm('¿Marcar esta orden como pagada y finalizada?');">
-      <button type="submit" class="btn btn-success">Finalizar Orden</button>
-    </form>
   </div>
-</div>
 
 <script>
+  // La función marcarEntregado se encuentra definida en meseros.html y disponible globalmente
   // Función para agregar un producto a la orden vía AJAX
   function agregarProducto(ordenId) {
     const form = document.getElementById('agregarProductoForm');
@@ -89,21 +92,48 @@
     .catch(error => console.error('Error:', error));
   }
   
-  // Función para cargar y mostrar el detalle de productos de la orden
+  // Función para cargar y mostrar el detalle de productos de la orden (lista individual con remover)
   function cargarDetalleProductos(ordenId) {
     fetch(`/api/ordenes/${ordenId}/detalle`)
       .then(response => response.json())
       .then(data => {
-        document.getElementById('badgeCount').innerText = data.length;
+        const detalles = data.detalles || data;  // handle both formats
+        // Sum total quantity for badge
+        const totalCantidad = detalles.reduce((sum, item) => sum + item.cantidad, 0);
+        document.getElementById('badgeCount').innerText = totalCantidad;
+        // Build HTML: list each detalle with image, name, quantity badge and remove button
         let html = '';
-        data.forEach(item => {
-          html += `<button type="button" class="list-group-item list-group-item-action">
-                     ${item.cantidad} x ${item.producto_nombre}
-                   </button>`;
+        detalles.forEach(item => {
+          const nombre = item.nombre || item.producto_nombre;
+          const imagenUrl = item.imagen_url || '/static/img/placeholder.png';
+          html += `
+            <div class="d-flex align-items-center resumen-item">
+              <img src="${imagenUrl}" class="resumen-thumb me-2" alt="${nombre}">
+              <div class="flex-grow-1">${nombre}</div>
+              <span class="badge bg-primary resumen-cantidad me-2">${item.cantidad}</span>
+              <button class="btn btn-sm btn-outline-danger resumen-remove" onclick="quitarItem(${ordenId}, ${item.id})">&times;</button>
+            </div>`;
         });
         document.getElementById('productosList').innerHTML = html;
       })
       .catch(error => console.error('Error al cargar detalle:', error));
+  }
+
+  // Función para quitar un item del detalle de la orden
+  function quitarItem(ordenId, detalleId) {
+    fetch(`/api/ordenes/${ordenId}/detalle/${detalleId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.error) {
+        alert('Error: ' + result.error);
+      } else {
+        cargarDetalleProductos(ordenId);
+      }
+    })
+    .catch(err => console.error('Error al quitar item:', err));
   }
   
   // Al cargar la página, actualiza el detalle de productos
