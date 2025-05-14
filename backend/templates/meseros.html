@@ -163,7 +163,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js" integrity="sha512-luMnTJZ7oEchNDZAtQhgjomP1eZefnl82ruTH/3Oj/Yu5qYtwL7+dVRccACS/Snp1lFXq188XFipHKYE75IaQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
     const socket = io();

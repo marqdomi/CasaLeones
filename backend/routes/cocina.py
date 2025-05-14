@@ -4,7 +4,7 @@ from backend.utils import login_required
 from backend.utils import verificar_orden_completa
 from backend.extensions import db, socketio
 from flask_login import current_user
-from backend.models.models import Producto
+from backend.models.models import Producto, Estacion
 from datetime import date
 
 cocina_bp = Blueprint('cocina', __name__, url_prefix='/cocina')
@@ -44,11 +44,16 @@ def view_taqueros():
 def fragmento_ordenes_taquero():
     if current_user.rol.nombre not in ['Taquero', 'Admin', 'Superadmin']:
         return jsonify(error="No autorizado"), 403
-    items_pendientes = OrdenDetalle.query.join(Orden).join(Producto) \
-        .filter(Producto.categoria_id == 1,
-                OrdenDetalle.estado == 'pendiente',
-                Orden.estado.in_(['en_preparacion', 'recibido'])) \
-        .order_by(Orden.fecha_creacion.asc(), OrdenDetalle.id.asc()).all()
+    items_pendientes = OrdenDetalle.query \
+        .join(Orden, OrdenDetalle.orden_id == Orden.id) \
+        .join(Producto, OrdenDetalle.producto_id == Producto.id) \
+        .join(Estacion, Producto.estacion_id == Estacion.id) \
+        .filter(
+            Estacion.nombre == 'Taquero',
+            OrdenDetalle.estado == 'pendiente',
+            Orden.estado.in_(['en_preparacion', 'recibido'])
+        ) \
+        .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
     return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
 
 @cocina_bp.route('/comal', endpoint='dashboard_comal_view')
@@ -63,11 +68,16 @@ def view_comal():
 def fragmento_ordenes_comal():
     if current_user.rol.nombre not in ['Comal', 'Admin', 'Superadmin']:
         return jsonify(error="No autorizado"), 403
-    items_pendientes = OrdenDetalle.query.join(Orden).join(Producto) \
-        .filter(Producto.categoria_id == 2,
-                OrdenDetalle.estado == 'pendiente',
-                Orden.estado.in_(['en_preparacion', 'recibido'])) \
-        .order_by(Orden.fecha_creacion.asc(), OrdenDetalle.id.asc()).all()
+    items_pendientes = OrdenDetalle.query \
+        .join(Orden, OrdenDetalle.orden_id == Orden.id) \
+        .join(Producto, OrdenDetalle.producto_id == Producto.id) \
+        .join(Estacion, Producto.estacion_id == Estacion.id) \
+        .filter(
+            Estacion.nombre == 'Comal',
+            OrdenDetalle.estado == 'pendiente',
+            Orden.estado.in_(['en_preparacion', 'recibido'])
+        ) \
+        .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
     return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
 
 @cocina_bp.route('/bebidas', endpoint='dashboard_bebidas_view')
@@ -82,11 +92,16 @@ def view_bebidas():
 def fragmento_ordenes_bebidas():
     if current_user.rol.nombre not in ['Bebidas', 'Admin', 'Superadmin']:
         return jsonify(error="No autorizado"), 403
-    items_pendientes = OrdenDetalle.query.join(Orden).join(Producto) \
-        .filter(Producto.categoria_id == 3,
-                OrdenDetalle.estado == 'pendiente',
-                Orden.estado.in_(['en_preparacion', 'recibido'])) \
-        .order_by(Orden.fecha_creacion.asc(), OrdenDetalle.id.asc()).all()
+    items_pendientes = OrdenDetalle.query \
+        .join(Orden, OrdenDetalle.orden_id == Orden.id) \
+        .join(Producto, OrdenDetalle.producto_id == Producto.id) \
+        .join(Estacion, Producto.estacion_id == Estacion.id) \
+        .filter(
+            Estacion.nombre == 'Bebidas',
+            OrdenDetalle.estado == 'pendiente',
+            Orden.estado.in_(['en_preparacion', 'recibido'])
+        ) \
+        .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
     return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
 
 @cocina_bp.route('/bebidas/marcar/<int:orden_id>/<int:detalle_id>', methods=['POST'], endpoint='marcar_bebida_listo_view')
@@ -102,6 +117,7 @@ def marcar_bebida_producto_listo(orden_id, detalle_id):
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
+        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200
@@ -119,6 +135,7 @@ def marcar_producto_listo(orden_id, detalle_id):
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
+        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200
@@ -136,6 +153,7 @@ def marcar_comal_producto_listo(orden_id, detalle_id):
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
+        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200

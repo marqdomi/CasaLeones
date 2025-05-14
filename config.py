@@ -11,4 +11,4 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # Bump this whenever any static asset (CSS/JS) changes, to force browser reload
-    VERSION = '1.4.9'
+    VERSION = '1.5.1'

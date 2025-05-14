@@ -1,18 +1,25 @@
 from functools import wraps
 from flask import session, redirect, url_for, flash, request, jsonify
 from backend.models.models import Orden, OrdenDetalle, Producto
-from backend.extensions import db
+from backend.extensions import db, socketio
 
 def verificar_orden_completa(orden_id):
     """
-    Marca la orden como 'lista' si todos sus detalles están en estado 'listo'.
+    Marca la orden como 'lista_para_entregar' si todos sus detalles están en estado 'listo'.
     """
     detalles = OrdenDetalle.query.filter_by(orden_id=orden_id).all()
     try:
         if detalles and all(d.estado == 'listo' for d in detalles):
             orden = Orden.query.get(orden_id)
-            orden.estado = 'lista'
-            db.session.commit()
+            # Solo cambiar si no está ya en un estado final
+            if orden.estado not in ['finalizada', 'pagada', 'lista_para_entregar']:
+                orden.estado = 'lista_para_entregar'
+                db.session.commit()  # COMMIT inmediato
+                socketio.emit('orden_completa_lista', {
+                    'orden_id': orden.id,
+                    'mesa_nombre': orden.mesa.nombre if orden.mesa else 'Para Llevar',
+                    'mensaje': f'¡Toda la orden {orden.id} está lista para entregar!'
+                }, broadcast=True)
             return True
     except AttributeError:
         # Si OrdenDetalle no tiene atributo 'estado', omitimos el chequeo.
