@@ -39,19 +39,32 @@ $(document).ready(function() {
     });
 
     $('#ordenes-pendientes-lista').on('click', '.marcar-listo-btn', function() {
-        var itemId = $(this).data('item-id');
+        var detalleId = $(this).data('detalle-id');
+        var ordenId = $(this).data('orden-id');
+        if (!detalleId || !ordenId) {
+            console.error("Error: detalleId u ordenId no fueron encontrados en los atributos data- del botón.");
+            alert("Error al obtener datos del ítem. Por favor, recargue la página e intente de nuevo.");
+            return;
+        }
+        console.log(`Intentando marcar como listo: ordenId=${ordenId}, detalleId=${detalleId} para la estación de Comal`);
         $.ajax({
-            url: '/cocina/marcar_listo/' + itemId,
+            url: '/cocina/comal/marcar/' + ordenId + '/' + detalleId,
             type: 'POST',
             success: function(response) {
-                if(response.success) {
-                    console.log('Item ' + itemId + ' marcado como listo, esperando recarga por evento.');
+                if (response && (response.message === 'Producto marcado como listo' || response.success)) {
+                    console.log('Respuesta AJAX exitosa para detalleId: ' + detalleId + '. El ítem fue marcado como listo en el backend. Esperando actualización de UI vía Socket.IO.');
                 } else {
-                    alert('Error al marcar como listo: ' + (response.mensaje || 'Error desconocido'));
+                    let mensajeError = 'Error desconocido al marcar como listo.';
+                    if (response && (response.message || response.mensaje)) {
+                        mensajeError = response.message || response.mensaje;
+                    }
+                    alert('Error al marcar como listo: ' + mensajeError);
+                    console.error('Error en respuesta del servidor (success false o formato inesperado):', response);
                 }
             },
-            error: function() {
-                alert('Error de comunicación al marcar como listo.');
+            error: function(xhr, status, error) {
+                console.error("Error en la petición AJAX para marcar como listo en Comal:", status, error, xhr.responseText);
+                alert('Error de comunicación con el servidor al intentar marcar como listo. Por favor, revise la consola para más detalles.');
             }
         });
     });

@@ -116,8 +116,7 @@ def marcar_bebida_producto_listo(orden_id, detalle_id):
         'orden_id': orden_id,
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
-        'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
-        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
+        'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200
@@ -134,8 +133,7 @@ def marcar_producto_listo(orden_id, detalle_id):
         'orden_id': orden_id,
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
-        'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
-        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
+        'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200
@@ -152,8 +150,7 @@ def marcar_comal_producto_listo(orden_id, detalle_id):
         'orden_id': orden_id,
         'producto_id': detalle.producto_id,
         'producto_nombre': detalle.producto.nombre,
-        'mesa_nombre': detalle.orden.mesa.nombre if detalle.orden.mesa else 'Para Llevar',
-        'notas_item': detalle.notas_especiales if detalle.notas_especiales else None,
+        'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
     }, broadcast=True)
     return jsonify({'message': 'Producto marcado como listo'}), 200
