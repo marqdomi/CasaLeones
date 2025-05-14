@@ -42,17 +42,63 @@ def view_taqueros():
 @cocina_bp.route('/taquero/fragmento_ordenes', endpoint='fragmento_ordenes_taquero_view')
 @login_required(roles=['taquero','admin','superadmin'])
 def fragmento_ordenes_taquero():
-    items_pendientes = OrdenDetalle.query \
+    print(f"--- DEBUG ESTADO DE ÓRDENES PARA DETALLES PENDIENTES (Fragmento Taquero) ---")
+    detalles_pendientes_todos = OrdenDetalle.query.filter(OrdenDetalle.estado == 'pendiente').all()
+    orden_ids_con_pendientes = list(set(d.orden_id for d in detalles_pendientes_todos))
+
+    if orden_ids_con_pendientes:
+        ordenes_relevantes = Orden.query.filter(Orden.id.in_(orden_ids_con_pendientes)).all()
+        print(f"Órdenes encontradas que tienen algún detalle pendiente (total {len(ordenes_relevantes)}):")
+        for o_rel_debug in ordenes_relevantes:
+            print(f"  ID Orden: {o_rel_debug.id}, Estado Actual Orden: '{o_rel_debug.estado}'")
+    else:
+        print("No se encontraron detalles pendientes en ninguna orden (globalmente).")
+    print("--- FIN DEBUG ESTADO DE ÓRDENES ---")
+    # --- INICIO SCRIPT DE DEPURACIÓN CONSULTA ---
+    print(f"--- DEBUG DETALLADO CONSULTA FRAGMENTO Taquero ---")
+
+    # Paso 1) Filtra solo por estado de detalle 'pendiente'
+    q1 = OrdenDetalle.query.filter(OrdenDetalle.estado == 'pendiente')
+    print(f"[DEBUG PASO 1] OrdenDetalles con estado 'pendiente': {q1.count()}")
+
+    # Paso 2) Añade filtro por estado de la Orden asociada
+    q2 = q1.join(Orden, OrdenDetalle.orden_id == Orden.id) \
+            .filter(Orden.estado.in_(['enviado', 'en_preparacion', 'recibido', 'lista_para_entregar']))
+    print(f"[DEBUG PASO 2] Tras filtrar por estado de Orden activa: {q2.count()}")
+
+    # Paso 3) Añade joins a Producto y Estacion, y filtro por nombre de Estacion
+    nombre_estacion_actual = 'taquero'
+    q3 = q2.join(Producto, OrdenDetalle.producto_id == Producto.id) \
+            .join(Estacion, Producto.estacion_id == Estacion.id) \
+            .filter(Estacion.nombre == nombre_estacion_actual)
+    print(f"[DEBUG PASO 3] Tras filtrar por Estacion '{nombre_estacion_actual}': {q3.count()}")
+
+    # --- FIN DEBUG DETALLADO CONSULTA ---
+
+    # Obtención y agrupación de detalles pendientes por orden
+    detalles_pendientes_estacion = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
         .join(Estacion, Producto.estacion_id == Estacion.id) \
         .filter(
-            Estacion.nombre == 'Taquero',
+            Estacion.nombre == 'taquero',
             OrdenDetalle.estado == 'pendiente',
-            Orden.estado.in_(['en_preparacion', 'recibido'])
+            Orden.estado.in_(['enviado', 'en_preparacion', 'recibido', 'lista_para_entregar'])
         ) \
         .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
-    return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
+
+    # Agrupar detalles por orden
+    ordenes_con_items_pendientes = {}
+    for detalle in detalles_pendientes_estacion:
+        orden = detalle.orden
+        ordenes_con_items_pendientes.setdefault(orden, []).append(detalle)
+
+    total_productos_fisicos_pendientes = sum(detalle.cantidad for detalle in detalles_pendientes_estacion)
+    html_fragmento = render_template('cocina/_ordenes_agrupadas_cards.html', ordenes_data=ordenes_con_items_pendientes)
+    return jsonify({
+        'html': html_fragmento,
+        'conteo_productos': total_productos_fisicos_pendientes
+    })
 
 @cocina_bp.route('/comal', endpoint='dashboard_comal_view')
 @login_required(roles='comal')
@@ -64,17 +110,29 @@ def view_comal():
 @cocina_bp.route('/comal/fragmento_ordenes', endpoint='fragmento_ordenes_comal_view')
 @login_required(roles=['comal','admin','superadmin'])
 def fragmento_ordenes_comal():
-    items_pendientes = OrdenDetalle.query \
+    detalles_pendientes_estacion = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
         .join(Estacion, Producto.estacion_id == Estacion.id) \
         .filter(
-            Estacion.nombre == 'Comal',
+            Estacion.nombre == 'comal',
             OrdenDetalle.estado == 'pendiente',
-            Orden.estado.in_(['en_preparacion', 'recibido'])
+            Orden.estado.in_(['enviado', 'en_preparacion', 'recibido', 'lista_para_entregar'])
         ) \
         .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
-    return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
+
+    # Agrupar detalles por orden
+    ordenes_con_items_pendientes = {}
+    for detalle in detalles_pendientes_estacion:
+        orden = detalle.orden
+        ordenes_con_items_pendientes.setdefault(orden, []).append(detalle)
+
+    total_productos_fisicos_pendientes = sum(detalle.cantidad for detalle in detalles_pendientes_estacion)
+    html_fragmento = render_template('cocina/_ordenes_agrupadas_cards.html', ordenes_data=ordenes_con_items_pendientes)
+    return jsonify({
+        'html': html_fragmento,
+        'conteo_productos': total_productos_fisicos_pendientes
+    })
 
 @cocina_bp.route('/bebidas', endpoint='dashboard_bebidas_view')
 @login_required(roles='bebidas')
@@ -86,17 +144,29 @@ def view_bebidas():
 @cocina_bp.route('/bebidas/fragmento_ordenes', endpoint='fragmento_ordenes_bebidas_view')
 @login_required(roles=['mesero','bebidas','admin','superadmin'])
 def fragmento_ordenes_bebidas():
-    items_pendientes = OrdenDetalle.query \
+    detalles_pendientes_estacion = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
         .join(Estacion, Producto.estacion_id == Estacion.id) \
         .filter(
-            Estacion.nombre == 'Bebidas',
+            Estacion.nombre == 'bebidas',
             OrdenDetalle.estado == 'pendiente',
-            Orden.estado.in_(['en_preparacion', 'recibido'])
+            Orden.estado.in_(['enviado', 'en_preparacion', 'recibido', 'lista_para_entregar'])
         ) \
         .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
-    return render_template('cocina/_ordenes_pendientes_cards.html', items_pendientes=items_pendientes)
+
+    # Agrupar detalles por orden
+    ordenes_con_items_pendientes = {}
+    for detalle in detalles_pendientes_estacion:
+        orden = detalle.orden
+        ordenes_con_items_pendientes.setdefault(orden, []).append(detalle)
+
+    total_productos_fisicos_pendientes = sum(detalle.cantidad for detalle in detalles_pendientes_estacion)
+    html_fragmento = render_template('cocina/_ordenes_agrupadas_cards.html', ordenes_data=ordenes_con_items_pendientes)
+    return jsonify({
+        'html': html_fragmento,
+        'conteo_productos': total_productos_fisicos_pendientes
+    })
 
 @cocina_bp.route('/bebidas/marcar/<int:orden_id>/<int:detalle_id>', methods=['POST'], endpoint='marcar_bebida_listo_view')
 @login_required(roles='mesero')

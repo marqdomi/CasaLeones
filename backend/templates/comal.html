@@ -18,9 +18,11 @@ $(document).ready(function() {
         $.ajax({
             url: fragmentUrl,
             type: 'GET',
-            success: function(newHtml) {
-                $('#ordenes-pendientes-lista').html(newHtml);
-                console.log('Lista de órdenes de Comal actualizada.');
+            dataType: 'json',
+            success: function(response) {
+                $('#ordenes-pendientes-lista').html(response.html);
+                $('#contador-productos-pendientes').text(response.conteo_productos);
+                console.log('Lista de órdenes y contador actualizados para Comal.');
             },
             error: function(xhr, status, error) {
                 console.error("Error al actualizar la lista de órdenes de Comal:", error);

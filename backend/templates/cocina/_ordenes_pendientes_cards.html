@@ -4,7 +4,7 @@
         <div class="card h-100 {% if item.orden.para_llevar %}border-warning{% else %}border-info{% endif %}">
             <div class="card-header">
                 Orden #{{ item.orden_id }} - {{ item.orden.mesa.nombre if item.orden.mesa else "Para Llevar" }}
-                <small class="text-muted float-right">{{ item.orden.fecha_creacion.strftime('%H:%M') }}</small>
+                <small class="text-muted float-right">{{ item.orden.tiempo_registro.strftime('%H:%M') }}</small>
             </div>
             <div class="card-body">
                 <h5 class="card-title">{{ item.producto.nombre }} (x{{ item.cantidad }})</h5>

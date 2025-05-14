@@ -6,7 +6,7 @@
 <div class="container mt-4">
   <h2 class="mb-4 text-center">Órdenes para Taqueros</h2>
   <div id="pendingCount" class="alert alert-info text-center">
-    Total de productos pendientes: {{ total_productos }}
+    Total de productos pendientes: <span id="contador-productos-pendientes">{{ total_productos }}</span>
   </div>
 
   {% if total_productos > 0 %}
@@ -62,9 +62,11 @@ $(document).ready(function() {
         $.ajax({
             url: fragmentUrl,
             type: 'GET',
-            success: function(newHtml) {
-                $('#ordenes-pendientes-lista').html(newHtml);
-                console.log('Lista de órdenes de Taquero actualizada.');
+            dataType: 'json',
+            success: function(response) {
+                $('#ordenes-pendientes-lista').html(response.html);
+                $('#contador-productos-pendientes').text(response.conteo_productos);
+                console.log('Lista de órdenes y contador actualizados para Taqueros.');
             },
             error: function(xhr, status, error) {
                 console.error("Error al actualizar la lista de órdenes de Taquero:", error);
