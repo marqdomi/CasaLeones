@@ -1,11 +1,10 @@
-
-// Initialize Socket.IO for real-time updates
+// Initialize Socket.IO for real-time updates (guarded for environments where io is not available)
 if (typeof io !== 'undefined') {
   const socket = io();
-  socket.on('order_updated', () => {
+  socket.on('nueva_orden_cocina', () => {
     window.location.reload();
   });
-  socket.on('new_order', () => {
+  socket.on('item_listo_notificacion', () => {
     window.location.reload();
   });
 }

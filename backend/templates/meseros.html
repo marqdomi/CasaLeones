@@ -172,24 +172,21 @@
       console.log('Socket.IO connected');
     });
 
-    socket.on('producto_listo', function(data) {
-      // data: { orden_id, producto_id }
+    socket.on('item_listo_notificacion', function(data) {
+      // Actualizar estado de la tabla y habilitar botón de entregar
       const estadoElem = document.querySelector(
         `#estado-orden-${data.orden_id}-producto-${data.producto_id}`
       );
       if (estadoElem) {
         estadoElem.textContent = 'listo';
       }
-      // Enable the deliver button if present
       const btnEntregar = document.querySelector(
         `button.btn-entregar[data-url*="/entregar/${data.producto_id}"]`
       );
       if (btnEntregar) {
         btnEntregar.disabled = false;
       }
-    });
 
-    socket.on('item_listo_notificacion', function(data) {
       console.log('Notificación de item listo recibida por mesero:', data);
       alert(`¡ATENCIÓN MESERO! El producto "${data.producto_nombre}" de la orden #${data.orden_id} (${data.mesa_nombre || 'Para Llevar'}) está LISTO para recoger.`);
       // Opcional: si existe función para actualizar vista, llamarla aquí.

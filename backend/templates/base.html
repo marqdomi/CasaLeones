@@ -31,16 +31,16 @@
                href="{{ url_for('meseros.view_meseros') }}">Meseros</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'cocina.view_bebidas' %}active{% endif %}"
-               href="{{ url_for('cocina.view_bebidas') }}">Bebidas</a>
+            <a class="nav-link {% if request.endpoint == 'cocina.dashboard_bebidas_view' %}active{% endif %}"
+               href="{{ url_for('cocina.dashboard_bebidas_view') }}">Bebidas</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'cocina.view_taqueros' %}active{% endif %}"
-               href="{{ url_for('cocina.view_taqueros') }}">Taqueros</a>
+            <a class="nav-link {% if request.endpoint == 'cocina.dashboard_taqueros_view' %}active{% endif %}"
+               href="{{ url_for('cocina.dashboard_taqueros_view') }}">Taqueros</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link {% if request.endpoint == 'cocina.view_comal' %}active{% endif %}"
-               href="{{ url_for('cocina.view_comal') }}">Comal</a>
+            <a class="nav-link {% if request.endpoint == 'cocina.dashboard_comal_view' %}active{% endif %}"
+               href="{{ url_for('cocina.dashboard_comal_view') }}">Comal</a>
           </li>
           {% if current_user.is_authenticated and current_user.rol in ['admin','superadmin'] %}
           <li class="nav-item dropdown">
@@ -76,11 +76,11 @@
     <script src="/socket.io/socket.io.js"></script>
     {% if request.endpoint == 'meseros.view_meseros' %}
       <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.view_bebidas' %}
+    {% elif request.endpoint == 'cocina.dashboard_bebidas_view' %}
       <script src="{{ url_for('static', filename='js/bebidas.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.view_taqueros' %}
+    {% elif request.endpoint == 'cocina.dashboard_taquero_view' %}
       <script src="{{ url_for('static', filename='js/taqueros.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.view_comal' %}
+    {% elif request.endpoint == 'cocina.dashboard_comal_view' %}
       <script src="{{ url_for('static', filename='js/comal.js') }}?v={{ config.VERSION }}"></script>
     {% endif %}
   {% endblock %}

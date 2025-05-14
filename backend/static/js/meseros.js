@@ -20,12 +20,12 @@ function showToast(message) {
 // Initialize Socket.IO for real-time order updates (guarded for environments where io is not available)
 if (typeof io !== 'undefined') {
   const socket = io();
-  // Show toast for order updates and new orders instead of reloading
-  socket.on('order_updated', (data) => {
-    showToast(`Orden #${data.orden_id} actualizada`);
-  });
-  socket.on('new_order', (data) => {
+  // Show toast for new orders and item readiness
+  socket.on('nueva_orden_cocina', (data) => {
     showToast(`¡Nueva orden #${data.orden_id}!`);
+  });
+  socket.on('item_listo_notificacion', (data) => {
+    showToast(`Producto listo: ${data.producto_nombre}`);
   });
 }
 

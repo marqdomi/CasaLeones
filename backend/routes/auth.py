@@ -32,11 +32,11 @@ def login():
             elif usuario.rol == 'mesero':
                 return redirect(url_for('meseros.view_meseros'))
             elif usuario.rol == 'taquero':
-                return redirect(url_for('cocina.view_taqueros'))
+                return redirect(url_for('cocina.dashboard_taqueros_view'))
             elif usuario.rol == 'comal':
-                return redirect(url_for('cocina.view_comal'))
+                return redirect(url_for('cocina.dashboard_comal_view'))
             elif usuario.rol == 'bebidas':
-                return redirect(url_for('cocina.view_bebidas'))
+                return redirect(url_for('cocina.dashboard_bebidas_view'))
             # Fallback to login if role unrecognized
             return redirect(url_for('auth.login'))
         else:
