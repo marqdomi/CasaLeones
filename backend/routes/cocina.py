@@ -40,10 +40,8 @@ def view_taqueros():
 
 
 @cocina_bp.route('/taquero/fragmento_ordenes', endpoint='fragmento_ordenes_taquero_view')
-@login_required
+@login_required(roles=['taquero','admin','superadmin'])
 def fragmento_ordenes_taquero():
-    if current_user.rol.nombre not in ['Taquero', 'Admin', 'Superadmin']:
-        return jsonify(error="No autorizado"), 403
     items_pendientes = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
@@ -64,10 +62,8 @@ def view_comal():
 
 
 @cocina_bp.route('/comal/fragmento_ordenes', endpoint='fragmento_ordenes_comal_view')
-@login_required
+@login_required(roles=['comal','admin','superadmin'])
 def fragmento_ordenes_comal():
-    if current_user.rol.nombre not in ['Comal', 'Admin', 'Superadmin']:
-        return jsonify(error="No autorizado"), 403
     items_pendientes = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
@@ -88,10 +84,8 @@ def view_bebidas():
 
 
 @cocina_bp.route('/bebidas/fragmento_ordenes', endpoint='fragmento_ordenes_bebidas_view')
-@login_required
+@login_required(roles=['mesero','bebidas','admin','superadmin'])
 def fragmento_ordenes_bebidas():
-    if current_user.rol.nombre not in ['Bebidas', 'Admin', 'Superadmin']:
-        return jsonify(error="No autorizado"), 403
     items_pendientes = OrdenDetalle.query \
         .join(Orden, OrdenDetalle.orden_id == Orden.id) \
         .join(Producto, OrdenDetalle.producto_id == Producto.id) \
@@ -118,7 +112,7 @@ def marcar_bebida_producto_listo(orden_id, detalle_id):
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
-    }, broadcast=True)
+    })
     return jsonify({'message': 'Producto marcado como listo'}), 200
 
 @cocina_bp.route('/taqueros/marcar/<int:orden_id>/<int:detalle_id>', methods=['POST'], endpoint='marcar_taqueros_listo_view')
@@ -135,7 +129,7 @@ def marcar_producto_listo(orden_id, detalle_id):
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
-    }, broadcast=True)
+    })
     return jsonify({'message': 'Producto marcado como listo'}), 200
 
 @cocina_bp.route('/comal/marcar/<int:orden_id>/<int:detalle_id>', methods=['POST'], endpoint='marcar_comal_listo_view')
@@ -152,7 +146,7 @@ def marcar_comal_producto_listo(orden_id, detalle_id):
         'producto_nombre': detalle.producto.nombre,
         'mesa_nombre': detalle.orden.mesa.numero if detalle.orden.mesa else 'Para Llevar',
         'mensaje': f'¡{detalle.producto.nombre} de la orden {orden_id} está listo!'
-    }, broadcast=True)
+    })
     return jsonify({'message': 'Producto marcado como listo'}), 200
 
 @cocina_bp.route('/historial')

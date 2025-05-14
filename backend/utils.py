@@ -19,7 +19,7 @@ def verificar_orden_completa(orden_id):
                     'orden_id': orden.id,
                     'mesa_nombre': orden.mesa.numero if orden.mesa else 'Para Llevar',
                     'mensaje': f'¡Toda la orden {orden.id} está lista para entregar!'
-                }, broadcast=True)
+                })
             return True
     except AttributeError:
         # Si OrdenDetalle no tiene atributo 'estado', omitimos el chequeo.
