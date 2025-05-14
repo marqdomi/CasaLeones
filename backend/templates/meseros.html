@@ -20,7 +20,7 @@
 </div>
 
 <!-- Tabla de Órdenes Activas -->
-<div class="mt-4 contenido-principal">
+<div id="meseros-dashboard" class="mt-4 contenido-principal">
   <h5>Órdenes Activas</h5>
   {% set tiene_pendientes = false %}
   {% set alert_shown = false %}
@@ -53,7 +53,7 @@
       </thead>
       <tbody>
         {% for orden in ordenes_mesero %}
-        <tr>
+        <tr id="orden-header-{{ orden.id }}">
           <td>{{ orden.id }}</td>
           <td>
             {% if orden.es_para_llevar %}
@@ -64,14 +64,14 @@
           </td>
           <td>{{ orden.estado }}</td>
           <td>
-            <button class="btn btn-sm btn-ver-detalle" type="button" data-bs-toggle="collapse" data-bs-target="#orden-{{ orden.id }}" aria-expanded="false" aria-controls="orden-{{ orden.id }}">
+            <button class="btn btn-sm btn-ver-detalle" type="button" data-bs-toggle="collapse" data-bs-target="#orden-acordeon-{{ orden.id }}" aria-expanded="false" aria-controls="orden-acordeon-{{ orden.id }}">
               Ver Detalles
             </button>
           </td>
         </tr>
         <tr>
           <td colspan="4">
-            <div class="collapse mt-2" id="orden-{{ orden.id }}">
+            <div class="collapse mt-2" id="orden-acordeon-{{ orden.id }}" data-orden-id="{{ orden.id }}">
               <div class="card card-body text-dark bg-light">
                 <table class="table table-sm">
                   <thead>
@@ -91,19 +91,18 @@
                       <tr>
                         <td>{{ nombre }}</td>
                         <td>{{ cantidad }}</td>
-                        <td id="estado-orden-{{ orden.id }}-producto-{{ group[0].producto_id }}">
-                          {% if 'pendiente' in estados %}pendiente{% else %}listo{% endif %}
+                        <td>
+                          <span class="estado-producto-texto" id="estado-item-{{ group[0].id }}">
+                            {% if 'pendiente' in estados %}Pendiente{% else %}Listo en cocina{% endif %}
+                          </span>
                         </td>
                         <td>
                           {% if 'listo' in estados and not todos_entregados %}
-                            <button
-                              class="btn btn-sm btn-success btn-entregar"
-                              onclick="marcarEntregadoGrupo('{{ orden.id }}', '{{ group[0].producto_id }}')"
-                              data-url="{{ url_for('meseros.marcar_producto_grupo_entregado',
-                                                  orden_id=orden.id,
-                                                  producto_id=group[0].producto_id) }}"
-                            >
-                              Entregar
+                            <button class="btn btn-sm btn-success btn-entregar-item"
+                                    data-detalle-id="{{ group[0].id }}"
+                                    data-orden-id="{{ orden.id }}"
+                                    style="display: inline-block;">
+                              Entregar Ítem
                             </button>
                           {% elif todos_entregados %}
                             <span class="text-success">Entregado</span>
@@ -172,25 +171,53 @@
       console.log('Socket.IO connected');
     });
 
+    // Escuchar cuando un ítem está listo en cocina
     socket.on('item_listo_notificacion', function(data) {
-      // Actualizar estado de la tabla y habilitar botón de entregar
-      const estadoElem = document.querySelector(
-        `#estado-orden-${data.orden_id}-producto-${data.producto_id}`
-      );
-      if (estadoElem) {
-        estadoElem.textContent = 'listo';
+      const estadoSpan = document.getElementById(`estado-item-${data.item_id}`);
+      if (estadoSpan) {
+        estadoSpan.textContent = 'Listo en cocina';
       }
-      const btnEntregar = document.querySelector(
-        `button.btn-entregar[data-url*="/entregar/${data.producto_id}"]`
-      );
-      if (btnEntregar) {
-        btnEntregar.disabled = false;
+      const btn = document.querySelector(`.btn-entregar-item[data-detalle-id="${data.item_id}"][data-orden-id="${data.orden_id}"]`);
+      if (btn) {
+        btn.disabled = false;
+        btn.style.display = 'inline-block';
       }
-
-      console.log('Notificación de item listo recibida por mesero:', data);
-      alert(`¡ATENCIÓN MESERO! El producto "${data.producto_nombre}" de la orden #${data.orden_id} (${data.mesa_nombre || 'Para Llevar'}) está LISTO para recoger.`);
-      // Opcional: si existe función para actualizar vista, llamarla aquí.
     });
+
+    // Escuchar cuando toda la orden está lista
+    socket.on('orden_completa_lista', function(data) {
+      const headerRow = document.getElementById(`orden-header-${data.orden_id}`);
+      if (headerRow) {
+        headerRow.classList.add('orden-lista-completa');
+      }
+    });
+
+    // Delegar clics en 'Entregar Ítem'
+    document.getElementById('meseros-dashboard').addEventListener('click', function(e) {
+      if (e.target.classList.contains('btn-entregar-item')) {
+        const detalleId = e.target.getAttribute('data-detalle-id');
+        const ordenId = e.target.getAttribute('data-orden-id');
+        fetch(`/meseros/entregar_item/${ordenId}/${detalleId}`, {
+          method: 'POST',
+          credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.success) {
+            const spanEstado = document.getElementById(`estado-item-${detalleId}`);
+            if (spanEstado) spanEstado.textContent = 'Entregado';
+            e.target.disabled = true;
+          } else {
+            alert('No se pudo entregar el ítem: ' + (resp.message || 'Error'));
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Error de comunicación al entregar el ítem.');
+        });
+      }
+    });
+
     socket.on('nueva_orden_cocina', function(data) {
       console.log('Nueva orden para mesero recibida:', data);
       window.location.reload();
@@ -251,6 +278,7 @@
     const totalText = document.querySelector('#modalCobroBody strong').textContent;
     const total = parseFloat(totalText.replace('Total: $', ''));
     const recibido = parseFloat(document.getElementById('monto_recibido').value);
+    console.log(`[PROCESAR_PAGO] Orden ${ordenId}, total: ${total}, recibido: ${recibido}`);
     if (isNaN(recibido) || recibido < total) {
       alert('El monto recibido es inválido o insuficiente.');
       return false;
@@ -273,7 +301,7 @@
       }
       if (!response.ok) {
         console.error(`Error al procesar pago (${response.status}):`, data);
-        const mensaje = data?.error || `Error ${response.status}: ${response.statusText}`;
+        const mensaje = data?.message || data?.mensaje || `Error ${response.status}: ${response.statusText}`;
         throw new Error(mensaje);
       }
       return data;

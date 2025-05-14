@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from backend.utils import login_required
 from backend.extensions import db
-from backend.models.models import Sale, SaleItem, Producto, Mesa, CorteCaja, Usuario
+from backend.models.models import Sale, SaleItem, Producto, Mesa, CorteCaja, Usuario, Categoria, Estacion
+from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
 from flask import current_app
 from datetime import date
@@ -141,7 +142,10 @@ def usuario_eliminar(id):
 @admin_bp.route('/productos')
 @login_required(roles=['superadmin'])
 def lista_productos():
-    productos = Producto.query.order_by(Producto.nombre).all()
+    productos = Producto.query.options(
+        joinedload(Producto.categoria),
+        joinedload(Producto.estacion)
+    ).order_by(Producto.nombre).all()
     return render_template('admin/productos.html', productos=productos)
 
 @admin_bp.route('/productos/nuevo', methods=['GET', 'POST'])
@@ -160,7 +164,13 @@ def producto_nuevo():
         db.session.commit()
         flash('Producto creado', 'success')
         return redirect(url_for('admin.lista_productos'))
-    return render_template('admin/producto_form.html')
+    categorias = Categoria.query.order_by(Categoria.nombre).all()
+    estaciones = Estacion.query.order_by(Estacion.nombre).all()
+    return render_template(
+        'admin/producto_form.html',
+        categorias=categorias,
+        estaciones=estaciones
+    )
 
 @admin_bp.route('/productos/<int:id>/editar', methods=['GET', 'POST'])
 @login_required(roles=['superadmin'])
@@ -176,7 +186,14 @@ def producto_editar(id):
         db.session.commit()
         flash('Producto actualizado', 'success')
         return redirect(url_for('admin.lista_productos'))
-    return render_template('admin/producto_form.html', producto=p)
+    categorias = Categoria.query.order_by(Categoria.nombre).all()
+    estaciones = Estacion.query.order_by(Estacion.nombre).all()
+    return render_template(
+        'admin/producto_form.html',
+        producto=p,
+        categorias=categorias,
+        estaciones=estaciones
+    )
 
 @admin_bp.route('/productos/<int:id>/eliminar', methods=['POST'])
 @login_required(roles=['superadmin'])
@@ -254,7 +271,10 @@ def corte_caja():
         db.session.commit()
         flash('Corte de caja generado', 'success')
         return redirect(url_for('admin.corte_caja'))
-    cortes = CorteCaja.query.order_by(CorteCaja.fecha.desc()).all()
+    cortes = CorteCaja.query\
+        .options(joinedload(CorteCaja.usuario))\
+        .order_by(CorteCaja.fecha.desc())\
+        .all()
     return render_template('admin/corte_caja.html', resumen=resumen, cortes=cortes)
 
 from backend.routes.meseros import meseros_bp

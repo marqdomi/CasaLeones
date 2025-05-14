@@ -103,8 +103,24 @@ def fragmento_ordenes_taquero():
 @cocina_bp.route('/comal', endpoint='dashboard_comal_view')
 @login_required(roles='comal')
 def view_comal():
-    ordenes_por_estacion = obtener_ordenes_por_estacion('comal')
-    return render_template('Comal.html', ordenes_por_estacion=ordenes_por_estacion)
+    # Obtener detalles pendientes para Comal
+    detalles_pendientes = OrdenDetalle.query\
+        .join(Orden, OrdenDetalle.orden_id == Orden.id)\
+        .join(Producto, OrdenDetalle.producto_id == Producto.id)\
+        .join(Estacion, Producto.estacion_id == Estacion.id)\
+        .filter(
+            Estacion.nombre == 'comal',
+            OrdenDetalle.estado == 'pendiente',
+            Orden.estado.in_(['enviado','en_preparacion','recibido','lista_para_entregar'])
+        )\
+        .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
+
+    # Agrupar por orden
+    ordenes_data = {}
+    for det in detalles_pendientes:
+        ordenes_data.setdefault(det.orden, []).append(det)
+
+    return render_template('Comal.html', ordenes_data=ordenes_data)
 
 
 @cocina_bp.route('/comal/fragmento_ordenes', endpoint='fragmento_ordenes_comal_view')
@@ -137,8 +153,22 @@ def fragmento_ordenes_comal():
 @cocina_bp.route('/bebidas', endpoint='dashboard_bebidas_view')
 @login_required(roles='bebidas')
 def view_bebidas():
-    ordenes_por_estacion = obtener_ordenes_por_estacion('bebidas')
-    return render_template('bebidas.html', ordenes_por_estacion=ordenes_por_estacion)
+    detalles_pendientes = OrdenDetalle.query\
+        .join(Orden, OrdenDetalle.orden_id == Orden.id)\
+        .join(Producto, OrdenDetalle.producto_id == Producto.id)\
+        .join(Estacion, Producto.estacion_id == Estacion.id)\
+        .filter(
+            Estacion.nombre == 'bebidas',
+            OrdenDetalle.estado == 'pendiente',
+            Orden.estado.in_(['enviado','en_preparacion','recibido','lista_para_entregar'])
+        )\
+        .order_by(Orden.tiempo_registro.asc(), OrdenDetalle.id.asc()).all()
+
+    ordenes_data = {}
+    for det in detalles_pendientes:
+        ordenes_data.setdefault(det.orden, []).append(det)
+
+    return render_template('bebidas.html', ordenes_data=ordenes_data)
 
 
 @cocina_bp.route('/bebidas/fragmento_ordenes', endpoint='fragmento_ordenes_bebidas_view')

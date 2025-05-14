@@ -26,13 +26,20 @@
   <h2>Historial de Cortes</h2>
   <table class="table table-striped table-bordered">
     <thead>
-      <tr><th>Fecha</th><th>Total</th></tr>
+      <tr>
+        <th>Fecha</th>
+        <th>Total</th>
+        <th># Órdenes</th>
+        <th>Realizado por</th>
+      </tr>
     </thead>
     <tbody>
       {% for c in cortes %}
       <tr>
         <td>{{ c.fecha }}</td>
         <td>${{ '%.2f'|format(c.total_ingresos) }}</td>
+        <td>{{ c.num_ordenes }}</td>
+        <td>{{ c.usuario.nombre if c.usuario else 'N/A' }}</td>
       </tr>
       {% endfor %}
     </tbody>

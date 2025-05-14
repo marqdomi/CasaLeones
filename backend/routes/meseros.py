@@ -145,11 +145,23 @@ def pago_orden(orden_id):
 @meseros_bp.route('/ordenes/<int:orden_id>/cobrar', methods=['POST'])
 @login_required(roles='mesero')
 def cobrar_orden(orden_id):
+    print(f"[COBRAR_ORDEN] request.is_json: {request.is_json}")
+    data_in = request.get_json(silent=True)
+    print(f"[COBRAR_ORDEN] request JSON data: {data_in}")
+
+    orden = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).get_or_404(orden_id)
+    print(f"[COBRAR_ORDEN] Estado de orden #{orden_id}: {orden.estado}")
+    estados_detalles = [(d.id, d.estado) for d in orden.detalles]
+    print(f"[COBRAR_ORDEN] Estados de detalles: {estados_detalles}")
+
+    if orden.estado != 'completada':
+        print(f"[COBRAR_ORDEN] Orden no completada, estado actual: {orden.estado}")
+        return jsonify({"success": False, "message": "La orden no está completa y no puede cobrarse."}), 400
+
     if not request.is_json:
         return jsonify({"success": False, "message": "Content-Type must be application/json."}), 400
-    orden = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).get_or_404(orden_id)
     # Check for undelivered items
-    pendientes = [d for d in orden.detalles if not getattr(d, 'entregado', False)]
+    pendientes = [d for d in orden.detalles if d.estado != 'entregado']
     if pendientes:
         return jsonify({
             "success": False,
@@ -294,3 +306,18 @@ def total_ordenes_activas():
         Orden.estado.notin_(['pagado', 'finalizada', 'cancelada'])
     ).count()
     return jsonify({"total_ordenes_activas": total})
+# Nuevo endpoint para entregar ítem individual
+@meseros_bp.route('/entregar_item/<int:orden_id>/<int:detalle_id>', methods=['POST'])
+@login_required(roles='mesero')
+def entregar_item(orden_id, detalle_id):
+    detalle = OrdenDetalle.query.get_or_404(detalle_id)
+    detalle.estado = 'entregado'
+    db.session.commit()
+    # Marcar orden completa si todos los detalles están entregados
+    orden = Orden.query.get(orden_id)
+    if all(d.estado == 'entregado' for d in orden.detalles):
+        orden.estado = 'completada'
+        db.session.commit()
+    # Notificar a otros clientes si lo deseas
+    socketio.emit('orden_entregada_notificacion', {'orden_id': orden_id})
+    return jsonify(success=True, message="Ítem entregado correctamente.")
