@@ -1,355 +1,157 @@
 {% extends "base.html" %}
 
-{% block head %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
+{% block head_extra %}
+  {# Puedes añadir CSS específico para esta página aquí si es necesario #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/meseros_dashboard.css') }}?v={{ config.VERSION }}"> {# Ejemplo de CSS específico #}
 {% endblock %}
 
 {% block title %}Dashboard de Meseros{% endblock %}
 
 {% block content %}
-{# Debug: plantilla cargada correctamente 5 #}
-<h2 class="mb-4 encabezado-principal">Dashboard de Meseros</h2>
+<div class="container-fluid mt-4" id="meseros-dashboard">
+    <h2 class="mb-4">Dashboard de Meseros</h2>
 
-{% if ordenes_mesero|length == 0 %}
-  <div class="alert alert-info">No hay órdenes activas actualmente.</div>
-{% endif %}
+    <div class="d-flex justify-content-end mb-3">
+        <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-danger me-2">Orden Para Llevar</a>
+        <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="btn btn-primary">Orden Para Mesa</a>
+    </div>
 
-<div class="meseros-dashboard acciones-superiores mb-3 text-end">
-  <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-primary">Orden Para Llevar</a>
-  <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="btn btn-secondary">Orden Para Mesa</a>
-</div>
+    <h4 class="mb-3">Órdenes Activas</h4>
 
-<!-- Tabla de Órdenes Activas -->
-<div id="meseros-dashboard" class="mt-4 contenido-principal">
-  <h5>Órdenes Activas</h5>
-  {% set tiene_pendientes = false %}
-  {% set alert_shown = false %}
-  {% for orden in ordenes_mesero %}
-    {% set orden_tiene_pendiente = false %}
-    {% for detalle in orden.detalles %}
-      {% if detalle.estado == 'pendiente' %}
-        {% set orden_tiene_pendiente = true %}
-        {% set tiene_pendientes = true %}
-      {% endif %}
-    {% endfor %}
-    {% if orden_tiene_pendiente and not alert_shown %}
-      <div class="alert alert-warning">Algunas órdenes tienen productos pendientes de preparación.</div>
-      {% set alert_shown = true %}
-    {% endif %}
-  {% endfor %}
-  {% if ordenes_mesero|length == 0 %}
-    <p class="text-muted">No hay órdenes activas en este momento.</p>
-  {% endif %}
-  {% if ordenes_mesero|length > 0 %}
-  <div class="table-responsive">
-    <table class="ordenes-table table table-striped table-hover table-bordered">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Cliente / Mesa</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for orden in ordenes_mesero %}
-        <tr id="orden-header-{{ orden.id }}">
-          <td>{{ orden.id }}</td>
-          <td>
-            {% if orden.es_para_llevar %}
-              Para Llevar
-            {% else %}
-              Mesa {{ orden.mesa.numero }}
-            {% endif %}
-          </td>
-          <td>{{ orden.estado }}</td>
-          <td>
-            <button class="btn btn-sm btn-ver-detalle" type="button" data-bs-toggle="collapse" data-bs-target="#orden-acordeon-{{ orden.id }}" aria-expanded="false" aria-controls="orden-acordeon-{{ orden.id }}">
-              Ver Detalles
-            </button>
-          </td>
-        </tr>
-        <tr>
-          <td colspan="4">
-            <div class="collapse mt-2" id="orden-acordeon-{{ orden.id }}" data-orden-id="{{ orden.id }}">
-              <div class="card card-body text-dark bg-light">
-                <table class="table table-sm">
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Cantidad</th>
-                      <th>Estado</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for nombre, group in orden.detalles|groupby('producto.nombre') %}
-                      {% set cantidad = group|sum(attribute='cantidad') %}
-                      {% set estados = group|map(attribute='estado')|list %}
-                      {% set entregados = group|map(attribute='entregado')|list %}
-                      {% set todos_entregados = entregados|min %}
-                      <tr>
-                        <td>{{ nombre }}</td>
-                        <td>{{ cantidad }}</td>
-                        <td>
-                          <span class="estado-producto-texto" id="estado-item-{{ group[0].id }}">
-                            {% if 'pendiente' in estados %}Pendiente{% else %}Listo en cocina{% endif %}
-                          </span>
-                        </td>
-                        <td>
-                          {% if 'listo' in estados and not todos_entregados %}
-                            <button class="btn btn-sm btn-success btn-entregar-item"
-                                    data-detalle-id="{{ group[0].id }}"
-                                    data-orden-id="{{ orden.id }}"
-                                    style="display: inline-block;">
-                              Entregar Ítem
+    {% if not ordenes_mesero %}
+        <div class="alert alert-info text-center" role="alert">
+            No tienes órdenes activas en este momento.
+        </div>
+    {% else %}
+        <div class="accordion" id="accordionOrdenesActivas">
+            {% for orden in ordenes_mesero %}
+            <div class="accordion-item" id="orden-acordeon-{{ orden.id }}" data-orden-id="{{ orden.id }}">
+                <h2 class="accordion-header" id="heading-orden-{{ orden.id }}">
+                    <button class="accordion-button collapsed 
+                        {% if orden.estado == 'completada' %}bg-light-success text-success-emphasis{% endif %}
+                        {% if orden.estado == 'lista_para_entregar' %}bg-light-primary text-primary-emphasis{% endif %}" 
+                        type="button" data-bs-toggle="collapse" data-bs-target="#collapse-orden-{{ orden.id }}" aria-expanded="false" aria-controls="collapse-orden-{{ orden.id }}">
+                        <span class="me-2">Orden #{{ orden.id }}</span> - 
+                        <span class="mx-2">
+                            {% if orden.es_para_llevar %}
+                                Para Llevar
+                            {% else %}
+                                Mesa {{ orden.mesa.numero if orden.mesa else 'N/A' }}
+                            {% endif %}
+                        </span> - 
+                        <span class="badge 
+                            {% if orden.estado == 'pendiente' %}bg-secondary
+                            {% elif orden.estado == 'enviado' %}bg-info text-dark
+                            {% elif orden.estado == 'lista_para_entregar' %}bg-primary
+                            {% elif orden.estado == 'completada' %}bg-success
+                            {% elif orden.estado == 'cancelada' %}bg-danger
+                            {% else %}bg-light text-dark
+                            {% endif %}
+                            ms-auto estado-orden-general">
+                            {{ orden.estado|capitalize }}
+                        </span>
+                    </button>
+                </h2>
+                <div id="collapse-orden-{{ orden.id }}" class="accordion-collapse collapse" aria-labelledby="heading-orden-{{ orden.id }}" data-bs-parent="#accordionOrdenesActivas">
+                    <div class="accordion-body">
+                        <h6 class="mb-3">Detalles de la Orden:</h6>
+                        {% if orden.detalles %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th class="text-center">Cantidad</th>
+                                        <th>Estado</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for detalle in orden.detalles %}
+                                    <tr id="product-item-{{ detalle.id }}" class="product-row 
+                                        {% if detalle.estado == 'listo' %}detalle-listo-cocina table-info
+                                        {% elif detalle.estado == 'entregado' %}detalle-entregado table-success
+                                        {% elif detalle.estado == 'pendiente' %}detalle-pendiente-cocina
+                                        {% endif %}">
+                                        <td>{{ detalle.producto.nombre }}</td>
+                                        <td class="text-center">{{ detalle.cantidad }}</td>
+                                        <td class="estado-producto-texto">
+                                            {% if detalle.estado == 'listo' %}
+                                                <span class="badge bg-success">Listo en cocina</span>
+                                            {% elif detalle.estado == 'entregado' %}
+                                                <span class="badge bg-secondary">Entregado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">{{ detalle.estado|capitalize }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="accion-producto">
+                                            {% if detalle.estado == 'listo' %}
+                                                <button class="btn btn-sm btn-primary btn-entregar-item" 
+                                                        data-detalle-id="{{ detalle.id }}" 
+                                                        data-orden-id="{{ orden.id }}">
+                                                    Entregar
+                                                </button>
+                                            {% elif detalle.estado == 'entregado' %}
+                                                <span class="text-success fw-bold">Entregado <i class="fas fa-check"></i></span>
+                                            {% else %}
+                                                <span>En preparación</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                            <p class="text-muted">Esta orden no tiene productos.</p>
+                        {% endif %}
+                        <hr>
+                        <div class="text-center mt-3 orden-actions-footer">
+                            <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-outline-primary btn-sm me-2 btn-modificar-orden">
+                                <i class="fas fa-edit me-1"></i>Modificar
+                            </a>
+                            <button 
+                                type="button" 
+                                class="btn btn-warning btn-sm btn-cobrar-orden disabled" 
+                                data-orden-id="{{ orden.id }}"
+                                disabled> 
+                                <i class="fas fa-cash-register me-1"></i>Cobrar
                             </button>
-                          {% elif todos_entregados %}
-                            <span class="text-success">Entregado</span>
-                          {% else %}
-                            <span class="text-muted">Pendiente</span>
-                          {% endif %}
-                        </td>
-                      </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-                <div class="text-center mt-3">
-                  <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-primary btn-sm me-2">
-                    Modificar
-                  </a>
-                  <button 
-                    type="button" 
-                    class="btn btn-warning btn-sm btn-cobrar" 
-                    data-orden-id="{{ orden.id }}" 
-                    onclick="mostrarCobro('{{ orden.id }}')" 
-                    data-bs-toggle="modal" 
-                    data-bs-target="#modalCobro">
-                    Cobrar
-                  </button>
+                        </div>
+                    </div>
                 </div>
-              </div>
             </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
 </div>
 
-<!-- Modal para mostrar el desglose del cobro -->
+<!-- Modal para Cobro -->
 <div class="modal fade" id="modalCobro" tabindex="-1" aria-labelledby="modalCobroLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content modal-cobro-contenido">
-      <div class="modal-header">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
         <h5 class="modal-title" id="modalCobroLabel">Detalle de Cobro</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body" id="modalCobroBody">
-        <div class="text-center py-3">
-          <div class="spinner-border" role="status">
-            <span class="visually-hidden">Cargando...</span>
-          </div>
-          <p class="mt-2">Cargando detalle de la cuenta...</p>
-        </div>
+        {# Contenido se carga dinámicamente con JavaScript #}
+        <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>
       </div>
+      {# Los botones de pie de modal se añaden dinámicamente en mostrarCobro() #}
     </div>
   </div>
 </div>
+
+{# Contenedor para Toasts - asegúrate que esto exista, idealmente en base.html #}
+<div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050; min-width: 250px;"></div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js" integrity="sha512-luMnTJZ7oEchNDZAtQhgjomP1eZefnl82ruTH/3Oj/Yu5qYtwL7+dVRccACS/Snp1lFXq188XFipHKYE75IaQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-    const socket = io();
-
-    socket.on('connect', () => {
-      console.log('Socket.IO connected');
-    });
-
-    // Escuchar cuando un ítem está listo en cocina
-    socket.on('item_listo_notificacion', function(data) {
-      const estadoSpan = document.getElementById(`estado-item-${data.item_id}`);
-      if (estadoSpan) {
-        estadoSpan.textContent = 'Listo en cocina';
-      }
-      const btn = document.querySelector(`.btn-entregar-item[data-detalle-id="${data.item_id}"][data-orden-id="${data.orden_id}"]`);
-      if (btn) {
-        btn.disabled = false;
-        btn.style.display = 'inline-block';
-      }
-    });
-
-    // Escuchar cuando toda la orden está lista
-    socket.on('orden_completa_lista', function(data) {
-      const headerRow = document.getElementById(`orden-header-${data.orden_id}`);
-      if (headerRow) {
-        headerRow.classList.add('orden-lista-completa');
-      }
-    });
-
-    // Delegar clics en 'Entregar Ítem'
-    document.getElementById('meseros-dashboard').addEventListener('click', function(e) {
-      if (e.target.classList.contains('btn-entregar-item')) {
-        const detalleId = e.target.getAttribute('data-detalle-id');
-        const ordenId = e.target.getAttribute('data-orden-id');
-        fetch(`/meseros/entregar_item/${ordenId}/${detalleId}`, {
-          method: 'POST',
-          credentials: 'same-origin'
-        })
-        .then(r => r.json())
-        .then(resp => {
-          if (resp.success) {
-            const spanEstado = document.getElementById(`estado-item-${detalleId}`);
-            if (spanEstado) spanEstado.textContent = 'Entregado';
-            e.target.disabled = true;
-          } else {
-            alert('No se pudo entregar el ítem: ' + (resp.message || 'Error'));
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          alert('Error de comunicación al entregar el ítem.');
-        });
-      }
-    });
-
-    socket.on('nueva_orden_cocina', function(data) {
-      console.log('Nueva orden para mesero recibida:', data);
-      window.location.reload();
-    });
-  });
-</script>
-<script>
-  function mostrarCobro(ordenId) {
-    fetch(`/meseros/ordenes/${ordenId}/detalles_json`, { credentials: 'same-origin' })
-      .then(response => response.json())
-      .then(data => {
-        const detalles = data.detalles || [];
-        // Verificar si hay productos pendientes de entrega
-        const pendientes = detalles.some(item => item.estado !== 'listo');
-        let contenido = '';
-        if (pendientes) {
-          contenido += `<div class="alert alert-warning">Hay productos pendientes de entrega. Por favor verifica antes de cobrar.</div>`;
-        }
-        contenido += `<h5>Detalle de la cuenta</h5><ul>`;
-        let total = 0;
-        const agrupados = {};
-        detalles.forEach(item => {
-          if (!agrupados[item.nombre]) {
-            agrupados[item.nombre] = { cantidad: 0, precio: item.precio };
-          }
-          agrupados[item.nombre].cantidad += item.cantidad;
-        });
-        Object.entries(agrupados).forEach(([nombre, info]) => {
-          const subtotal = info.cantidad * info.precio;
-          total += subtotal;
-          contenido += `<li>${nombre} - ${info.cantidad} x $${info.precio} = $${subtotal.toFixed(2)}</li>`;
-        });
-        contenido += `</ul><strong>Total: $${total.toFixed(2)}</strong>`;
-        contenido += `
-          <div class="mb-3">
-            <label for="monto_recibido">Monto recibido:</label>
-            <input type="number" step="0.01" id="monto_recibido" class="form-control">
-          </div>
-        `;
-        const modalBody = document.getElementById('modalCobroBody');
-        if (!modalBody) {
-          console.error('Modal body element not found');
-          return;
-        }
-        modalBody.innerHTML = contenido;
-        const confirmBtn = document.getElementById('confirmarPagoBtn');
-        confirmBtn.disabled = pendientes || detalles.length === 0;
-        confirmBtn.setAttribute('data-orden-id', ordenId);
-        const modal = new bootstrap.Modal(document.getElementById('modalCobro'));
-        modal.show();
-      });
-  }
-
-  function procesarPago(event) {
-    event.preventDefault();
-    const btn = event.target;
-    const ordenId = btn.getAttribute('data-orden-id');
-    const totalText = document.querySelector('#modalCobroBody strong').textContent;
-    const total = parseFloat(totalText.replace('Total: $', ''));
-    const recibido = parseFloat(document.getElementById('monto_recibido').value);
-    console.log(`[PROCESAR_PAGO] Orden ${ordenId}, total: ${total}, recibido: ${recibido}`);
-    if (isNaN(recibido) || recibido < total) {
-      alert('El monto recibido es inválido o insuficiente.');
-      return false;
-    }
-    fetch(`/meseros/ordenes/${ordenId}/cobrar`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: JSON.stringify({ monto_recibido: recibido })
-    })
-    .then(async response => {
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        console.error('No JSON in response body', e);
-      }
-      if (!response.ok) {
-        console.error(`Error al procesar pago (${response.status}):`, data);
-        const mensaje = data?.message || data?.mensaje || `Error ${response.status}: ${response.statusText}`;
-        throw new Error(mensaje);
-      }
-      return data;
-    })
-    .then(data => {
-      // Ocultar el modal
-      const modal = bootstrap.Modal.getInstance(document.getElementById('modalCobro'));
-      modal.hide();
-      alert(`Pago registrado. Cambio: $${data.cambio.toFixed(2)}`);
-    })
-    .catch(error => {
-      console.error('Error al enviar la solicitud de pago:', error);
-      alert(error.message);
-    });
-    return false;
-  }
-
-  document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll('.btn-cobrar').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const ordenId = this.getAttribute('data-orden-id');
-        mostrarCobro(ordenId);
-      });
-    });
-  });
-
-  function marcarEntregadoGrupo(ordenId, productoId) {
-    fetch(`/meseros/ordenes/${ordenId}/entregar/${productoId}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    })
-    .then(r => {
-      if (!r.ok) throw new Error(`Error ${r.status}`);
-      return r.json();
-    })
-    .then(data => {
-      // reload or update row
-      window.location.reload();
-    })
-    .catch(err => {
-      console.error(err);
-      alert('No se pudo marcar el grupo como entregado');
-    });
-  }
-//# Scripts de funcionalidad del dashboard de meseros #
-</script>
+  {{ super() }} {# Si base.html tiene scripts, los incluye #}
+  <!-- Socket.IO Client -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- Tu script de meseros -->
+  <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
 {% endblock %}

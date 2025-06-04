@@ -151,7 +151,7 @@ def fragmento_ordenes_comal():
     })
 
 @cocina_bp.route('/bebidas', endpoint='dashboard_bebidas_view')
-@login_required(roles='bebidas')
+@login_required(roles=['mesero', 'bebidas', 'admin', 'superadmin'])
 def view_bebidas():
     detalles_pendientes = OrdenDetalle.query\
         .join(Orden, OrdenDetalle.orden_id == Orden.id)\

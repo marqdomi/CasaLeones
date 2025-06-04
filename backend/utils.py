@@ -42,16 +42,32 @@ def login_required(roles=None):
             if roles:
                 allowed = roles if isinstance(roles, (list, tuple)) else [roles]
                 user_role = session.get('rol')
-                if user_role != 'superadmin' and user_role not in allowed:
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return jsonify({'error': 'No tienes permiso'}), 403
+
+                print(f"--- LOGIN_REQUIRED DEBUG ---")
+                print(f"Ruta solicitada: {request.path}")
+                print(f"Rol del usuario en sesión: '{user_role}'")
+                print(f"Roles permitidos para esta ruta: {allowed}")
+
+                acceso_denegado = (user_role != 'superadmin' and user_role not in allowed)
+                print(f"¿Acceso denegado basado en roles? {acceso_denegado}")
+
+                if acceso_denegado:
+                    print(f"ACCESO DENEGADO para rol '{user_role}'. Redirigiendo...")
                     flash('No tienes permiso para acceder a esta página', 'danger')
-                    # Redirect based on the user's actual role
                     if user_role == 'mesero':
+                        print(f"Redirigiendo mesero a 'meseros.view_meseros'")
                         return redirect(url_for('meseros.view_meseros'))
-                    elif user_role in ('cocinero', 'comal', 'taqueros', 'bebidas'):
+                    elif user_role in ('cocinero', 'comal', 'taquero', 'bebidas'):
+                        print(f"Redirigiendo rol de cocina '{user_role}' a 'cocina.view_cocina'")
                         return redirect(url_for('cocina.view_cocina'))
+                    print(f"Redirigiendo a 'auth.login' por defecto")
                     return redirect(url_for('auth.login'))
+                else:
+                    print(f"ACCESO PERMITIDO para rol '{user_role}'.")
+            else:
+                print(f"--- LOGIN_REQUIRED DEBUG ---")
+                print(f"Ruta solicitada: {request.path}")
+                print(f"No se especificaron roles para esta ruta, solo se requiere autenticación.")
             return func(*args, **kwargs)
         return wrapper
     return decorator
