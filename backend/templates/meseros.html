@@ -27,9 +27,7 @@
             {% for orden in ordenes_mesero %}
             <div class="accordion-item" id="orden-acordeon-{{ orden.id }}" data-orden-id="{{ orden.id }}">
                 <h2 class="accordion-header" id="heading-orden-{{ orden.id }}">
-                    <button class="accordion-button collapsed 
-                        {% if orden.estado == 'completada' %}bg-light-success text-success-emphasis{% endif %}
-                        {% if orden.estado == 'lista_para_entregar' %}bg-light-primary text-primary-emphasis{% endif %}" 
+                    <button class="accordion-button collapsed bg-light text-dark {% if orden.estado == 'completada' %}bg-light-success text-success-emphasis{% elif orden.estado == 'lista_para_entregar' %}bg-light-primary text-primary-emphasis{% endif %}" 
                         type="button" data-bs-toggle="collapse" data-bs-target="#collapse-orden-{{ orden.id }}" aria-expanded="false" aria-controls="collapse-orden-{{ orden.id }}">
                         <span class="me-2">Orden #{{ orden.id }}</span> - 
                         <span class="mx-2">
