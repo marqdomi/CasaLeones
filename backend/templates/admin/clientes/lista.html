@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Clientes{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Clientes</h2>
+  <a href="{{ url_for('clientes.cliente_nuevo') }}" class="btn btn-primary btn-sm mb-3">Nuevo Cliente</a>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-hover">
+      <thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>RFC</th><th>Visitas</th><th>Total Gastado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        {% for c in clientes %}
+        <tr>
+          <td>{{ c.nombre }}</td>
+          <td>{{ c.telefono }}</td>
+          <td>{{ c.email }}</td>
+          <td>{{ c.rfc or '' }}</td>
+          <td>{{ c.visitas }}</td>
+          <td>${{ '%.2f'|format(c.total_gastado or 0) }}</td>
+          <td>
+            <a href="{{ url_for('clientes.perfil_cliente', id=c.id) }}" class="btn btn-sm btn-outline-info">Perfil</a>
+            <a href="{{ url_for('clientes.cliente_editar', id=c.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

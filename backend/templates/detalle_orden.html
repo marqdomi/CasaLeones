@@ -3,7 +3,7 @@
 <div class="container mt-4 me-5">
   <h2 class="mt-4">Detalle de Orden #{{ orden.id }}</h2>
   <!-- Cart icon with badge to toggle order summary dropdown -->
-  <button id="toggleResumen" type="button" class="btn btn-outline-primary position-relative ms-3">
+  <button id="toggleResumen" type="button" class="btn btn-outline-primary position-relative ms-3" aria-label="Ver resumen de orden" aria-expanded="false" aria-controls="resumenDropdown">
     🛒 <span id="badgeCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
   </button>
   <div id="resumenDropdown" class="dropdown-menu p-3 resumen-amazon">
@@ -55,44 +55,163 @@
   <div class="d-flex justify-content-start gap-2 mt-4">
     <a href="{{ url_for('meseros.view_meseros') }}" class="btn" style="background-color: #d2b38b; color: #fff;">Regresar</a>
     <form method="POST" action="{{ url_for('meseros.enviar_orden_a_cocina', orden_id=orden.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn btn-danger">Enviar a Cocina</button>
     </form>
-    <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}" onsubmit="return confirm('¿Estás seguro de cancelar esta orden?');">
-      <button type="submit" class="btn btn-secondary">Cancelar Orden</button>
-    </form>
+    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar Orden</button>
   </div>
 
+<!-- Modal Cancelar Orden (Sprint 5 — 5.3) -->
+<div class="modal fade" id="modalCancelar" tabindex="-1" aria-labelledby="modalCancelarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="modalCancelarLabel">Cancelar Orden #{{ orden.id }}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <p>¿Estás seguro de cancelar esta orden? Esta acción no se puede deshacer.</p>
+          <div class="mb-3">
+            <label for="motivo_cancelacion" class="form-label">Motivo de cancelación</label>
+            <select id="motivo_cancelacion" name="motivo_cancelacion" class="form-select" required>
+              <option value="">Selecciona un motivo...</option>
+              <option value="cliente_solicito">El cliente lo solicitó</option>
+              <option value="error_orden">Error al capturar la orden</option>
+              <option value="producto_agotado">Producto agotado</option>
+              <option value="tiempo_espera">Exceso de tiempo de espera</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="mb-3" id="motivoOtroGroup" style="display:none;">
+            <label for="motivo_otro" class="form-label">Especifica el motivo</label>
+            <input type="text" id="motivo_otro" name="motivo_otro" class="form-control" maxlength="200" placeholder="Detalla el motivo...">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">No, regresar</button>
+          <button type="submit" class="btn btn-danger">Sí, cancelar orden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Notas Rápidas (Sprint 5 — 3.4) -->
+<div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalNotasLabel">Notas para <span id="notasProductoNombre"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div id="notasRapidasBtns" class="d-flex flex-wrap gap-2 mb-3">
+          <!-- Populated by JS -->
+        </div>
+        <div class="mb-3">
+          <label for="notasLibre" class="form-label">Nota personalizada</label>
+          <input type="text" id="notasLibre" class="form-control" maxlength="200" placeholder="Escribe una nota...">
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Cantidad</label>
+          <input type="number" id="notasCantidad" class="form-control qty-input" value="1" min="1" max="50">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" id="btnAgregarSinNotas">Agregar sin notas</button>
+        <button type="button" class="btn btn-primary" id="btnAgregarConNotas">Agregar con notas</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-  // La función marcarEntregado se encuentra definida en meseros.html y disponible globalmente
-  // Función para agregar un producto a la orden vía AJAX
-  function agregarProducto(ordenId) {
-    const form = document.getElementById('agregarProductoForm');
-    const formData = new FormData(form);
-    const producto_id = parseInt(formData.get('producto_id'));
-    const cantidad = parseInt(formData.get('cantidad'));
-    
-    const data = {
-      producto_id: producto_id,
-      cantidad: cantidad
-    };
-    
-    fetch(`/api/ordenes/${ordenId}/detalle`, {
+  // =============================================
+  // Notas rápidas system (Sprint 5 — 3.4)
+  // =============================================
+  let _notasRapidas = [];
+  let _pendingOrdenId = null;
+  let _pendingProductoId = null;
+  let _pendingEl = null;
+
+  // Load quick notes
+  fetch('/static/js/notas_rapidas.json')
+    .then(r => r.json())
+    .then(data => { _notasRapidas = data.notas || []; })
+    .catch(() => { _notasRapidas = []; });
+
+  function agregarProductoDirecto(el) {
+    _pendingOrdenId = el.dataset.ordenId;
+    _pendingProductoId = el.dataset.productoId;
+    _pendingEl = el;
+
+    const nombreEl = el.querySelector('.card-title');
+    document.getElementById('notasProductoNombre').textContent = nombreEl ? nombreEl.textContent : 'Producto';
+    document.getElementById('notasLibre').value = '';
+    document.getElementById('notasCantidad').value = '1';
+
+    // Populate quick-note buttons
+    const container = document.getElementById('notasRapidasBtns');
+    container.innerHTML = _notasRapidas.map(n =>
+      `<button type="button" class="btn btn-sm btn-outline-secondary nota-rapida-btn">${n}</button>`
+    ).join('');
+
+    // Deselect all
+    container.querySelectorAll('.nota-rapida-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        this.classList.toggle('active');
+        this.classList.toggle('btn-outline-secondary');
+        this.classList.toggle('btn-primary');
+      });
+    });
+
+    new bootstrap.Modal(document.getElementById('modalNotas')).show();
+  }
+
+  function _enviarProducto(notas, cantidad) {
+    fetch(`/api/ordenes/${_pendingOrdenId}/detalle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ producto_id: Number(_pendingProductoId), cantidad: cantidad, notas: notas })
     })
-    .then(response => response.json())
-    .then(result => {
-      if (result.error) {
-        alert('Error: ' + result.error);
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        alert('Error: ' + data.error);
       } else {
-        cargarDetalleProductos(ordenId);
+        // Bounce animation on card
+        if (_pendingEl) {
+          _pendingEl.classList.remove('animate-bounce');
+          void _pendingEl.offsetWidth;
+          _pendingEl.classList.add('animate-bounce');
+        }
+        cargarDetalleProductos(_pendingOrdenId);
       }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(console.error);
+
+    // Close modal
+    const m = bootstrap.Modal.getInstance(document.getElementById('modalNotas'));
+    if (m) m.hide();
   }
-  
-  // Función para cargar y mostrar el detalle de productos de la orden (lista individual con remover)
+
+  document.getElementById('btnAgregarSinNotas').addEventListener('click', function() {
+    const cantidad = parseInt(document.getElementById('notasCantidad').value) || 1;
+    _enviarProducto('', cantidad);
+  });
+
+  document.getElementById('btnAgregarConNotas').addEventListener('click', function() {
+    // Collect selected quick notes + free text
+    const selected = [];
+    document.querySelectorAll('#notasRapidasBtns .nota-rapida-btn.active').forEach(b => selected.push(b.textContent));
+    const libre = document.getElementById('notasLibre').value.trim();
+    if (libre) selected.push(libre);
+    const notas = selected.join(', ');
+    const cantidad = parseInt(document.getElementById('notasCantidad').value) || 1;
+    _enviarProducto(notas, cantidad);
+  });
   function cargarDetalleProductos(ordenId) {
     fetch(`/api/ordenes/${ordenId}/detalle`)
       .then(response => response.json())
@@ -100,18 +219,24 @@
         const detalles = data.detalles || data;  // handle both formats
         // Sum total quantity for badge
         const totalCantidad = detalles.reduce((sum, item) => sum + item.cantidad, 0);
-        document.getElementById('badgeCount').innerText = totalCantidad;
+        const badge = document.getElementById('badgeCount');
+        badge.innerText = totalCantidad;
+        // Badge pop animation
+        badge.classList.remove('animate-badge-pop');
+        void badge.offsetWidth;
+        badge.classList.add('animate-badge-pop');
         // Build HTML: list each detalle with image, name, quantity badge and remove button
         let html = '';
         detalles.forEach(item => {
           const nombre = item.nombre || item.producto_nombre;
           const imagenUrl = item.imagen_url || '/static/img/placeholder.png';
+          const notasHtml = item.notas ? `<div class="text-muted small fst-italic">📝 ${item.notas}</div>` : '';
           html += `
             <div class="d-flex align-items-center resumen-item">
               <img src="${imagenUrl}" class="resumen-thumb me-2" alt="${nombre}">
-              <div class="flex-grow-1">${nombre}</div>
+              <div class="flex-grow-1">${nombre}${notasHtml}</div>
               <span class="badge bg-primary resumen-cantidad me-2">${item.cantidad}</span>
-              <button class="btn btn-sm btn-outline-danger resumen-remove" onclick="quitarItem(${ordenId}, ${item.id})">&times;</button>
+              <button class="btn btn-sm btn-outline-danger resumen-remove" onclick="quitarItem(${ordenId}, ${item.id})" aria-label="Eliminar ${nombre} de la orden">&times;</button>
             </div>`;
         });
         document.getElementById('productosList').innerHTML = html;
@@ -141,30 +266,20 @@
     cargarDetalleProductos(parseInt('{{ orden.id }}'));
   });
 
-  function agregarProductoDirecto(el) {
-    const ordenId = el.dataset.ordenId;
-    const productoId = el.dataset.productoId;
-    fetch(`/api/ordenes/${ordenId}/detalle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ producto_id: Number(productoId), cantidad: 1 })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        alert('Error: ' + data.error);
-      } else {
-        cargarDetalleProductos(ordenId);
-      }
-    })
-    .catch(console.error);
-  }
-
   // Toggle summary dropdown
   document.getElementById('toggleResumen').addEventListener('click', function() {
     const dropdown = document.getElementById('resumenDropdown');
     dropdown.classList.toggle('show');
   });
+
+  // Toggle "otro" motivo field in cancel modal
+  const motivoSelect = document.getElementById('motivo_cancelacion');
+  if (motivoSelect) {
+    motivoSelect.addEventListener('change', function() {
+      document.getElementById('motivoOtroGroup').style.display =
+        this.value === 'otro' ? 'block' : 'none';
+    });
+  }
 </script>
 </div>
 {% endblock %}

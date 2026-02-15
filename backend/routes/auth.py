@@ -1,33 +1,45 @@
+import logging
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from flask_login import login_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from backend.models.models import Usuario
 
+logger = logging.getLogger(__name__)
+
 auth_bp = Blueprint('auth', __name__)
+
+# Dummy hash — se usa para mantener timing constante cuando el usuario no existe
+_DUMMY_HASH = generate_password_hash('dummy_constant_time_password')
+
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
-        # Debug logs
-        print(f"[DEBUG] login attempt: email={email}", flush=True)
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+
         usuario = Usuario.query.filter_by(email=email).first()
-        print(f"[DEBUG] user exists: {bool(usuario)}", flush=True)
+
+        # Siempre ejecuta check_password para evitar timing attacks
         if usuario:
-            print(f"[DEBUG] stored hash: {usuario.password_hash}", flush=True)
             valid = usuario.check_password(password)
-            print(f"[DEBUG] password valid? {valid}", flush=True)
         else:
+            # Consume el mismo tiempo que un check real
+            check_password_hash(_DUMMY_HASH, password)
             valid = False
 
         if valid:
             login_user(usuario)
             session['user_id'] = usuario.id
             session['rol'] = usuario.rol
+            logger.info('Login exitoso: usuario_id=%s rol=%s', usuario.id, usuario.rol)
+            # Auditoría
+            from backend.services.audit import registrar_auditoria
+            registrar_auditoria('login', 'Usuario', usuario.id,
+                                f'Login exitoso: {usuario.email}', usuario.id)
             flash('Inicio de sesión exitoso', 'success')
-            # Redirect based on role
+
             if usuario.rol in ('superadmin', 'admin'):
-                # Superadmin and admin go to user management
                 return redirect(url_for('admin.crear_usuario'))
             elif usuario.rol == 'mesero':
                 return redirect(url_for('meseros.view_meseros'))
@@ -37,14 +49,24 @@ def login():
                 return redirect(url_for('cocina.dashboard_comal_view'))
             elif usuario.rol == 'bebidas':
                 return redirect(url_for('cocina.dashboard_bebidas_view'))
-            # Fallback to login if role unrecognized
             return redirect(url_for('auth.login'))
         else:
+            # Mensaje genérico — no revela si el email existe o no
+            logger.warning('Login fallido: ip=%s', request.remote_addr)
             flash('Credenciales inválidas', 'danger')
+
     return render_template('login.html')
+
 
 @auth_bp.route('/logout')
 def logout():
+    user_id = session.get('user_id')
+    # Auditoría antes de limpiar sesión
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('logout', 'Usuario', user_id, 'Cierre de sesión', user_id)
+    from backend.extensions import db
+    db.session.commit()
     session.clear()
+    logger.info('Logout: usuario_id=%s', user_id)
     flash('Sesión cerrada', 'info')
     return redirect(url_for('auth.login'))

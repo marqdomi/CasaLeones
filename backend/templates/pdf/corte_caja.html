@@ -1,0 +1,49 @@
+{% extends 'pdf/base_pdf.html' %}
+{% block title %}Corte de Caja{% endblock %}
+{% block report_title %}Corte de Caja{% endblock %}
+{% block date_range %}
+<div class="date-range">{{ fecha }}</div>
+{% endblock %}
+
+{% block content %}
+<div class="kpi-row">
+  <div class="kpi-box">
+    <div class="label">Total Ventas</div>
+    <div class="value">${{ '%.2f'|format(resumen.total_ventas) }}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="label"># Ventas</div>
+    <div class="value">{{ resumen.num_ventas }}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="label">Ticket Promedio</div>
+    <div class="value">${{ '%.2f'|format(resumen.ticket_promedio) }}</div>
+  </div>
+  {% if resumen.propinas_total %}
+  <div class="kpi-box">
+    <div class="label">Propinas</div>
+    <div class="value">${{ '%.2f'|format(resumen.propinas_total) }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<h3>Métodos de Pago</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Método</th>
+      <th class="text-right">Monto</th>
+      <th class="text-right"># Operaciones</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in resumen.pagos_por_metodo %}
+    <tr>
+      <td>{{ m.metodo|capitalize }}</td>
+      <td class="text-right">${{ '%.2f'|format(m.total) }}</td>
+      <td class="text-right">{{ m.cantidad }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,14 +1,13 @@
 # backend/models/database.py
 
+import logging
 from backend.extensions import db
 
+logger = logging.getLogger(__name__)
+
+
 def init_db():
-    # Importar los modelos para que db conozca todas las tablas
+    """Create all tables if they don't exist."""
     import backend.models.models  # noqa: F401
     db.create_all()
-    # Agregar columna usuario_id a corte_caja si no existe
-    engine = db.get_engine()
-    try:
-        engine.execute('ALTER TABLE corte_caja ADD COLUMN usuario_id INTEGER')
-    except Exception:
-        pass
+    logger.info('Base de datos inicializada correctamente.')

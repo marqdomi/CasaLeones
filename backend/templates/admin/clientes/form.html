@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if cliente else 'Nuevo' }} Cliente{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4">{{ 'Editar' if cliente else 'Nuevo' }} Cliente</h2>
+  <form method="POST" id="clienteForm">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+      <label class="form-label">Nombre *</label>
+      <input type="text" name="nombre" class="form-control" required value="{{ cliente.nombre if cliente else '' }}">
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Teléfono</label>
+        <input type="text" name="telefono" class="form-control" value="{{ cliente.telefono if cliente else '' }}">
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control" value="{{ cliente.email if cliente else '' }}">
+      </div>
+    </div>
+    <hr>
+    <h6>Datos Fiscales (para facturación)</h6>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">RFC</label>
+        <input type="text" name="rfc" id="rfc_input" class="form-control" maxlength="13"
+               data-rfc-validate
+               value="{{ cliente.rfc if cliente else '' }}"
+               placeholder="Ej: XAXX010101000">
+        <small class="form-text text-muted">13 chars persona física, 12 persona moral</small>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Régimen Fiscal</label>
+        <select name="regimen_fiscal" id="regimen_select" class="form-select">
+          <option value="">— Seleccionar —</option>
+          {% for code, desc in regimenes.items() %}
+          <option value="{{ code }}" {% if cliente and cliente.regimen_fiscal == code %}selected{% endif %}>
+            {{ code }} — {{ desc }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label class="form-label">Uso CFDI</label>
+        <select name="uso_cfdi" id="uso_cfdi_select" class="form-select">
+          {% for code, desc in usos_cfdi.items() %}
+          <option value="{{ code }}" {% if cliente and cliente.uso_cfdi == code %}selected{% endif %}>
+            {{ code }} — {{ desc }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6 mb-3">
+        <label class="form-label">CP Domicilio Fiscal</label>
+        <input type="text" name="domicilio_fiscal" class="form-control" maxlength="5"
+               value="{{ cliente.domicilio_fiscal if cliente else '' }}" pattern="\d{5}" placeholder="00000">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Razón Social</label>
+      <input type="text" name="razon_social" class="form-control" value="{{ cliente.razon_social if cliente else '' }}">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Notas</label>
+      <textarea name="notas" class="form-control" rows="2">{{ cliente.notas if cliente else '' }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('clientes.lista_clientes') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+/* RFC auto-uppercase + dynamic catalog reload */
+(function() {
+  const rfcInput = document.getElementById('rfc_input');
+  const regimenSelect = document.getElementById('regimen_select');
+  const usoCfdiSelect = document.getElementById('uso_cfdi_select');
+
+  if (!rfcInput) return;
+
+  rfcInput.addEventListener('input', function() {
+    const pos = this.selectionStart;
+    this.value = this.value.replace(/[\s\-]/g, '').toUpperCase();
+    this.setSelectionRange(pos, pos);
+  });
+
+  rfcInput.addEventListener('blur', function() {
+    const rfc = this.value.trim();
+    if (rfc.length < 12) return;
+    fetch('{{ url_for("clientes.api_catalogos_sat") }}?rfc=' + encodeURIComponent(rfc))
+      .then(r => r.json())
+      .then(data => {
+        updateSelect(regimenSelect, data.regimenes, '{{ cliente.regimen_fiscal if cliente else "" }}');
+        updateSelect(usoCfdiSelect, data.usos_cfdi, '{{ cliente.uso_cfdi if cliente else "G03" }}');
+      })
+      .catch(() => {});
+  });
+
+  function updateSelect(sel, items, currentVal) {
+    const prevVal = sel.value || currentVal;
+    sel.innerHTML = '<option value="">— Seleccionar —</option>';
+    for (const [code, desc] of Object.entries(items)) {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code + ' — ' + desc;
+      if (code === prevVal) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+})();
+</script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/rfc-validator.js') }}"></script>
+{% endblock %}

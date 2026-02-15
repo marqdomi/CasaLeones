@@ -1,5 +1,5 @@
-from flask import Blueprint, request, jsonify, session
-from backend.utils import login_required, verificar_orden_completa
+from flask import Blueprint, request, jsonify, session, g, current_app
+from backend.utils import login_required, verificar_orden_completa, verificar_stock_disponible
 from backend.models.models import Orden, OrdenDetalle, Producto
 from backend.extensions import db, socketio
 
@@ -12,7 +12,9 @@ def create_order():
     es_para_llevar = data.get('es_para_llevar', False)
     mesa_id = data.get('mesa_id') if not es_para_llevar else None
     mesero_id = session.get('user_id')
-    nueva_orden = Orden(mesa_id=mesa_id, mesero_id=mesero_id, es_para_llevar=es_para_llevar)
+    nueva_orden = Orden(mesa_id=mesa_id, mesero_id=mesero_id,
+                        es_para_llevar=es_para_llevar,
+                        sucursal_id=getattr(g, 'sucursal_id', None))
     db.session.add(nueva_orden)
     db.session.commit()
     socketio.emit('order_created', {
@@ -47,11 +49,22 @@ def add_product_to_order(orden_id):
     cantidad = data.get('cantidad', 1)
     producto = Producto.query.get_or_404(producto_id)
     orden = Orden.query.get_or_404(orden_id)
+
+    # Validación de stock (Sprint 2 — 3.2)
+    if current_app.config.get('INVENTARIO_VALIDAR_STOCK'):
+        disponible, faltantes, warns = verificar_stock_disponible(producto_id, cantidad)
+        if not disponible:
+            return jsonify({
+                'error': 'Stock insuficiente',
+                'faltantes': faltantes,
+            }), 409
+
     detalle = OrdenDetalle(
         orden_id=orden.id,
         producto_id=producto.id,
         cantidad=cantidad,
-        notas=data.get('notas', '')
+        notas=data.get('notas', ''),
+        precio_unitario=producto.precio,
     )
     db.session.add(detalle)
     db.session.commit()

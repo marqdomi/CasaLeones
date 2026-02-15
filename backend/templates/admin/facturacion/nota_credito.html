@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Nota de Crédito — Factura #{{ factura.id }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4">Crear Nota de Crédito</h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Factura de Origen #{{ factura.id }}</h5>
+      <p class="mb-1"><strong>UUID:</strong> {{ factura.uuid_cfdi or '—' }}</p>
+      <p class="mb-1"><strong>RFC Receptor:</strong> {{ factura.rfc_receptor }}</p>
+      <p class="mb-1"><strong>Razón Social:</strong> {{ factura.razon_social or '—' }}</p>
+      <p class="mb-1"><strong>Total Factura:</strong> ${{ '%.2f'|format(factura.total) }}</p>
+      {% if factura.notas_credito %}
+      <p class="mb-0 text-warning">
+        <strong>Notas existentes:</strong> {{ factura.notas_credito|length }}
+        (total: ${{ '%.2f'|format(factura.notas_credito|sum(attribute='monto')) }})
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="mb-3">
+      <label class="form-label">Monto de la nota de crédito</label>
+      <div class="input-group">
+        <span class="input-group-text">$</span>
+        <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
+               max="{{ factura.total }}" required
+               placeholder="0.00">
+      </div>
+      <div class="form-text">Máximo: ${{ '%.2f'|format(factura.total) }}. Para devolución total ingrese el monto completo.</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Motivo</label>
+      <select name="motivo" class="form-select">
+        <option value="Devolución">Devolución</option>
+        <option value="Descuento posterior">Descuento posterior</option>
+        <option value="Bonificación">Bonificación</option>
+        <option value="Error en facturación">Error en facturación</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-warning" onclick="return confirm('¿Generar nota de crédito por este monto?');">
+      Generar Nota de Crédito
+    </button>
+    <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

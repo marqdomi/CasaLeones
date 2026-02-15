@@ -1,44 +1,74 @@
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify
-from backend.models.models import Mesa, Orden, Producto, OrdenDetalle, Sale, SaleItem, Usuario # Añadido Usuario
+import logging
 import json
+from decimal import Decimal
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, g, current_app
+from backend.models.models import (
+    Mesa, Orden, Producto, OrdenDetalle, Sale, SaleItem, Usuario, Pago, IVA_RATE,
+    descontar_inventario_por_orden, Cliente,
+)
 from backend.extensions import db, socketio
-from backend.utils import login_required # Tu decorador
+from backend.utils import login_required, verificar_propiedad_orden, filtrar_por_sucursal, verificar_stock_disponible, actualizar_estado_mesa
+from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 
-meseros_bp = Blueprint('meseros', __name__, url_prefix='/meseros') # Añadido url_prefix
+logger = logging.getLogger(__name__)
 
-# (Quité el print global, es mejor para producción)
-# print(">>> Cargando rutas de meseros desde:", __file__)
+meseros_bp = Blueprint('meseros', __name__, url_prefix='/meseros')
 
-@meseros_bp.route('/') # Ruta para el dashboard principal de meseros
+ESTADOS_MODIFICABLES = ['pendiente', 'enviado', 'en_preparacion', 'lista_para_entregar']
+
+
+# =====================================================================
+# Dashboard
+# =====================================================================
+@meseros_bp.route('/')
 @login_required(roles='mesero')
 def view_meseros():
     user_id = session.get('user_id')
-    # Eager load relaciones para evitar N+1 queries en la plantilla
-    ordenes_mesero = Orden.query.options(
-        joinedload(Orden.mesa), # Para acceder a orden.mesa.numero
-        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto) # Para detalles y sus productos
+    query = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
     ).filter(
         Orden.mesero_id == user_id,
-        Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']) # Excluir canceladas también
-    ).order_by(Orden.tiempo_registro.desc()).all() # Ordenar por más recientes primero
-    
+        Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']),
+    )
+    query = filtrar_por_sucursal(query, Orden)
+    ordenes_mesero = query.order_by(Orden.tiempo_registro.desc()).all()
+
     return render_template('meseros.html', ordenes_mesero=ordenes_mesero)
 
+
+# =====================================================================
+# Mapa visual de mesas (Sprint 4 — 5.1)
+# =====================================================================
+@meseros_bp.route('/mapa')
+@login_required(roles='mesero')
+def mapa_mesas():
+    from flask_login import current_user
+    mesas = filtrar_por_sucursal(Mesa.query, Mesa).all()
+    zonas = sorted(set(m.zona for m in mesas if m.zona))
+    is_admin = current_user.rol in ('admin', 'superadmin')
+    return render_template('meseros/mapa_mesas.html', zonas=zonas, is_admin=is_admin)
+
+
+# =====================================================================
+# Crear órdenes
+# =====================================================================
 @meseros_bp.route('/crear_orden_para_llevar')
 @login_required(roles='mesero')
 def crear_orden_para_llevar():
     nueva_orden = Orden(
-        mesero_id=session.get('user_id'), 
-        es_para_llevar=True, 
-        estado='pendiente' # Estado inicial al crear
+        mesero_id=session.get('user_id'), es_para_llevar=True, estado='pendiente',
+        sucursal_id=g.sucursal_id,
     )
     db.session.add(nueva_orden)
     db.session.commit()
+    logger.info('Orden para llevar creada: id=%s', nueva_orden.id)
     flash('Nueva orden para llevar creada. Añade productos.', 'success')
     return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
+
 
 @meseros_bp.route('/seleccionar_mesa', methods=['GET', 'POST'])
 @login_required(roles='mesero')
@@ -46,58 +76,68 @@ def seleccionar_mesa():
     if request.method == 'POST':
         mesa_id = request.form.get('mesa_id')
         if mesa_id:
-            # Verificar si la mesa ya tiene una orden activa no pagada (opcional, pero buena práctica)
             orden_existente = Orden.query.filter(
                 Orden.mesa_id == int(mesa_id),
-                Orden.estado.notin_(['pagada', 'finalizada', 'cancelada'])
+                Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']),
             ).first()
             if orden_existente:
-                flash(f'La Mesa {Mesa.query.get(int(mesa_id)).numero} ya tiene una orden activa (ID: {orden_existente.id}). Puedes modificarla.', 'warning')
+                flash(f'Mesa ya tiene orden activa (ID: {orden_existente.id}).', 'warning')
                 return redirect(url_for('meseros.detalle_orden', orden_id=orden_existente.id))
 
             nueva_orden = Orden(
-                mesero_id=session.get('user_id'),
-                mesa_id=int(mesa_id),
-                es_para_llevar=False,
-                estado='pendiente' # Estado inicial al crear
+                mesero_id=session.get('user_id'), mesa_id=int(mesa_id),
+                es_para_llevar=False, estado='pendiente',
+                sucursal_id=g.sucursal_id,
             )
             db.session.add(nueva_orden)
             db.session.commit()
-            flash(f'Nueva orden creada para Mesa {nueva_orden.mesa.numero}. Añade productos.', 'success')
+            # Auto-ocupar mesa (Sprint 2 — 3.3)
+            actualizar_estado_mesa(int(mesa_id), 'ocupada')
+            db.session.commit()
+            flash(f'Orden creada para Mesa {nueva_orden.mesa.numero}.', 'success')
             return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
-        else:
-            flash('Debes seleccionar una mesa.', 'warning')
-            return redirect(url_for('meseros.seleccionar_mesa'))
+        flash('Debes seleccionar una mesa.', 'warning')
+        return redirect(url_for('meseros.seleccionar_mesa'))
 
-    mesas = Mesa.query.order_by(Mesa.numero).all() # Asumiendo que quieres ordenarlas
+    mesas = filtrar_por_sucursal(Mesa.query, Mesa).order_by(Mesa.numero).all()
     return render_template('seleccionar_mesa.html', mesas=mesas)
 
-@meseros_bp.route('/ordenes/<int:orden_id>/detalle_orden', methods=['GET']) # Cambiado nombre de endpoint para evitar colisión
+
+# =====================================================================
+# Detalle / agregar productos
+# =====================================================================
+@meseros_bp.route('/ordenes/<int:orden_id>/detalle_orden', methods=['GET'])
 @login_required(roles='mesero')
-def detalle_orden(orden_id): # Esta es la página para AÑADIR/MODIFICAR productos a una orden
+@verificar_propiedad_orden
+def detalle_orden(orden_id):
     orden = Orden.query.options(
         joinedload(Orden.mesa),
-        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
     ).get_or_404(orden_id)
 
-    # No permitir modificar si ya fue enviada, pagada, etc.
-    if orden.estado not in ['pendiente']:
-        flash(f'La orden #{orden.id} ya fue procesada ({orden.estado}) y no puede modificarse aquí.', 'warning')
+    if orden.estado not in ESTADOS_MODIFICABLES:
+        flash(f'Orden #{orden.id} no puede modificarse ({orden.estado}).', 'warning')
         return redirect(url_for('meseros.view_meseros'))
 
-    productos = Producto.query.options(joinedload(Producto.categoria)).order_by(Producto.categoria_id, Producto.nombre).all()
-    productos_por_categoria = defaultdict(list)
-    for producto in productos:
-        productos_por_categoria[producto.categoria.nombre].append(producto.to_dict())
-    
-    return render_template('detalle_orden.html', orden=orden, productos_por_categoria=productos_por_categoria)
+    productos = Producto.query.options(
+        joinedload(Producto.categoria),
+    ).order_by(Producto.categoria_id, Producto.nombre).all()
 
-@meseros_bp.route('/ordenes/<int:orden_id>/agregar_productos', methods=['POST']) # Cambiado nombre de endpoint
+    productos_por_categoria = defaultdict(list)
+    for p in productos:
+        productos_por_categoria[p.categoria.nombre].append(p.to_dict())
+
+    return render_template('detalle_orden.html', orden=orden,
+                           productos_por_categoria=productos_por_categoria)
+
+
+@meseros_bp.route('/ordenes/<int:orden_id>/agregar_productos', methods=['POST'])
 @login_required(roles='mesero')
-def agregar_productos_a_orden(orden_id): # Cambiado nombre de función
+@verificar_propiedad_orden
+def agregar_productos_a_orden(orden_id):
     orden = Orden.query.get_or_404(orden_id)
-    if orden.estado != 'pendiente':
-        flash(f'No se pueden agregar productos. La orden #{orden.id} ya fue procesada ({orden.estado}).', 'danger')
+    if orden.estado not in ESTADOS_MODIFICABLES:
+        flash(f'No se pueden agregar productos ({orden.estado}).', 'danger')
         return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
     data = request.form.get('productos_json')
@@ -105,62 +145,83 @@ def agregar_productos_a_orden(orden_id): # Cambiado nombre de función
         flash('No se recibieron productos.', 'warning')
         return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
+    orden_ya_enviada = orden.estado != 'pendiente'
     try:
-        productos_seleccionados = json.loads(data)
-        if not productos_seleccionados:
-            flash('No se seleccionaron productos para agregar.', 'info')
+        productos_sel = json.loads(data)
+        if not productos_sel:
+            flash('No se seleccionaron productos.', 'info')
             return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
-        for p_data in productos_seleccionados:
-            producto_obj = Producto.query.get(p_data['id'])
-            if not producto_obj:
-                flash(f"Producto con ID {p_data['id']} no encontrado.", 'danger')
-                continue 
-            
-            # Verificar si ya existe un detalle para este producto en esta orden (para agrupar o añadir nuevo)
-            detalle_existente = OrdenDetalle.query.filter_by(orden_id=orden_id, producto_id=producto_obj.id).first()
-            if detalle_existente: # Si ya existe, actualiza la cantidad
-                 detalle_existente.cantidad += int(p_data['cantidad'])
-            else: # Si no existe, crea un nuevo detalle
-                detalle = OrdenDetalle(
-                    orden_id=orden_id,
-                    producto_id=producto_obj.id,
-                    cantidad=int(p_data['cantidad']),
-                    # precio_unitario se podría guardar aquí si los precios pueden cambiar,
-                    # pero tu modelo no lo tiene. Asume que se toma de Producto.precio
-                    estado='pendiente' # Estado inicial del detalle
+        nuevos = []
+        stock_warnings = []
+        for p_data in productos_sel:
+            prod = Producto.query.get(p_data['id'])
+            if not prod:
+                continue
+            cantidad = int(p_data['cantidad'])
+
+            # Validación de stock (Sprint 2 — 3.2)
+            if current_app.config.get('INVENTARIO_VALIDAR_STOCK'):
+                disponible, faltantes, warns = verificar_stock_disponible(prod.id, cantidad)
+                if not disponible:
+                    nombres = ', '.join(f['ingrediente'] for f in faltantes)
+                    flash(f'Stock insuficiente para {prod.nombre}: faltan {nombres}', 'danger')
+                    continue
+                stock_warnings.extend(warns)
+
+            existente = OrdenDetalle.query.filter_by(
+                orden_id=orden_id, producto_id=prod.id, estado='pendiente',
+            ).first()
+            if existente:
+                existente.cantidad += cantidad
+            else:
+                d = OrdenDetalle(
+                    orden_id=orden_id, producto_id=prod.id,
+                    cantidad=cantidad, precio_unitario=prod.precio, estado='pendiente',
                 )
-                db.session.add(detalle)
+                db.session.add(d)
+                nuevos.append(d)
+
         db.session.commit()
-        flash('Productos agregados/actualizados correctamente.', 'success')
+        if orden_ya_enviada and nuevos:
+            socketio.emit('nueva_orden_cocina', {
+                'orden_id': orden.id,
+                'mensaje': f'Nuevos productos en orden #{orden.id}.',
+            })
+        # Avisar warnings de stock bajo
+        for w in stock_warnings:
+            flash(f'⚠️ Stock bajo: {w["ingrediente"]} ({w["stock_actual"]} {w["unidad"]})', 'warning')
+        flash('Productos agregados.', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error al procesar los productos: {str(e)}', 'danger')
+        logger.exception('Error agregar productos orden %s', orden_id)
+        flash(f'Error: {e}', 'danger')
 
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
 
 
+# =====================================================================
+# Enviar / entregar / cancelar
+# =====================================================================
 @meseros_bp.route('/ordenes/<int:orden_id>/enviar_a_cocina', methods=['POST'])
 @login_required(roles='mesero')
+@verificar_propiedad_orden
 def enviar_orden_a_cocina(orden_id):
     orden = Orden.query.get_or_404(orden_id)
     if not orden.detalles:
-        flash('No se puede enviar una orden vacía a cocina.', 'warning')
+        flash('Orden vacía.', 'warning')
         return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
-        
     if orden.estado != 'pendiente':
-        flash(f'La orden #{orden.id} ya fue enviada o procesada ({orden.estado}).', 'warning')
+        flash(f'Orden ya enviada ({orden.estado}).', 'warning')
     else:
-        orden.estado = 'enviado' # Estado que indica que está en cocina
-        # Todos los detalles de esta orden también deberían pasar a 'pendiente' (ya es su default)
-        # o si tuvieran otro estado previo, actualizarlos.
-        # for detalle in orden.detalles:
-        #     if detalle.estado != 'pendiente': # O el estado inicial que quieras para cocina
-        #         detalle.estado = 'pendiente'
+        orden.estado = 'enviado'
         db.session.commit()
-        flash('Orden enviada a cocina correctamente.', 'success')
-        socketio.emit('nueva_orden_cocina', {'orden_id': orden.id, 'mensaje': f'Nueva orden #{orden.id} para cocina.'})
-    # Redirigir al dashboard de meseros para ver el estado de la orden
+        socketio.emit('nueva_orden_cocina', {'orden_id': orden.id, 'mensaje': f'Orden #{orden.id} para cocina.'})
+        # Auto-imprimir comanda si está configurado (Sprint 3 — 3.1)
+        from backend.services.printer import AUTO_PRINT_COMANDA, imprimir_comanda
+        if AUTO_PRINT_COMANDA:
+            imprimir_comanda(orden)
+        flash('Orden enviada a cocina.', 'success')
     return redirect(url_for('meseros.view_meseros'))
 
 
@@ -168,158 +229,374 @@ def enviar_orden_a_cocina(orden_id):
 @login_required(roles=['mesero', 'admin', 'superadmin'])
 def entregar_item(orden_id, detalle_id):
     detalle = OrdenDetalle.query.filter_by(id=detalle_id, orden_id=orden_id).first_or_404()
-    
     if detalle.estado == 'entregado':
-        return jsonify({"success": False, "message": "Este ítem ya fue entregado."}), 400
-    if detalle.estado != 'listo': # Solo se pueden entregar ítems que están listos de cocina
-        return jsonify({"success": False, "message": "Este ítem no está listo para entregar desde cocina."}), 400
+        return jsonify(success=False, message="Ya entregado."), 400
+    if detalle.estado != 'listo':
+        return jsonify(success=False, message="No está listo."), 400
 
     detalle.estado = 'entregado'
-    # No es necesario un commit aquí si lo haces después de verificar la orden completa
-
     orden = Orden.query.options(joinedload(Orden.detalles)).get_or_404(orden_id)
-    todos_detalles_entregados = all(d.estado == 'entregado' for d in orden.detalles)
 
-    if todos_detalles_entregados:
+    if all(d.estado == 'entregado' for d in orden.detalles):
         if orden.estado not in ['pagada', 'finalizada', 'cancelada', 'completada']:
-            orden.estado = 'completada' 
-            # Emitir evento de que la orden está lista para cobro (completamente entregada)
-            socketio.emit('orden_actualizada_para_cobro', { # Renombré el evento
-                'orden_id': orden.id, 
-                'estado_orden': orden.estado,
-                'mensaje': f'Orden #{orden.id} completamente entregada y lista para cobro.'
+            orden.estado = 'completada'
+            socketio.emit('orden_actualizada_para_cobro', {
+                'orden_id': orden.id, 'estado_orden': 'completada',
+                'mensaje': f'Orden #{orden.id} lista para cobro.',
             })
-    
-    db.session.commit() # Un solo commit al final
-    return jsonify(success=True, message="Ítem marcado como entregado.")
+    db.session.commit()
+    return jsonify(success=True, message="Entregado.")
 
 
+@meseros_bp.route('/ordenes/<int:orden_id>/cancelar', methods=['POST'])
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def cancelar_orden(orden_id):
+    orden = Orden.query.get_or_404(orden_id)
+    if orden.estado in ['pagada', 'finalizada', 'cancelada']:
+        flash('No se puede cancelar.', 'warning')
+        return redirect(url_for('meseros.view_meseros'))
+    orden.estado = 'cancelada'
+    db.session.commit()
+    # Liberar mesa si no quedan órdenes activas (Sprint 2 — 3.3)
+    actualizar_estado_mesa(orden.mesa_id)
+    db.session.commit()
+    logger.info('Orden %s cancelada por usuario %s', orden_id, session.get('user_id'))
+    flash(f'Orden #{orden.id} cancelada.', 'info')
+    return redirect(url_for('meseros.view_meseros'))
+
+
+# =====================================================================
+# ITEM 12: Descuento con autorización
+# =====================================================================
+@meseros_bp.route('/ordenes/<int:orden_id>/descuento', methods=['POST'])
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def aplicar_descuento(orden_id):
+    """Aplica descuento; requiere credenciales de admin/superadmin para autorizar."""
+    orden = Orden.query.get_or_404(orden_id)
+    data = request.get_json()
+    if not data:
+        return jsonify(success=False, message="Datos faltantes."), 400
+
+    # Validar autorización
+    auth_email = data.get('auth_email')
+    auth_password = data.get('auth_password')
+    autorizador = Usuario.query.filter_by(email=auth_email).first()
+
+    if not autorizador or not autorizador.check_password(auth_password):
+        return jsonify(success=False, message="Credenciales de autorización inválidas."), 403
+    if autorizador.rol not in ('admin', 'superadmin'):
+        return jsonify(success=False, message="Solo admin/superadmin puede autorizar descuentos."), 403
+
+    tipo = data.get('tipo', 'porcentaje')  # porcentaje | monto
+    valor = Decimal(str(data.get('valor', 0)))
+    motivo = sanitizar_texto(data.get('motivo', ''), 200)
+
+    if tipo == 'porcentaje':
+        if valor < 0 or valor > 100:
+            return jsonify(success=False, message="Porcentaje debe ser 0-100."), 400
+        orden.descuento_pct = valor
+        orden.descuento_monto = Decimal('0')
+    else:
+        if valor < 0:
+            return jsonify(success=False, message="Monto inválido."), 400
+        orden.descuento_monto = valor
+        orden.descuento_pct = Decimal('0')
+
+    orden.descuento_motivo = motivo
+    orden.descuento_autorizado_por = autorizador.id
+    orden.calcular_totales()
+    db.session.commit()
+
+    logger.info('Descuento aplicado orden=%s tipo=%s valor=%s por=%s',
+                orden_id, tipo, valor, autorizador.id)
+    return jsonify(success=True, message="Descuento aplicado.",
+                   subtotal=float(orden.subtotal), iva=float(orden.iva), total=float(orden.total))
+
+
+# =====================================================================
+# Cobro info — ahora con IVA (ITEM 8)
+# =====================================================================
 @meseros_bp.route('/ordenes/<int:orden_id>/cobrar_info', methods=['GET'])
 @login_required(roles='mesero')
-def get_cobrar_orden_info(orden_id): # Renombré para claridad vs la ruta POST
+@verificar_propiedad_orden
+def get_cobrar_orden_info(orden_id):
     orden = Orden.query.options(
-        joinedload(Orden.mesa), # Para orden.mesa.numero
-        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)
+        joinedload(Orden.mesa),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+        joinedload(Orden.pagos),
     ).get_or_404(orden_id)
-    
+
+    # Recalcular siempre al pedir info
+    orden.calcular_totales()
+    db.session.commit()
+
     detalles_data = []
     for d in orden.detalles:
+        precio = float(d.precio_unitario) if d.precio_unitario is not None else float(d.producto.precio)
         detalles_data.append({
-            "id": d.id,
-            "nombre": d.producto.nombre,
-            "cantidad": d.cantidad,
-            "precio": d.producto.precio,
-            "subtotal": d.producto.precio * d.cantidad,
-            "estado": d.estado # MUY IMPORTANTE para el modal de cobro
+            "id": d.id, "nombre": d.producto.nombre, "cantidad": d.cantidad,
+            "precio": precio, "subtotal": precio * d.cantidad, "estado": d.estado,
         })
-    total_calculado = sum(item["subtotal"] for item in detalles_data)
-    
+
+    pagos_data = [{
+        'id': p.id, 'metodo': p.metodo, 'monto': float(p.monto),
+        'referencia': p.referencia,
+    } for p in orden.pagos]
+
     return jsonify({
-        "orden_id": orden.id, 
+        "orden_id": orden.id,
         "mesa_numero": orden.mesa.numero if orden.mesa else None,
         "es_para_llevar": orden.es_para_llevar,
         "estado_orden": orden.estado,
-        "detalles": detalles_data, 
-        "total": total_calculado
+        "detalles": detalles_data,
+        "subtotal": float(orden.subtotal or 0),
+        "descuento_pct": float(orden.descuento_pct or 0),
+        "descuento_monto": float(orden.descuento_monto or 0),
+        "iva_rate": float(IVA_RATE * 100),
+        "iva": float(orden.iva or 0),
+        "total": float(orden.total or 0),
+        "pagos": pagos_data,
+        "total_pagado": float(orden.total_pagado()),
+        "saldo_pendiente": float(orden.saldo_pendiente()),
     })
 
+
+# =====================================================================
+# ITEM 9 + 13: Registrar pago (multi-método / split)
+# =====================================================================
+@meseros_bp.route('/ordenes/<int:orden_id>/pago', methods=['POST'])
+@login_required(roles='mesero')
+@verificar_propiedad_orden
+def registrar_pago(orden_id):
+    """Registra un pago parcial o total. Se pueden hacer múltiples."""
+    orden = Orden.query.options(
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+        joinedload(Orden.pagos),
+    ).get_or_404(orden_id)
+
+    if orden.estado not in ('completada', 'lista_para_entregar'):
+        return jsonify(success=False, message=f"Orden no lista para cobro ({orden.estado})."), 400
+
+    data = request.get_json()
+    metodo = data.get('metodo', 'efectivo')
+    if metodo not in ('efectivo', 'tarjeta', 'transferencia'):
+        return jsonify(success=False, message="Método inválido."), 400
+
+    try:
+        monto = Decimal(str(data.get('monto', 0)))
+    except Exception:
+        return jsonify(success=False, message="Monto inválido."), 400
+
+    if monto <= 0:
+        return jsonify(success=False, message="Monto debe ser mayor a 0."), 400
+
+    referencia = data.get('referencia', '')
+
+    # Propina (Sprint 6 — 3.6)
+    try:
+        propina = Decimal(str(data.get('propina', 0)))
+    except Exception:
+        propina = Decimal('0')
+    if propina < 0:
+        propina = Decimal('0')
+    orden.propina = (orden.propina or Decimal('0')) + propina
+
+    # Recalcular totales
+    orden.calcular_totales()
+
+    pago = Pago(
+        orden_id=orden.id, metodo=metodo, monto=monto,
+        referencia=referencia, registrado_por=session.get('user_id'),
+    )
+    db.session.add(pago)
+    db.session.flush()
+
+    total_pagado = orden.total_pagado()
+    saldo = orden.saldo_pendiente()
+
+    # Si ya se cubrió el total, cerrar la orden
+    if saldo <= 0:
+        cambio = abs(saldo) if metodo == 'efectivo' else Decimal('0')
+        orden.monto_recibido = total_pagado
+        orden.cambio = cambio
+        orden.fecha_pago = datetime.utcnow()
+        orden.estado = 'pagada'
+
+        # Crear Sale record
+        venta = Sale(mesa_id=orden.mesa_id, usuario_id=session.get('user_id'),
+                     total=orden.total, estado='cerrada',
+                     sucursal_id=getattr(g, 'sucursal_id', None))
+        db.session.add(venta)
+        db.session.flush()
+        for det in orden.detalles:
+            precio = float(det.precio_unitario) if det.precio_unitario else float(det.producto.precio)
+            db.session.add(SaleItem(
+                sale_id=venta.id, producto_id=det.producto_id,
+                cantidad=det.cantidad, precio_unitario=precio,
+                subtotal=det.cantidad * precio,
+            ))
+
+        socketio.emit('orden_pagada_notificacion', {
+            'orden_id': orden.id, 'mensaje': f'Orden #{orden.id} pagada.',
+        })
+        # Descontar inventario según receta estándar
+        try:
+            descontar_inventario_por_orden(orden, session.get('user_id'))
+        except Exception:
+            logger.exception('Error descontando inventario orden %s', orden_id)
+
+        # Actualizar visitas/gasto del cliente
+        if orden.cliente_id:
+            cli = Cliente.query.get(orden.cliente_id)
+            if cli:
+                cli.visitas = (cli.visitas or 0) + 1
+                cli.total_gastado = (cli.total_gastado or 0) + orden.total
+
+        logger.info('Orden #%s pagada total=$%.2f', orden_id, float(orden.total))
+
+    # Auditoría (Sprint 6 — 3.5)
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('pago', 'Orden', orden_id,
+                        f'Pago ${float(monto):.2f} ({metodo}). Propina: ${float(propina):.2f}')
+
+    db.session.commit()
+
+    # Liberar mesa si orden pagada (Sprint 2 — 3.3)
+    if orden.estado == 'pagada':
+        actualizar_estado_mesa(orden.mesa_id)
+        db.session.commit()
+
+    return jsonify(
+        success=True,
+        message="Pago registrado." + (" Orden pagada." if orden.estado == 'pagada' else ""),
+        pago_id=pago.id,
+        metodo=metodo,
+        monto=float(monto),
+        total_pagado=float(orden.total_pagado()),
+        saldo_pendiente=float(max(orden.saldo_pendiente(), Decimal('0'))),
+        cambio=float(orden.cambio or 0),
+        orden_pagada=(orden.estado == 'pagada'),
+    )
+
+
+# =====================================================================
+# Cobrar (legacy — redirige a nuevo flujo de pagos)
+# =====================================================================
 @meseros_bp.route('/ordenes/<int:orden_id>/cobrar', methods=['POST'])
 @login_required(roles='mesero')
-def cobrar_orden_post(orden_id): # Renombré para claridad vs la ruta GET de info
-    orden = Orden.query.options(joinedload(Orden.detalles).joinedload(OrdenDetalle.producto)).get_or_404(orden_id)
-    
-    print(f"[COBRAR_ORDEN] Iniciando cobro para orden #{orden_id}. Estado actual: {orden.estado}")
-    print(f"[COBRAR_ORDEN] Request JSON: {request.json}")
+@verificar_propiedad_orden
+def cobrar_orden_post(orden_id):
+    """Compatibilidad: convierte pago único legacy al nuevo modelo multi-pago."""
+    orden = Orden.query.options(
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+        joinedload(Orden.pagos),
+    ).get_or_404(orden_id)
 
     if orden.estado != 'completada':
-        msg = f"La orden no está lista para cobro. Estado actual: {orden.estado} (se esperaba 'completada')."
-        print(f"[COBRAR_ORDEN_ERROR] {msg}")
-        return jsonify({"success": False, "message": msg}), 400
+        return jsonify(success=False, message=f"No lista para cobro ({orden.estado})."), 400
 
-    # Verificar que todos los detalles estén realmente entregados (doble chequeo)
-    detalles_no_entregados = [d for d in orden.detalles if d.estado != 'entregado']
-    if detalles_no_entregados:
-        nombres_pendientes = [d.producto.nombre for d in detalles_no_entregados]
-        msg = f"No se puede cobrar. Ítems pendientes de entrega: {', '.join(nombres_pendientes)}."
-        print(f"[COBRAR_ORDEN_ERROR] {msg}")
-        return jsonify({"success": False, "message": msg}), 400
+    no_entregados = [d for d in orden.detalles if d.estado != 'entregado']
+    if no_entregados:
+        return jsonify(success=False, message="Ítems pendientes de entrega."), 400
 
     data = request.get_json()
     if not data or 'monto_recibido' not in data:
-        print(f"[COBRAR_ORDEN_ERROR] Datos de monto_recibido faltantes.")
-        return jsonify({"success": False, "message": "Falta el monto recibido."}), 400
+        return jsonify(success=False, message="Falta monto_recibido."), 400
 
     try:
-        monto_recibido_float = float(data['monto_recibido'])
-    except ValueError:
-        print(f"[COBRAR_ORDEN_ERROR] Monto recibido no es un número válido: {data['monto_recibido']}")
-        return jsonify({"success": False, "message": "Monto recibido inválido."}), 400
+        monto_recibido = Decimal(str(data['monto_recibido']))
+    except Exception:
+        return jsonify(success=False, message="Monto inválido."), 400
 
-    total_orden_calculado = sum(d.cantidad * d.producto.precio for d in orden.detalles)
-    print(f"[COBRAR_ORDEN] Total calculado: {total_orden_calculado}, Monto recibido: {monto_recibido_float}")
+    orden.calcular_totales()
 
-    if monto_recibido_float < total_orden_calculado:
-        msg = f"El monto recibido (${monto_recibido_float}) es menor al total de la orden (${total_orden_calculado})."
-        print(f"[COBRAR_ORDEN_ERROR] {msg}")
-        return jsonify({"success": False, "message": msg, "total_orden": total_orden_calculado}), 400
+    if monto_recibido < orden.total:
+        return jsonify(success=False, message=f"Insuficiente (total=${orden.total}).",
+                       total_orden=float(orden.total)), 400
 
-    # Actualizar orden
-    orden.monto_recibido = monto_recibido_float
-    orden.cambio = monto_recibido_float - total_orden_calculado
-    orden.fecha_pago = datetime.utcnow()
-    orden.estado = 'pagada' # Estado final
-
-    # Crear registro de Venta (Sale)
-    nueva_venta = Sale(
-        mesa_id=orden.mesa_id,
-        usuario_id=session.get('user_id'), # El mesero que cobró
-        total=total_orden_calculado,
-        estado='cerrada' # O el estado que uses para venta concretada
+    # Registrar como pago efectivo
+    pago = Pago(
+        orden_id=orden.id, metodo='efectivo', monto=monto_recibido,
+        registrado_por=session.get('user_id'),
     )
-    db.session.add(nueva_venta)
-    db.session.flush() # Para obtener nueva_venta.id para los SaleItem
+    db.session.add(pago)
 
-    for detalle_orden in orden.detalles:
-        item_venta = SaleItem(
-            sale_id=nueva_venta.id,
-            producto_id=detalle_orden.producto_id,
-            cantidad=detalle_orden.cantidad,
-            precio_unitario=detalle_orden.producto.precio, # Tomar precio del producto al momento de la venta
-            subtotal=detalle_orden.cantidad * detalle_orden.producto.precio
-        )
-        db.session.add(item_venta)
-    
+    orden.monto_recibido = monto_recibido
+    orden.cambio = monto_recibido - orden.total
+    orden.fecha_pago = datetime.utcnow()
+    orden.estado = 'pagada'
+
+    venta = Sale(mesa_id=orden.mesa_id, usuario_id=session.get('user_id'),
+                 total=orden.total, estado='cerrada',
+                 sucursal_id=getattr(g, 'sucursal_id', None))
+    db.session.add(venta)
+    db.session.flush()
+
+    for det in orden.detalles:
+        precio = float(det.precio_unitario) if det.precio_unitario else float(det.producto.precio)
+        db.session.add(SaleItem(
+            sale_id=venta.id, producto_id=det.producto_id,
+            cantidad=det.cantidad, precio_unitario=precio,
+            subtotal=det.cantidad * precio,
+        ))
+
     db.session.commit()
-    print(f"[COBRAR_ORDEN] Orden #{orden_id} pagada exitosamente. Cambio: ${orden.cambio}")
-    
-    # Emitir evento de que la orden fue pagada
+    # Liberar mesa si no quedan órdenes activas (Sprint 2 — 3.3)
+    actualizar_estado_mesa(orden.mesa_id)
+    db.session.commit()
+    logger.info('Orden #%s pagada (legacy). Total=$%.2f', orden_id, float(orden.total))
+
     socketio.emit('orden_pagada_notificacion', {
-        'orden_id': orden.id,
-        'mensaje': f'Orden #{orden.id} ha sido pagada.'
+        'orden_id': orden.id, 'mensaje': f'Orden #{orden.id} pagada.',
     })
 
-    return jsonify({
-        "success": True, 
-        "message": "Pago confirmado exitosamente.", 
-        "cambio": orden.cambio,
-        "orden_id": orden.id
-    })
+    return jsonify(
+        success=True, message="Pago confirmado.",
+        cambio=float(orden.cambio), orden_id=orden.id,
+        subtotal=float(orden.subtotal), iva=float(orden.iva), total=float(orden.total),
+    )
 
-# Rutas que tenías para marcar entregado con booleano (considera eliminarlas o refactorizarlas)
-# Si decides mantenerlas, asegúrate de que actualicen `detalle.estado` también para consistencia.
-@meseros_bp.route('/ordenes/<int:orden_id>/producto/<int:detalle_id>/marcar_entregado_old', methods=['POST'])
-@login_required(roles='mesero')
-def marcar_producto_entregado_old(orden_id, detalle_id): # Renombrada para evitar conflicto
-    detalle = OrdenDetalle.query.get_or_404(detalle_id)
-    if detalle.orden_id != orden_id:
-         return jsonify({"success": False, "message": "Detalle no pertenece a la orden."}), 400
-    detalle.entregado = True # Usando el campo booleano
-    # ¡Deberías también cambiar detalle.estado a 'entregado' aquí por consistencia!
-    # detalle.estado = 'entregado' 
-    db.session.commit()
-    # Considera qué evento emitir. 'order_updated' es genérico.
-    socketio.emit('order_updated', {'orden_id': orden_id, 'detalle_id': detalle_id, 'nuevo_estado_entregado_booleano': True})
-    return jsonify({"success": True, "message": f"Producto {detalle.producto.nombre} marcado como entregado (booleano)."})
 
-# ... (otras rutas como cancelar_orden, finalizar_orden (revisa su utilidad ahora), detalles_json, etc.)
-# ... (el endpoint total_ordenes_activas es útil)
+# =====================================================================
+# Impresión ESC/POS (Sprint 3 — 3.1)
+# =====================================================================
+@meseros_bp.route('/ordenes/<int:orden_id>/imprimir/comanda', methods=['POST'])
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def imprimir_comanda_endpoint(orden_id):
+    """Imprime comanda de cocina. Fallback: retorna texto para window.print()."""
+    from backend.services.printer import imprimir_comanda, generar_texto_comanda, PRINTER_TYPE
+    orden = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.mesero),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+    ).get_or_404(orden_id)
+
+    if PRINTER_TYPE != 'none':
+        ok = imprimir_comanda(orden)
+        if ok:
+            return jsonify(success=True, message='Comanda impresa.')
+        return jsonify(success=False, message='Error al imprimir.', texto=generar_texto_comanda(orden))
+
+    # Modo none: retornar texto para impresión del navegador
+    return jsonify(success=True, fallback=True, texto=generar_texto_comanda(orden))
+
+
+@meseros_bp.route('/ordenes/<int:orden_id>/imprimir/ticket', methods=['POST'])
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def imprimir_ticket_endpoint(orden_id):
+    """Imprime ticket de cuenta. Fallback: retorna texto para window.print()."""
+    from backend.services.printer import imprimir_ticket_cuenta, generar_texto_ticket, PRINTER_TYPE
+    orden = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.mesero),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+        joinedload(Orden.pagos),
+    ).get_or_404(orden_id)
+
+    if PRINTER_TYPE != 'none':
+        ok = imprimir_ticket_cuenta(orden)
+        if ok:
+            return jsonify(success=True, message='Ticket impreso.')
+        return jsonify(success=False, message='Error al imprimir.', texto=generar_texto_ticket(orden))
+
+    return jsonify(success=True, fallback=True, texto=generar_texto_ticket(orden))

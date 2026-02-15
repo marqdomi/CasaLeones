@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_login import login_required, current_user
 from backend.extensions import db
 from backend.models.models import Sale, SaleItem, Producto, Mesa
@@ -9,7 +9,11 @@ ventas_bp = Blueprint('ventas', __name__, url_prefix='/ventas')
 @login_required
 def abrir_venta():
     mesa_id = request.json.get('mesa_id')
-    sale = Sale(usuario_id=current_user.id, mesa_id=mesa_id)
+    sale = Sale(
+        usuario_id=current_user.id,
+        mesa_id=mesa_id,
+        sucursal_id=getattr(g, 'sucursal_id', None),
+    )
     db.session.add(sale)
     db.session.commit()
     return jsonify({'sale_id': sale.id}), 201

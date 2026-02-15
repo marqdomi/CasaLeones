@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}Nueva Reservación{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4">Nueva Reservación</h2>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+      <label class="form-label">Nombre de contacto *</label>
+      <input type="text" name="nombre_contacto" class="form-control" required>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Teléfono</label>
+      <input type="text" name="telefono" class="form-control">
+    </div>
+    <div class="row">
+      <div class="col-md-8 mb-3">
+        <label class="form-label">Fecha y Hora *</label>
+        <input type="datetime-local" name="fecha_hora" class="form-control" required>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label class="form-label"># Personas</label>
+        <input type="number" name="num_personas" class="form-control" value="2" min="1">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Mesa (opcional)</label>
+      <select name="mesa_id" class="form-select">
+        <option value="">— Sin asignar —</option>
+        {% for m in mesas %}
+        <option value="{{ m.id }}">Mesa {{ m.numero }} ({{ m.capacidad }} pers.) — {{ m.estado }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Cliente registrado (opcional)</label>
+      <select name="cliente_id" class="form-select">
+        <option value="">— Sin vincular —</option>
+        {% for c in clientes %}
+        <option value="{{ c.id }}">{{ c.nombre }}{% if c.telefono %} ({{ c.telefono }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Notas</label>
+      <textarea name="notas" class="form-control" rows="2"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Crear Reservación</button>
+    <a href="{{ url_for('reservaciones.lista_reservaciones') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

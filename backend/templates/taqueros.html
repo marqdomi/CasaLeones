@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Órdenes - Estación Taqueros{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cocina_timers.css') }}?v={{ config.VERSION }}">
+<script>document.documentElement.setAttribute('data-theme','dark');</script>
+{% endblock %}
+
 {% block content %}
 {% set total_productos = ordenes_por_estacion.values() | map('length') | sum %}
 <div class="container mt-4">
@@ -12,13 +17,17 @@
   {% if total_productos > 0 %}
   <div class="row" id="ordenes-pendientes-lista">
     {% for orden_id, detalles in ordenes_por_estacion.items() if detalles|length > 0 %}
-      <div class="col-md-6 mb-4 orden-card" id="orden-{{ orden_id }}">
+      <div class="col-md-6 mb-4 orden-card orden-timer-card" id="orden-{{ orden_id }}"
+           data-tiempo-registro="{{ detalles[0].orden.tiempo_registro.isoformat() }}">
         <div class="card shadow-sm">
-          <div class="card-header text-white {% if detalles[0].orden.es_para_llevar %}bg-success{% else %}bg-primary{% endif %}">
-            Orden #{{ orden_id }} &ndash; {{ detalles|length }} productos
-            <span class="badge ms-2 {% if detalles[0].orden.es_para_llevar %}bg-light text-dark{% else %}bg-warning text-dark{% endif %}">
-              {{ detalles[0].orden.es_para_llevar and 'Para Llevar' or 'Para Mesa' }}
+          <div class="card-header text-white d-flex justify-content-between align-items-center {% if detalles[0].orden.es_para_llevar %}bg-success{% else %}bg-primary{% endif %}">
+            <span>
+              Orden #{{ orden_id }} &ndash; {{ detalles|length }} productos
+              <span class="badge ms-2 {% if detalles[0].orden.es_para_llevar %}bg-light text-dark{% else %}bg-warning text-dark{% endif %}">
+                {{ detalles[0].orden.es_para_llevar and 'Para Llevar' or 'Para Mesa' }}
+              </span>
             </span>
+            <span class="badge bg-dark timer-badge" data-timer-orden="{{ orden_id }}">00:00</span>
           </div>
           <ul class="list-group list-group-flush">
             {% for group in detalles|groupby('producto.nombre') %}
@@ -44,6 +53,7 @@
 {% block scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js" integrity="sha512-luMnTJZ7oEchNDZAtQhgjomP1eZefnl82ruTH/3Oj/Yu5qYtwL7+dVRccACS/Snp1lFXq188XFipHKYE75IaQQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{{ url_for('static', filename='js/cocina_timers.js') }}?v={{ config.VERSION }}"></script>
 <script>
 $(document).ready(function() {
     var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);

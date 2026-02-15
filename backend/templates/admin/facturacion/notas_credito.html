@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Notas de Crédito{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Notas de Crédito</h2>
+  <div class="mb-3">
+    <a href="{{ url_for('facturacion.lista_facturas') }}" class="btn btn-outline-secondary btn-sm">Volver a Facturas</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped table-sm">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Factura Origen</th>
+          <th>UUID</th>
+          <th>Motivo</th>
+          <th>Subtotal</th>
+          <th>IVA</th>
+          <th>Monto Total</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for nc in notas %}
+        <tr>
+          <td>{{ nc.id }}</td>
+          <td>
+            <a href="{{ url_for('facturacion.detalle_factura', factura_id=nc.factura_origen_id) }}">
+              Factura #{{ nc.factura_origen_id }}
+            </a>
+          </td>
+          <td><small>{{ nc.uuid_cfdi or '—' }}</small></td>
+          <td>{{ nc.motivo }}</td>
+          <td>${{ '%.2f'|format(nc.subtotal) }}</td>
+          <td>${{ '%.2f'|format(nc.iva) }}</td>
+          <td><strong>${{ '%.2f'|format(nc.monto) }}</strong></td>
+          <td>
+            <span class="badge {% if nc.estado == 'timbrada' %}bg-success{% elif nc.estado == 'error' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+              {{ nc.estado }}
+            </span>
+          </td>
+          <td>{{ nc.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+        {% if not notas %}
+        <tr><td colspan="9" class="text-center text-muted">No hay notas de crédito.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

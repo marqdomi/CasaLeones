@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Complemento de Pago — Factura #{{ factura.id }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4">Complemento de Pago <small class="text-muted">(CFDI tipo P)</small></h2>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5 class="card-title">Factura Origen #{{ factura.id }}</h5>
+      <p class="mb-1"><strong>UUID:</strong> {{ factura.uuid_cfdi or '—' }}</p>
+      <p class="mb-1"><strong>RFC Receptor:</strong> {{ factura.rfc_receptor }}</p>
+      <p class="mb-1"><strong>Razón Social:</strong> {{ factura.razon_social or '—' }}</p>
+      <p class="mb-1"><strong>Total Factura:</strong> ${{ '%.2f'|format(factura.total) }}</p>
+      <p class="mb-0"><strong>Método de Pago:</strong>
+        <span class="badge bg-info">{{ factura.metodo_pago_cfdi or 'PPD' }}</span>
+        <small class="text-muted">(Pago en Parcialidades o Diferido)</small>
+      </p>
+    </div>
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="mb-3">
+      <label class="form-label">Monto del pago recibido</label>
+      <div class="input-group">
+        <span class="input-group-text">$</span>
+        <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
+               max="{{ factura.total }}" required placeholder="0.00">
+      </div>
+      <div class="form-text">Máximo: ${{ '%.2f'|format(factura.total) }}</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Forma de pago real</label>
+      <select name="forma_pago" class="form-select" required>
+        {% for clave, nombre in formas_pago.items() %}
+        <option value="{{ clave }}">{{ clave }} — {{ nombre }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-text">Seleccione cómo se recibió el pago.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary"
+            onclick="return confirm('¿Registrar complemento de pago por este monto?');">
+      <i class="fas fa-file-invoice-dollar me-1"></i> Generar Complemento de Pago
+    </button>
+    <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

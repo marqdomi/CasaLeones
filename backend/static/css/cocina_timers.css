@@ -1,0 +1,18 @@
+/* Cocina Timers — Fase 2 */
+.timer-badge {
+    font-size: 1rem;
+    font-family: 'Courier New', monospace;
+    min-width: 60px;
+    text-align: center;
+}
+
+@keyframes timer-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.5); }
+    70%  { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+
+.timer-urgent {
+    animation: timer-pulse 1.5s infinite;
+    border-color: #dc3545 !important;
+}

@@ -81,7 +81,8 @@ def order_details(orden_id):
             producto_id=producto.id,
             cantidad=cantidad,
             notas=notas,
-            estado='pendiente'
+            estado='pendiente',
+            precio_unitario=producto.precio,
         )
         db.session.add(detalle)
         db.session.commit()
@@ -129,3 +130,16 @@ def order_details(orden_id):
         for d in detalles
     ]
     return jsonify(out), 200
+
+
+@api_bp.route('/ordenes/mesa/<int:mesa_id>')
+@login_required()
+def orden_activa_mesa(mesa_id):
+    """Sprint 4 — 5.1: Retorna la orden activa de una mesa (para mapa de mesas)."""
+    orden = Orden.query.filter(
+        Orden.mesa_id == mesa_id,
+        Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']),
+    ).first()
+    if orden:
+        return jsonify(orden_id=orden.id, estado=orden.estado)
+    return jsonify(orden_id=None)

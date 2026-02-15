@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Reporte de Ventas{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Reporte de Ventas</h2>
+  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
+
+  <form class="row g-3 mb-4" method="GET">
+    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
+    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
+    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
+    <div class="col-auto align-self-end">
+      <a href="{{ url_for('reportes.export_ventas_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
+      <a href="{{ url_for('reportes.export_ventas_pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-danger btn-sm">Exportar PDF</a>
+    </div>
+  </form>
+
+  <div class="row text-center mb-4">
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted">Total Ventas</h6><h3>${{ '%.2f'|format(total_ventas) }}</h3></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted"># Ventas</h6><h3>{{ num_ventas }}</h3></div></div></div>
+    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted">Ticket Promedio</h6><h3>${{ '%.2f'|format(ticket_promedio) }}</h3></div></div></div>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Ventas por Día</h5>
+    <div>
+      <button id="btnToggleVentas" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
+      <button id="btnExportVentasDia" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
+      <button id="btnExportVentasHora" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica hora"><i class="fas fa-download me-1"></i>PNG Hora</button>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div id="chartsVentas">
+    <div class="row">
+      <div class="col-lg-8 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Tendencia Diaria</h6>
+            <div class="chart-container-sm"><canvas id="chartVentasDia"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Ventas por Hora</h6>
+            <div class="chart-container-sm"><canvas id="chartVentasHora"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table (hidden by default) -->
+  <div id="tablaVentasDia">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped">
+        <thead><tr><th>Día</th><th>Total</th><th># Ventas</th><th>Promedio</th></tr></thead>
+        <tbody>
+          {% for row in ventas_por_dia %}
+          <tr>
+            <td>{{ row.dia }}</td>
+            <td>${{ '%.2f'|format(row.total) }}</td>
+            <td>{{ row.cantidad }}</td>
+            <td>${{ '%.2f'|format(row.total / row.cantidad if row.cantidad else 0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reportes-charts.js') }}?v={{ config.VERSION }}"></script>
+<script nonce="{{ csp_nonce }}">document.addEventListener('DOMContentLoaded', initVentasCharts);</script>
+{% endblock %}

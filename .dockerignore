@@ -1,6 +1,33 @@
 # .dockerignore
-.venv
+.git
+.gitignore
 __pycache__
 *.pyc
+*.pyo
+*.egg-info
+.pytest_cache
+.venv
+venv
+env
 instance/
-.git
+
+# Docker files
+docker-compose*.yml
+.dockerignore
+
+# IDE
+.vscode
+*.code-workspace
+.idea
+
+# Backups & data
+backups/
+*.dump
+*.sql
+
+# Misc
+*.md
+cookies.txt
+*.csv
+node_modules/
+frontend/

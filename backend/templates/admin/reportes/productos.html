@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}Top Productos{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Top Productos</h2>
+  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
+
+  <form class="row g-3 mb-4" method="GET">
+    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
+    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
+    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
+    <div class="col-auto align-self-end">
+      <a href="{{ url_for('reportes.export_productos_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
+      <a href="{{ url_for('reportes.export_productos_pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-danger btn-sm">Exportar PDF</a>
+    </div>
+  </form>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Productos más vendidos</h5>
+    <div>
+      <button id="btnToggleProductos" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
+      <button id="btnExportTopProductos" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
+      <button id="btnExportCategorias" class="btn btn-outline-info btn-sm ms-1" title="Exportar categorías"><i class="fas fa-download me-1"></i>PNG Cat</button>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div id="chartsProductos">
+    <div class="row">
+      <div class="col-lg-7 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Top 20 Productos</h6>
+            <div class="chart-container-xl"><canvas id="chartTopProductos"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-5 mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title text-muted">Ingresos por Categoría</h6>
+            <div class="chart-container-md"><canvas id="chartCategorias"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table (hidden by default) -->
+  <div id="tablaProductos">
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead><tr><th>#</th><th>Producto</th><th>Cantidad Vendida</th><th>Ingreso Total</th></tr></thead>
+        <tbody>
+          {% for row in top_productos %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.nombre }}</td>
+            <td>{{ row.cantidad }}</td>
+            <td>${{ '%.2f'|format(row.ingreso) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/reportes-charts.js') }}?v={{ config.VERSION }}"></script>
+<script nonce="{{ csp_nonce }}">document.addEventListener('DOMContentLoaded', initProductosCharts);</script>
+{% endblock %}

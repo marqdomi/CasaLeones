@@ -1,0 +1,29 @@
+{% extends 'pdf/base_pdf.html' %}
+{% block title %}Top Productos{% endblock %}
+{% block report_title %}Top Productos{% endblock %}
+{% block date_range %}
+<div class="date-range">{{ fecha_inicio }} — {{ fecha_fin }}</div>
+{% endblock %}
+
+{% block content %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Producto</th>
+      <th class="text-right">Cantidad</th>
+      <th class="text-right">Total Vendido</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in productos %}
+    <tr>
+      <td>{{ loop.index }}</td>
+      <td>{{ row.nombre }}</td>
+      <td class="text-right">{{ row.cantidad }}</td>
+      <td class="text-right">${{ '%.2f'|format(row.total) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

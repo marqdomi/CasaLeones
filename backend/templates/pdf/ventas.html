@@ -1,0 +1,43 @@
+{% extends 'pdf/base_pdf.html' %}
+{% block title %}Reporte de Ventas{% endblock %}
+{% block report_title %}Reporte de Ventas{% endblock %}
+{% block date_range %}
+<div class="date-range">{{ fecha_inicio }} — {{ fecha_fin }}</div>
+{% endblock %}
+
+{% block content %}
+<div class="kpi-row">
+  <div class="kpi-box">
+    <div class="label">Total Ventas</div>
+    <div class="value">${{ '%.2f'|format(total_ventas) }}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="label"># Ventas</div>
+    <div class="value">{{ num_ventas }}</div>
+  </div>
+  <div class="kpi-box">
+    <div class="label">Ticket Promedio</div>
+    <div class="value">${{ '%.2f'|format(ticket_promedio) }}</div>
+  </div>
+</div>
+
+<h3>Ventas por Día</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th class="text-right"># Ventas</th>
+      <th class="text-right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in ventas_por_dia %}
+    <tr>
+      <td>{{ row.dia }}</td>
+      <td class="text-right">{{ row.cantidad }}</td>
+      <td class="text-right">${{ '%.2f'|format(row.total) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

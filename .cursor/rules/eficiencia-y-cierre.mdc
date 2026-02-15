@@ -1,0 +1,35 @@
+---
+description: Eficiencia de tokens y protocolo de cierre con script interactivo
+alwaysApply: true
+---
+
+# Eficiencia de Tokens
+
+- Responde de forma concisa.
+- Evita explicaciones obvias.
+- Usa listas en lugar de párrafos.
+
+# Protocolo de Cierre (Script de Pausa)
+
+**CRÍTICO:** Cuando termines una tarea técnica (código, comando, refactor), **NO** escribas una pregunta de despedida en texto normal.
+
+En su lugar, **DEBES** finalizar tu respuesta generando un **bloque de código Bash** ejecutable.
+
+## Reglas de Salida:
+1.  No preguntes "¿Quieres algo más?" en el texto de la respuesta.
+2.  Tu última línea **siempre** debe ser el siguiente bloque de código (usa triple backtick bash):
+
+```bash
+# Ejecuta esto para pausar y responder en la terminal:
+read -p " >> ¿Próximo paso o finalizar? (Escribe aquí): " next_step && echo " >> Entendido: $next_step"
+
+**NO** incluyas esta línea cuando:
+- Estés a mitad de una tarea
+- Necesites aclaraciones del usuario
+- Haya errores pendientes por resolver
+- El usuario solo hizo una pregunta informativa (sin tarea de ejecución)
+
+**SÍ** inclúyela cuando:
+- La tarea solicitada esté completada y funcionando
+- Hayas entregado el entregable esperado
+- No queden pasos pendientes de la solicitud original

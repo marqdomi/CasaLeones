@@ -7,3 +7,22 @@ eventlet
 Flask-Migrate
 python-dotenv
 Flask-WTF>=1.0.0
+psycopg2-binary
+# Fase 4
+Flask-Limiter
+sentry-sdk[flask]
+requests
+# Fase 5 — Sprint 1
+Flask-Session
+Flask-Caching
+redis
+bleach
+# Sprint 2 — 2.4
+gunicorn
+# Sprint 3 — 3.1
+python-escpos>=3.0
+# Sprint 6 — 6.4
+WeasyPrint>=60.0
+# Sprint 6 — 2.5
+pytest>=8.0
+pytest-cov

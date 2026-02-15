@@ -1,0 +1,193 @@
+/* ====================================
+   Tablet Optimization (Sprint 4 — 5.2)
+   Touch targets ≥ 48px, responsive grids,
+   large fonts for kitchen, sticky headers.
+   ==================================== */
+
+/* ─── Touch targets (all viewports) ── */
+.btn, .nav-link, .form-control, .form-select,
+.list-group-item-action, .accordion-button,
+.dropdown-item {
+  min-height: 44px;
+}
+
+/* ─── Tablet breakpoint (768-1024px) ── */
+@media (min-width: 768px) and (max-width: 1024px) {
+
+  /* Larger touch targets */
+  .btn {
+    min-height: 48px;
+    min-width: 48px;
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+  }
+
+  .btn-sm {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  .nav-link {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
+
+  /* Product grid: 3 columns on tablet */
+  .tab-content .row .col-md-3 {
+    flex: 0 0 33.333%;
+    max-width: 33.333%;
+  }
+
+  /* Product cards bigger */
+  .product-card .card-body {
+    padding: 1rem 0.75rem;
+  }
+
+  .product-card .card-title {
+    font-size: 1.05rem;
+  }
+
+  /* Sticky header on order detail */
+  .detalle-orden-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: var(--color-light, #FAF3E0);
+    padding: 0.75rem 0;
+    border-bottom: 2px solid var(--color-primary, #A6192E);
+  }
+
+  /* Form controls */
+  .form-control, .form-select {
+    font-size: 1rem;
+    padding: 0.6rem 0.75rem;
+  }
+
+  /* Table cells */
+  .table td, .table th {
+    padding: 0.85rem 0.75rem;
+    font-size: 0.95rem;
+  }
+
+  /* Accordion buttons */
+  .accordion-button {
+    font-size: 1rem;
+    padding: 1rem 1.25rem;
+  }
+
+  /* Badges */
+  .badge {
+    font-size: 0.85rem;
+    padding: 0.4em 0.65em;
+  }
+}
+
+/* ─── Cocina: large fonts for distance reading ── */
+@media (min-width: 768px) {
+  .cocina-station h2,
+  body[data-station] h2 {
+    font-size: 2rem;
+  }
+
+  /* Orden cards in cocina */
+  .orden-timer-card .card-header {
+    font-size: 1.15rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .orden-timer-card .list-group-item {
+    font-size: 1.1rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .timer-badge {
+    font-size: 1rem;
+    padding: 0.4em 0.7em;
+  }
+
+  .btn-listo {
+    min-height: 48px;
+    font-size: 1rem;
+    padding: 0.5rem 1.2rem;
+  }
+}
+
+/* ─── Landscape cocina (tablet horizontal) ── */
+@media (min-width: 768px) and (orientation: landscape) {
+  .orden-timer-card {
+    flex: 0 0 33.333%;
+    max-width: 33.333%;
+  }
+}
+
+@media (min-width: 768px) and (orientation: portrait) {
+  .orden-timer-card {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+/* ─── PWA fullscreen support ── */
+@media (display-mode: standalone) {
+  .navbar {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  body {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+/* ─── Touch feedback (ripple effect) ── */
+.btn, .product-card, .mesa-item, .list-group-item-action {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn::after, .product-card::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease, opacity 0.3s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn:active::after, .product-card:active::after {
+  width: 200px;
+  height: 200px;
+  opacity: 1;
+  transition: width 0s, height 0s, opacity 0s;
+}
+
+/* ─── No horizontal scroll ── */
+html, body {
+  overflow-x: hidden;
+}
+
+.container, .container-fluid {
+  overflow-x: hidden;
+}
+
+/* ─── Seleccionar mesa: bigger buttons on tablet ── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .seleccionar-mesa-grid .btn {
+    min-height: 80px;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+}
+
+/* ─── Chart.js container heights ── */
+.chart-container-sm { height: 320px; }
+.chart-container-md { height: 350px; }
+.chart-container-lg { height: 400px; }
+.chart-container-xl { height: 450px; }

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Mapa de Mesas{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_mesas.css') }}?v={{ config.VERSION }}">
+{% endblock %}
+{% block content %}
+<div class="container-fluid mt-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Mapa de Mesas</h2>
+    <div>
+      <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-danger btn-sm me-2">Orden Para Llevar</a>
+      <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-outline-secondary btn-sm">Ver Lista</a>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="mapa-legend mb-2">
+    <div class="mapa-legend-item"><span class="mapa-legend-dot disponible"></span> Disponible</div>
+    <div class="mapa-legend-item"><span class="mapa-legend-dot ocupada"></span> Ocupada</div>
+    <div class="mapa-legend-item"><span class="mapa-legend-dot reservada"></span> Reservada</div>
+    <div class="mapa-legend-item"><span class="mapa-legend-dot mantenimiento"></span> Mantenimiento</div>
+  </div>
+
+  <!-- Zone filters -->
+  {% if zonas %}
+  <div class="zone-filters mb-2">
+    <button class="btn btn-outline-secondary btn-sm active" data-zone-filter="todas">Todas</button>
+    {% for zona in zonas %}
+    <button class="btn btn-outline-secondary btn-sm" data-zone-filter="{{ zona }}">{{ zona }}</button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Desktop/tablet: interactive map -->
+  <div id="mapa-mesas" class="mapa-container {% if is_admin %}admin-mode{% endif %}"
+       data-admin="{{ 'true' if is_admin else 'false' }}">
+    <!-- Mesas are rendered dynamically by JS -->
+  </div>
+  {% if is_admin %}
+  <small class="text-muted mt-1 d-block">Modo admin: arrastra las mesas para reposicionarlas. Los cambios se guardan automáticamente.</small>
+  {% endif %}
+
+  <!-- Mobile: list view -->
+  <div id="mapa-list-view" class="mapa-list-view list-group mt-2" style="display:none;">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/mapa_mesas.js') }}?v={{ config.VERSION }}"></script>
+{% endblock %}

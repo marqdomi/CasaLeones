@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Movimientos de Inventario{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Historial de Movimientos</h2>
+  <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-sm btn-secondary mb-3">← Volver a Ingredientes</a>
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Fecha</th><th>Ingrediente</th><th>Tipo</th><th>Cantidad</th><th>Motivo</th><th>Usuario</th></tr></thead>
+      <tbody>
+        {% for m in movimientos.items %}
+        <tr class="{% if m.tipo == 'merma' %}table-warning{% elif m.tipo == 'entrada' %}table-success{% endif %}">
+          <td>{{ m.fecha.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ m.ingrediente.nombre }}</td>
+          <td><span class="badge {% if m.tipo == 'entrada' %}bg-success{% elif m.tipo == 'merma' %}bg-warning text-dark{% elif m.tipo == 'salida_venta' %}bg-info{% else %}bg-secondary{% endif %}">{{ m.tipo }}</span></td>
+          <td>{{ '%.4f'|format(m.cantidad) }}</td>
+          <td>{{ m.motivo or '' }}</td>
+          <td>{{ m.usuario.nombre if m.usuario else '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {# Paginación #}
+  {% if movimientos.pages > 1 %}
+  <nav><ul class="pagination pagination-sm justify-content-center">
+    {% for page in movimientos.iter_pages() %}
+      {% if page %}
+        <li class="page-item {% if page == movimientos.page %}active{% endif %}">
+          <a class="page-link" href="?page={{ page }}">{{ page }}</a></li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+  </ul></nav>
+  {% endif %}
+</div>
+{% endblock %}

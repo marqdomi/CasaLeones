@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Perfil — {{ cliente.nombre }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:800px;">
+  <h2 class="mt-4">{{ cliente.nombre }}</h2>
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <p><strong>Teléfono:</strong> {{ cliente.telefono or '—' }}</p>
+          <p><strong>Email:</strong> {{ cliente.email or '—' }}</p>
+          <p><strong>RFC:</strong> {{ cliente.rfc or '—' }}</p>
+          <p><strong>Desde:</strong> {{ cliente.fecha_registro.strftime('%Y-%m-%d') if cliente.fecha_registro else '—' }}</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="row text-center">
+        <div class="col-6">
+          <div class="card bg-light"><div class="card-body"><h6 class="text-muted">Visitas</h6><h3>{{ cliente.visitas }}</h3></div></div>
+        </div>
+        <div class="col-6">
+          <div class="card bg-light"><div class="card-body"><h6 class="text-muted">Total Gastado</h6><h3>${{ '%.2f'|format(cliente.total_gastado or 0) }}</h3></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if cliente.notas %}
+  <p><strong>Notas:</strong> {{ cliente.notas }}</p>
+  {% endif %}
+
+  <h5>Últimas Órdenes</h5>
+  {% if ordenes %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead><tr><th>Orden</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead>
+      <tbody>
+        {% for o in ordenes %}
+        <tr>
+          <td>#{{ o.id }}</td>
+          <td>{{ o.tiempo_registro.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ o.estado }}</td>
+          <td>${{ '%.2f'|format(o.total or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">Sin órdenes registradas.</p>
+  {% endif %}
+
+  <a href="{{ url_for('clientes.cliente_editar', id=cliente.id) }}" class="btn btn-outline-primary btn-sm">Editar</a>
+  <a href="{{ url_for('clientes.lista_clientes') }}" class="btn btn-secondary btn-sm">← Clientes</a>
+</div>
+{% endblock %}

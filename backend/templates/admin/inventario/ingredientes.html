@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block title %}Inventario — Ingredientes{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h1 class="mt-4">Inventario de Ingredientes</h1>
+  <div class="d-flex gap-2 mb-3">
+    <a href="{{ url_for('inventario.ingrediente_nuevo') }}" class="btn btn-primary btn-sm">Nuevo Ingrediente</a>
+    <a href="{{ url_for('inventario.entrada_stock') }}" class="btn btn-success btn-sm">Entrada de Stock</a>
+    <a href="{{ url_for('inventario.registrar_merma') }}" class="btn btn-warning btn-sm">Registrar Merma</a>
+    <a href="{{ url_for('inventario.lista_recetas') }}" class="btn btn-info btn-sm">Recetas</a>
+    <a href="{{ url_for('inventario.historial_movimientos') }}" class="btn btn-secondary btn-sm">Movimientos</a>
+  </div>
+
+  {% if alertas %}
+  <div class="alert alert-danger">
+    <strong>Alertas de stock bajo:</strong>
+    {% for a in alertas %}
+      <span class="badge bg-danger me-1">{{ a.nombre }}: {{ '%.2f'|format(a.stock_actual) }} {{ a.unidad }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="table-responsive">
+    <table class="table table-striped table-hover">
+      <thead><tr><th>Ingrediente</th><th>Unidad</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Costo Unit.</th><th>Acciones</th></tr></thead>
+      <tbody>
+        {% for i in ingredientes %}
+        <tr class="{% if i.stock_actual <= i.stock_minimo %}table-danger{% endif %}">
+          <td>{{ i.nombre }}</td>
+          <td>{{ i.unidad }}</td>
+          <td>{{ '%.2f'|format(i.stock_actual) }}</td>
+          <td>{{ '%.2f'|format(i.stock_minimo) }}</td>
+          <td>${{ '%.2f'|format(i.costo_unitario) }}</td>
+          <td><a href="{{ url_for('inventario.ingrediente_editar', id=i.id) }}" class="btn btn-sm btn-outline-primary">Editar</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

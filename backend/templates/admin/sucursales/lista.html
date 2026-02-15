@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Sucursales{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
+    <h2>Sucursales</h2>
+    <a href="{{ url_for('sucursales.nueva_sucursal') }}" class="btn btn-primary">+ Nueva Sucursal</a>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead><tr><th>Nombre</th><th>Dirección</th><th>Teléfono</th><th>Estado</th><th>Acciones</th></tr></thead>
+      <tbody>
+        {% for s in sucursales %}
+        <tr>
+          <td>{{ s.nombre }}</td>
+          <td>{{ s.direccion or '—' }}</td>
+          <td>{{ s.telefono or '—' }}</td>
+          <td>
+            <span class="badge {{ 'bg-success' if s.activa else 'bg-secondary' }}">
+              {{ 'Activa' if s.activa else 'Inactiva' }}
+            </span>
+          </td>
+          <td>
+            <a href="{{ url_for('sucursales.editar_sucursal', id=s.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

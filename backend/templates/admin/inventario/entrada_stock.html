@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Entrada de Stock{% endblock %}
+{% block content %}
+<div class="container" style="max-width:600px;">
+  <h2 class="mt-4">Registrar Entrada de Stock</h2>
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+      <label class="form-label">Ingrediente</label>
+      <select name="ingrediente_id" class="form-select" required>
+        <option value="">— Seleccionar —</option>
+        {% for i in ingredientes %}
+        <option value="{{ i.id }}">{{ i.nombre }} ({{ i.unidad }}) — Stock: {{ '%.2f'|format(i.stock_actual) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Cantidad</label>
+      <input type="number" step="0.01" name="cantidad" class="form-control" required min="0.01">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Costo Unitario ($) — opcional</label>
+      <input type="number" step="0.01" name="costo" class="form-control" value="0">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Motivo</label>
+      <input type="text" name="motivo" class="form-control" value="Compra">
+    </div>
+    <button type="submit" class="btn btn-success">Registrar Entrada</button>
+    <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+{% endblock %}

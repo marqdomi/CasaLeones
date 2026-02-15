@@ -1,309 +1,466 @@
-// Asegura que este script se ejecute después de que el DOM esté listo
 $(document).ready(function() {
-    console.log('meseros.js cargado y DOM listo.');
+    console.log('meseros.js cargado.');
 
-    // Contenedor para toasts (asegúrate que exista en tu base.html o meseros.html)
-    // <div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;"></div>
-    function showToast(message, type = 'info') { // type puede ser 'info', 'success', 'warning', 'danger'
+    // =============================================
+    // Toast helper (Sprint 5 — improved)
+    // =============================================
+    function showToast(message, type = 'info') {
         const container = $('#toast-container');
         if (!container.length) {
-            $('body').append('<div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050;"></div>');
+            $('body').append('<div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index:1200;" role="alert" aria-live="polite"></div>');
         }
-        
-        let bgColorClass = 'bg-primary'; // Default Bootstrap primary
-        if (type === 'success') bgColorClass = 'bg-success';
-        if (type === 'warning') bgColorClass = 'bg-warning text-dark'; // text-dark para mejor contraste en warning
-        if (type === 'danger') bgColorClass = 'bg-danger';
 
-        const toastId = 'toast-' + Date.now();
-        const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-white ${bgColorClass} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="5000">
+        const ICONS = {
+            success: '✅',
+            danger:  '❌',
+            warning: '⚠️',
+            info:    'ℹ️',
+            confetti:'🎉'
+        };
+        const BG = {
+            success: 'bg-success',
+            danger:  'bg-danger',
+            warning: 'bg-warning text-dark',
+            info:    'bg-primary',
+            confetti:'bg-success toast-confetti'
+        };
+
+        const icon = ICONS[type] || ICONS.info;
+        const bg   = BG[type]   || BG.info;
+
+        const id = 'toast-' + Date.now();
+        $('#toast-container').append(`
+            <div id="${id}" class="toast align-items-center text-white ${bg} border-0" role="alert" aria-atomic="true" data-bs-delay="3000">
                 <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    <div class="toast-body"><span class="me-1">${icon}</span>${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
                 </div>
-            </div>`;
-        
-        $('#toast-container').append(toastHtml);
-        const toastElement = new bootstrap.Toast(document.getElementById(toastId));
-        toastElement.show();
-        // Limpiar el toast del DOM después de que se oculte para evitar acumulación
-        document.getElementById(toastId).addEventListener('hidden.bs.toast', function () {
-            $(this).remove();
-        });
+            </div>`);
+        new bootstrap.Toast(document.getElementById(id)).show();
+        document.getElementById(id).addEventListener('hidden.bs.toast', function() { $(this).remove(); });
     }
 
-    // Inicialización de Socket.IO
+    // =============================================
+    // Socket.IO
+    // =============================================
     if (typeof io !== 'undefined') {
         const socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
 
-        socket.on('connect', () => {
-            console.log('Socket.IO conectado desde meseros.js');
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Socket.IO desconectado desde meseros.js');
-        });
-
-        // Cuando llega una nueva orden a cocina (emitido por el propio mesero al enviar)
         socket.on('nueva_orden_cocina', function(data) {
-            console.log('Evento nueva_orden_cocina recibido en meseros.js:', data);
-            // Originalmente recargaba. Por ahora, solo mostramos toast.
-            // La actualización de la lista de órdenes del mesero ocurre si él mismo creó la orden y fue redirigido.
-            // Si otro mesero crea una orden, este mesero no verá esa orden hasta recargar,
-            // a menos que implementemos una adición dinámica a la tabla de órdenes.
-            showToast(`Nueva orden #${data.orden_id} enviada a cocina.`, 'info');
-            // Considerar recargar o actualizar la tabla de órdenes activas aquí si es necesario
-            // para ver órdenes de otros meseros en un entorno multi-mesero,
-            // o si la creación no causa una redirección que ya refresque.
-            // Por ahora, si la creación de orden causa una redirección a detalle_orden y luego
-            // vuelve a meseros.html, la lista se refrescará.
+            showToast(`Orden #${data.orden_id} enviada a cocina.`, 'info');
         });
 
-        // Cuando un ítem está listo en cocina
         socket.on('item_listo_notificacion', function(data) {
-            console.log('Evento item_listo_notificacion recibido en meseros.js:', data);
-            // data contiene: item_id (es el detalle_id), orden_id, producto_nombre, mesa_nombre
-            showToast(`¡${data.producto_nombre} de orden #${data.orden_id} está listo!`, 'success');
-
-            var detalleRow = $('#product-item-' + data.item_id); 
-            if (detalleRow.length) {
-                detalleRow.find('.estado-producto-texto')
-                          .empty() // Limpiar contenido anterior
-                          .append($('<span>').addClass('badge bg-success').text('Listo en cocina'));
-                
-                detalleRow.find('.accion-producto').html(
-                    `<button class="btn btn-sm btn-primary btn-entregar-item" 
-                             data-detalle-id="${data.item_id}" 
-                             data-orden-id="${data.orden_id}">
-                        Entregar
-                     </button>`
+            showToast(`¡${data.producto_nombre} de orden #${data.orden_id} listo!`, 'success');
+            var row = $('#product-item-' + data.item_id);
+            if (row.length) {
+                row.find('.estado-producto-texto').html('<span class="badge bg-success">Listo</span>');
+                row.find('.accion-producto').html(
+                    `<button class="btn btn-sm btn-primary btn-entregar-item"
+                             data-detalle-id="${data.item_id}" data-orden-id="${data.orden_id}">Entregar</button>`
                 );
-                
-                // Cambiar clase de la fila para posible estilizado
-                detalleRow.removeClass('detalle-pendiente-cocina detalle-entregado').addClass('detalle-listo-cocina');
-                
-                verificarEstadoParaCobro(data.orden_id); // Verificar si se puede cobrar
-            } else {
-                console.warn('No se encontró la fila del detalle #product-item-' + data.item_id + ' para actualizar.');
+                row.removeClass('detalle-pendiente-cocina detalle-entregado').addClass('detalle-listo-cocina');
+                verificarEstadoParaCobro(data.orden_id);
             }
         });
 
-        // Cuando la orden completa está lista desde cocina (todos los ítems para cocina están listos)
         socket.on('orden_completa_lista', function(data) {
-            console.log('Evento orden_completa_lista recibido en meseros.js:', data);
-            showToast(`¡Orden #${data.orden_id} completamente lista en cocina!`, 'success');
-            
-            var ordenAcordeonItem = $('#orden-acordeon-' + data.orden_id);
-            if (ordenAcordeonItem.length) {
-                // Podrías cambiar el estilo del header del acordeón para la orden
-                ordenAcordeonItem.find('.accordion-button').addClass('text-primary fw-bold'); // Ejemplo
-                 // La lógica de habilitar "Cobrar" se maneja por verificarEstadoParaCobro
-            }
+            showToast(`¡Orden #${data.orden_id} lista en cocina!`, 'success');
         });
 
-        // Cuando la orden ha sido completamente entregada y su estado cambia (emitido por el backend)
         socket.on('orden_actualizada_para_cobro', function(data) {
-            console.log('Evento orden_actualizada_para_cobro recibido:', data);
             if (data.estado_orden === 'completada') {
                 showToast(`Orden #${data.orden_id} lista para cobro.`, 'info');
-                verificarEstadoParaCobro(data.orden_id); // Esto debería habilitar el botón Cobrar
+                verificarEstadoParaCobro(data.orden_id);
             }
-            // Podrías querer actualizar el texto del estado general de la orden en la tabla principal.
-            $('#orden-header-' + data.orden_id).find('td').eq(2).text(data.estado_orden.charAt(0).toUpperCase() + data.estado_orden.slice(1));
         });
-
-    } else {
-        console.warn('Socket.IO no está definido. Las actualizaciones en tiempo real no funcionarán.');
     }
 
-    // Delegación de eventos para el clic en ".btn-entregar-item"
-    // Asumiendo que #meseros-dashboard es un contenedor estático para las órdenes
-    $('#meseros-dashboard').on('click', '.btn-entregar-item', function(e) {
-        e.stopPropagation(); // Prevenir que se cierre el acordeón si el botón está en el header (no es el caso aquí)
-        
+    // =============================================
+    // Entregar item
+    // =============================================
+    $(document).on('click', '.btn-entregar-item', function(e) {
+        e.stopPropagation();
         var detalleId = $(this).data('detalle-id');
         var ordenId = $(this).data('orden-id');
-        var botonClickeado = $(this);
-
-        if (!detalleId || !ordenId) {
-            console.error('Error: detalleId u ordenId no encontrados en el botón Entregar.');
-            alert('Error interno al intentar entregar el ítem.');
-            return;
-        }
-
-        console.log(`Intentando marcar como entregado: ordenId=${ordenId}, detalleId=${detalleId}`);
+        if (!detalleId || !ordenId) return;
 
         $.ajax({
             type: 'POST',
-            url: `/meseros/entregar_item/${ordenId}/${detalleId}`, // Endpoint que definimos
-            success: function(response) {
-                if (response.success) {
-                    console.log('Ítem ' + detalleId + ' marcado como entregado exitosamente.');
-                    showToast(response.message || 'Ítem entregado.', 'success');
-                    
-                    var detalleRow = $('#product-item-' + detalleId);
-                    if (detalleRow.length) {
-                        detalleRow.find('.estado-producto-texto')
-                                  .empty()
-                                  .append($('<span>').addClass('badge bg-secondary').text('Entregado'));
-                        
-                        detalleRow.find('.accion-producto')
-                                  .html($('<span>').addClass('text-success fw-bold').html('Entregado <i class="fas fa-check"></i>')); // Añadí un ícono
-                        
-                        detalleRow.removeClass('detalle-listo-cocina detalle-pendiente-cocina').addClass('detalle-entregado');
-                    }
+            url: `/meseros/entregar_item/${ordenId}/${detalleId}`,
+            success: function(res) {
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    var row = $('#product-item-' + detalleId);
+                    row.find('.estado-producto-texto').html('<span class="badge bg-secondary">Entregado</span>');
+                    row.find('.accion-producto').html('<span class="text-success fw-bold">Entregado <i class="fas fa-check"></i></span>');
+                    row.removeClass('detalle-listo-cocina').addClass('detalle-entregado');
                     verificarEstadoParaCobro(ordenId);
                 } else {
-                    alert(response.message || 'Error al marcar el ítem como entregado.');
+                    alert(res.message);
                 }
             },
-            error: function(xhr, status, error) {
-                console.error("Error AJAX al entregar ítem:", status, error, xhr.responseText);
-                let errorMsg = 'Error de comunicación al entregar el ítem.';
-                if (xhr.responseJSON && xhr.responseJSON.message) {
-                    errorMsg = xhr.responseJSON.message;
-                }
-                alert(errorMsg);
+            error: function(xhr) {
+                alert(xhr.responseJSON?.message || 'Error al entregar.');
             }
         });
     });
 
-    // Funciones para el Modal de Cobro (adaptadas de tu meseros.js)
-    window.mostrarCobro = async function(ordenId) {
-        const modalContent = $('#modalCobroBody');
-        const modalElement = document.getElementById('modalCobro');
-        if (!modalContent.length || !modalElement) {
-            console.error('Elementos del modal de cobro no encontrados.');
-            return;
-        }
-        modalContent.html(`
-            <div class="text-center py-3">
-                <div class="spinner-border" role="status"><span class="visually-hidden">Cargando...</span></div>
-                <p class="mt-2">Cargando detalle...</p>
-            </div>`);
-        
-        const modalInstance = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
-        modalInstance.show();
-
-        try {
-            const response = await fetch(`/meseros/ordenes/${ordenId}/cobrar_info`); // Usar cobrar_info
-            if (!response.ok) throw new Error(`Error al cargar datos de la orden (${response.status})`);
-            const data = await response.json();
-
-            let contenidoHTML = `
-                <div class="text-center mb-3">
-                    <img src="/static/img/logoCasaLeones.svg" alt="Casa Leones Logo" style="max-height: 50px;">
-                </div>
-                <h5 class="mb-3">Resumen de la orden #${data.orden_id}</h5>
-                <div class="ticket">`;
-            let total = 0;
-            // Agrupar para el ticket visual
-            const grouped = {};
-            data.detalles.forEach(item => {
-                if (!grouped[item.nombre]) {
-                    grouped[item.nombre] = { cantidad: 0, precio: item.precio, entregado: item.entregado, estado: item.estado };
-                }
-                grouped[item.nombre].cantidad += item.cantidad;
-                // Si algún ítem del grupo no está entregado, el grupo no está completamente entregado
-                if (item.estado !== 'entregado') { 
-                    grouped[item.nombre].parcialmente_entregado = true;
+    // =============================================
+    // Verificar estado para cobro
+    // =============================================
+    window.verificarEstadoParaCobro = function(ordenId) {
+        var el = $('#orden-acordeon-' + ordenId);
+        if (!el.length) return;
+        var todos = true;
+        var items = el.find('.product-row .estado-producto-texto');
+        if (!items.length) { todos = false; }
+        else {
+            items.each(function() {
+                if ($(this).text().trim().toLowerCase() !== 'entregado') {
+                    todos = false; return false;
                 }
             });
-
-            for (const [nombre, info] of Object.entries(grouped)) {
-                const subtotal = info.cantidad * info.precio;
-                total += subtotal;
-                contenidoHTML += `
-                    <div class="ticket-item">
-                        ${nombre} - ${info.cantidad} x $${info.precio.toFixed(2)} = $${subtotal.toFixed(2)}
-                        ${info.parcialmente_entregado ? '<small class="text-danger ms-2">(Algunos pendientes de entrega)</small>' : ''}
-                    </div>`;
-            }
-            contenidoHTML += `
-                <hr>
-                <div class="ticket-total d-flex justify-content-between">
-                    <strong>Total</strong>
-                    <strong>$${total.toFixed(2)}</strong>
-                </div>
-                </div>
-                <div class="mt-3 mb-3">
-                    <label for="monto_recibido_modal_${ordenId}">Monto recibido:</label>
-                    <input type="number" step="0.01" id="monto_recibido_modal_${ordenId}" class="form-control">
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-success btn-confirmar-pago-modal" data-orden-id="${ordenId}">Confirmar Pago</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                </div>`;
-            modalContent.html(contenidoHTML);
-            
-            // Adjuntar listener al nuevo botón de confirmar pago
-            modalContent.find('.btn-confirmar-pago-modal').on('click', procesarPagoDesdeModal);
-
-        } catch (error) {
-            console.error('Error en mostrarCobro:', error);
-            modalContent.html(`<p class="text-danger">Error al cargar detalles: ${error.message}</p>`);
+        }
+        var btn = el.find('.btn-cobrar-orden');
+        if (btn.length) {
+            btn.prop('disabled', !todos)
+               .toggleClass('btn-success', todos)
+               .toggleClass('btn-outline-secondary disabled', !todos);
         }
     };
-    
-    // Nueva función para manejar el clic del botón de pago DENTRO del modal
-    async function procesarPagoDesdeModal(event) {
-        const boton = $(event.target);
-        const ordenId = boton.data('orden-id');
-        const montoRecibidoInput = $(`#monto_recibido_modal_${ordenId}`);
-        const montoRecibido = parseFloat(montoRecibidoInput.val());
 
-        const totalText = $('#modalCobroBody .ticket-total strong:last-child').text();
-        const total = parseFloat(totalText.replace('$', ''));
+    // =============================================
+    // Mostrar modal de cobro (con IVA, descuentos, multi-pago)
+    // =============================================
+    window.mostrarCobro = async function(ordenId) {
+        const body = $('#modalCobroBody');
+        const el = document.getElementById('modalCobro');
+        if (!body.length || !el) return;
 
-        if (isNaN(montoRecibido)) {
-            alert('Por favor ingresa un monto recibido válido.');
-            montoRecibidoInput.focus();
-            return;
+        body.html('<div class="text-center py-3"><div class="spinner-border"></div></div>');
+        (bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el)).show();
+
+        try {
+            const res = await fetch(`/meseros/ordenes/${ordenId}/cobrar_info`);
+            if (!res.ok) throw new Error('Error cargando datos');
+            const data = await res.json();
+
+            let html = `
+                <div class="text-center mb-2">
+                    <img src="/static/img/logoCasaLeones.svg" alt="Logo" style="max-height:40px;">
+                </div>
+                <h5>Orden #${data.orden_id}${data.mesa_numero ? ' — Mesa ' + data.mesa_numero : ' — Para Llevar'}</h5>
+                <hr>
+                <table class="table table-sm">
+                    <thead><tr><th>Producto</th><th class="text-center">Cant</th><th class="text-end">Precio</th><th class="text-end">Subtotal</th></tr></thead>
+                    <tbody>`;
+
+            data.detalles.forEach(item => {
+                html += `<tr>
+                    <td>${item.nombre}</td>
+                    <td class="text-center">${item.cantidad}</td>
+                    <td class="text-end">$${item.precio.toFixed(2)}</td>
+                    <td class="text-end">$${item.subtotal.toFixed(2)}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>
+                <div class="border-top pt-2">
+                    <div class="d-flex justify-content-between"><span>Subtotal</span><span>$${data.subtotal.toFixed(2)}</span></div>`;
+
+            if (data.descuento_pct > 0) {
+                html += `<div class="d-flex justify-content-between text-danger"><span>Descuento (${data.descuento_pct}%)</span><span>-</span></div>`;
+            }
+            if (data.descuento_monto > 0) {
+                html += `<div class="d-flex justify-content-between text-danger"><span>Descuento fijo</span><span>-$${data.descuento_monto.toFixed(2)}</span></div>`;
+            }
+
+            html += `
+                    <div class="d-flex justify-content-between"><span>IVA (${data.iva_rate}%)</span><span>$${data.iva.toFixed(2)}</span></div>
+                    <div class="d-flex justify-content-between fw-bold fs-5 mt-1"><span>Total</span><span>$${data.total.toFixed(2)}</span></div>
+                </div>`;
+
+            // Pagos previos (split)
+            if (data.pagos.length > 0) {
+                html += `<hr><h6>Pagos registrados</h6><ul class="list-group list-group-flush mb-2">`;
+                data.pagos.forEach(p => {
+                    html += `<li class="list-group-item d-flex justify-content-between">
+                        <span>${p.metodo}${p.referencia ? ' ('+p.referencia+')' : ''}</span>
+                        <span>$${p.monto.toFixed(2)}</span>
+                    </li>`;
+                });
+                html += `</ul>
+                    <div class="d-flex justify-content-between fw-bold">
+                        <span>Pagado</span><span>$${data.total_pagado.toFixed(2)}</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-bold text-primary">
+                        <span>Saldo pendiente</span><span>$${data.saldo_pendiente.toFixed(2)}</span>
+                    </div>`;
+            }
+
+            if (data.saldo_pendiente <= 0 && data.pagos.length > 0) {
+                html += `<div class="alert alert-success mt-3 text-center">Orden completamente pagada.</div>`;
+            } else {
+                html += `
+                <hr>
+                <h6>Propina</h6>
+                <div class="btn-group w-100 mb-2" role="group" aria-label="Propina rápida">
+                    <button type="button" class="btn btn-outline-secondary btn-propina" data-pct="0" data-orden="${ordenId}">Sin</button>
+                    <button type="button" class="btn btn-outline-secondary btn-propina" data-pct="10" data-orden="${ordenId}">10%</button>
+                    <button type="button" class="btn btn-outline-secondary btn-propina" data-pct="15" data-orden="${ordenId}">15%</button>
+                    <button type="button" class="btn btn-outline-secondary btn-propina" data-pct="20" data-orden="${ordenId}">20%</button>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Propina personalizada ($)</label>
+                    <input type="number" step="0.01" min="0" id="propina_monto_${ordenId}" class="form-control" value="0" placeholder="0.00">
+                </div>
+                <hr>
+                <h6>Registrar Pago</h6>
+                <div class="mb-2">
+                    <label class="form-label">Método de pago</label>
+                    <select id="pago_metodo_${ordenId}" class="form-select">
+                        <option value="efectivo">Efectivo</option>
+                        <option value="tarjeta">Tarjeta</option>
+                        <option value="transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="mb-2" id="referencia_group_${ordenId}" style="display:none;">
+                    <label class="form-label">Referencia (últimos 4 dígitos / folio)</label>
+                    <input type="text" id="pago_referencia_${ordenId}" class="form-control" maxlength="20">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Monto</label>
+                    <input type="number" step="0.01" id="pago_monto_${ordenId}" class="form-control"
+                           value="${data.saldo_pendiente.toFixed(2)}" min="0.01">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success flex-grow-1 btn-registrar-pago" data-orden-id="${ordenId}">
+                        <i class="fas fa-cash-register me-1"></i>Registrar Pago
+                    </button>
+                    <button class="btn btn-outline-info btn-aplicar-descuento" data-orden-id="${ordenId}">
+                        <i class="fas fa-percent me-1"></i>Descuento
+                    </button>
+                </div>`;
+            }
+
+            html += `<div class="mt-2"><button class="btn btn-secondary btn-sm w-100 btn-imprimir-ticket" data-orden-id="${ordenId}"><i class="fas fa-print me-1"></i>Imprimir Ticket</button></div>`;
+
+            body.html(html);
+
+            // Toggle referencia field
+            $(`#pago_metodo_${ordenId}`).on('change', function() {
+                $(`#referencia_group_${ordenId}`).toggle($(this).val() !== 'efectivo');
+            });
+
+            // Registrar pago handler
+            body.find('.btn-registrar-pago').on('click', function() { registrarPago(ordenId); });
+
+            // Descuento handler
+            body.find('.btn-aplicar-descuento').on('click', function() { mostrarFormDescuento(ordenId); });
+
+            // Print handler
+            body.find('.btn-imprimir-ticket').on('click', function() { imprimirTicket(ordenId); });
+
+            // Propina percentage buttons
+            body.find('.btn-propina').on('click', function() {
+                body.find('.btn-propina').removeClass('active btn-secondary').addClass('btn-outline-secondary');
+                $(this).removeClass('btn-outline-secondary').addClass('active btn-secondary');
+                const pct = parseFloat($(this).data('pct'));
+                const propinaVal = (data.total * pct / 100);
+                $(`#propina_monto_${ordenId}`).val(propinaVal.toFixed(2));
+            });
+
+        } catch (err) {
+            body.html(`<p class="text-danger">Error: ${err.message}</p>`);
         }
-        if (montoRecibido < total) {
-            alert('El monto recibido es insuficiente.');
-            montoRecibidoInput.focus();
-            return;
+    };
+
+    // =============================================
+    // Registrar pago (multi-método / split)
+    // =============================================
+    async function registrarPago(ordenId) {
+        const metodo = $(`#pago_metodo_${ordenId}`).val();
+        const monto = parseFloat($(`#pago_monto_${ordenId}`).val());
+        const referencia = $(`#pago_referencia_${ordenId}`).val() || '';
+        const propina = parseFloat($(`#propina_monto_${ordenId}`).val()) || 0;
+
+        if (isNaN(monto) || monto <= 0) {
+            alert('Ingresa un monto válido.'); return;
         }
 
         try {
-            const response = await fetch(`/meseros/ordenes/${ordenId}/cobrar`, {
+            const res = await fetch(`/meseros/ordenes/${ordenId}/pago`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                body: JSON.stringify({ monto_recibido: montoRecibido })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ metodo, monto, referencia, propina }),
             });
-            
-            const data = await response.json(); // Intenta parsear JSON siempre
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
 
-            if (!response.ok) {
-                throw new Error(data.message || data.error || `Error ${response.status} al procesar el pago.`);
+            if (data.orden_pagada) {
+                const modalEl = document.getElementById('modalCobro');
+                const inst = bootstrap.Modal.getInstance(modalEl);
+                if (inst) inst.hide();
+                let cambioMsg = data.cambio > 0 ? ` Cambio: $${data.cambio.toFixed(2)}` : '';
+                showToast(`Orden #${ordenId} pagada.${cambioMsg}`, 'confetti');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(`Pago de $${data.monto.toFixed(2)} (${metodo}) registrado. Saldo: $${data.saldo_pendiente.toFixed(2)}`, 'info');
+                // Refresh modal
+                mostrarCobro(ordenId);
             }
-            
-            const modalCobroEl = document.getElementById('modalCobro');
-            const modalInstance = bootstrap.Modal.getInstance(modalCobroEl);
-            if (modalInstance) modalInstance.hide();
-
-            showToast(`Pago registrado para orden #${ordenId}. Cambio: $${data.cambio.toFixed(2)}`, 'success');
-            // Actualizar la UI para reflejar que la orden está pagada
-            var ordenAcordeonItem = $('#orden-acordeon-' + ordenId);
-            if(ordenAcordeonItem.length){
-                ordenAcordeonItem.find('.accordion-button').removeClass('text-primary fw-bold').addClass('text-muted');
-                ordenAcordeonItem.find('td').eq(2).text('Pagada'); // Actualiza estado en tabla principal
-                ordenAcordeonItem.find('.btn-cobrar-orden').remove(); // Quita botón cobrar
-                ordenAcordeonItem.find('.btn-modificar-orden').remove(); // Quita botón modificar
-                // Podrías colapsar el acordeón y/o quitarlo de la lista de "activas"
-                // Para una actualización completa, window.location.reload() es lo más simple.
-                setTimeout(() => window.location.reload(), 1500); // Recargar después de mostrar el toast
-            }
-
-        } catch (error) {
-            console.error('Error en procesarPagoDesdeModal:', error);
-            alert(error.message);
+        } catch (err) {
+            alert(err.message);
         }
     }
 
-    // Limpieza de backdrop del modal (ya lo tenías, está bien)
+    // =============================================
+    // Formulario de descuento (con autorización)
+    // =============================================
+    function mostrarFormDescuento(ordenId) {
+        const body = $('#modalCobroBody');
+        const prev = body.html();
+        body.html(`
+            <h5>Aplicar Descuento — Orden #${ordenId}</h5>
+            <hr>
+            <div class="mb-2">
+                <label class="form-label">Tipo</label>
+                <select id="desc_tipo" class="form-select">
+                    <option value="porcentaje">Porcentaje (%)</option>
+                    <option value="monto">Monto fijo ($)</option>
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Valor</label>
+                <input type="number" step="0.01" id="desc_valor" class="form-control" min="0" placeholder="Ej: 10">
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Motivo</label>
+                <input type="text" id="desc_motivo" class="form-control" placeholder="Cortesía, error de cocina...">
+            </div>
+            <hr>
+            <h6>Autorización (Admin/Superadmin)</h6>
+            <div class="mb-2">
+                <label class="form-label">Email autorizador</label>
+                <input type="email" id="desc_auth_email" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Contraseña</label>
+                <input type="password" id="desc_auth_pass" class="form-control">
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-success flex-grow-1" id="btnConfirmarDesc">Confirmar Descuento</button>
+                <button class="btn btn-secondary" id="btnCancelarDesc">Cancelar</button>
+            </div>
+        `);
+
+        $('#btnCancelarDesc').on('click', function() { mostrarCobro(ordenId); });
+        $('#btnConfirmarDesc').on('click', async function() {
+            try {
+                const res = await fetch(`/meseros/ordenes/${ordenId}/descuento`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tipo: $('#desc_tipo').val(),
+                        valor: parseFloat($('#desc_valor').val()) || 0,
+                        motivo: $('#desc_motivo').val(),
+                        auth_email: $('#desc_auth_email').val(),
+                        auth_password: $('#desc_auth_pass').val(),
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+                showToast('Descuento aplicado.', 'success');
+                mostrarCobro(ordenId);
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+    }
+
+    // =============================================
+    // Imprimir ticket (Item 10)
+    // =============================================
+    window.imprimirTicket = async function(ordenId) {
+        try {
+            const res = await fetch(`/meseros/ordenes/${ordenId}/cobrar_info`);
+            if (!res.ok) throw new Error('No se pudieron cargar los datos');
+            const data = await res.json();
+
+            const win = window.open('', '_blank', 'width=350,height=600');
+            let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+                <title>Ticket #${data.orden_id}</title>
+                <style>
+                    body{font-family:'Courier New',monospace;font-size:12px;width:280px;margin:0 auto;padding:10px;}
+                    .center{text-align:center;}
+                    .bold{font-weight:bold;}
+                    .line{border-top:1px dashed #000;margin:5px 0;}
+                    table{width:100%;border-collapse:collapse;}
+                    td{padding:2px 0;}
+                    .right{text-align:right;}
+                    .total-row td{font-weight:bold;font-size:14px;padding-top:5px;}
+                    @media print{body{margin:0;padding:5px;}}
+                </style></head><body>
+                <div class="center bold" style="font-size:16px;">CASA LEONES</div>
+                <div class="center">Ticket de Venta</div>
+                <div class="line"></div>
+                <div>Orden: #${data.orden_id}</div>
+                <div>${data.mesa_numero ? 'Mesa: ' + data.mesa_numero : 'Para Llevar'}</div>
+                <div>Fecha: ${new Date().toLocaleString('es-MX')}</div>
+                <div class="line"></div>
+                <table>
+                    <tr class="bold"><td>Producto</td><td class="right">Cant</td><td class="right">P.U.</td><td class="right">Importe</td></tr>`;
+
+            data.detalles.forEach(item => {
+                html += `<tr><td>${item.nombre}</td><td class="right">${item.cantidad}</td><td class="right">$${item.precio.toFixed(2)}</td><td class="right">$${item.subtotal.toFixed(2)}</td></tr>`;
+            });
+
+            html += `</table>
+                <div class="line"></div>
+                <table>
+                    <tr><td>Subtotal</td><td class="right">$${data.subtotal.toFixed(2)}</td></tr>`;
+
+            if (data.descuento_pct > 0) {
+                html += `<tr><td>Descuento (${data.descuento_pct}%)</td><td class="right">-</td></tr>`;
+            }
+            if (data.descuento_monto > 0) {
+                html += `<tr><td>Descuento</td><td class="right">-$${data.descuento_monto.toFixed(2)}</td></tr>`;
+            }
+
+            html += `<tr><td>IVA (${data.iva_rate}%)</td><td class="right">$${data.iva.toFixed(2)}</td></tr>
+                    <tr class="total-row"><td>TOTAL</td><td class="right">$${data.total.toFixed(2)}</td></tr>
+                </table>`;
+
+            if (data.pagos.length > 0) {
+                html += `<div class="line"></div><div class="bold">Pagos:</div>`;
+                data.pagos.forEach(p => {
+                    html += `<div>${p.metodo}: $${p.monto.toFixed(2)}${p.referencia ? ' ('+p.referencia+')' : ''}</div>`;
+                });
+            }
+
+            html += `<div class="line"></div>
+                <div class="center">¡Gracias por su visita!</div>
+                <div class="center" style="font-size:10px;">Casa Leones POS v2.0</div>
+                <script>window.onload=function(){window.print();}<\/script>
+                </body></html>`;
+
+            win.document.write(html);
+            win.document.close();
+        } catch (err) {
+            alert('Error generando ticket: ' + err.message);
+        }
+    };
+
+    // =============================================
+    // Delegación botón cobrar
+    // =============================================
+    $(document).on('click', '.btn-cobrar-orden:not(:disabled)', function() {
+        var ordenId = $(this).data('orden-id');
+        if (ordenId) mostrarCobro(ordenId);
+    });
+
+    // Modal cleanup
     const modalCobroEl = document.getElementById('modalCobro');
     if (modalCobroEl) {
         modalCobroEl.addEventListener('hidden.bs.modal', () => {
@@ -311,52 +468,10 @@ $(document).ready(function() {
         });
     }
 
-    // Función para verificar si el botón "Cobrar" de una orden debe habilitarse
-    window.verificarEstadoParaCobro = function(ordenId) {
-        var ordenAcordeonItem = $('#orden-acordeon-' + ordenId);
-        if (!ordenAcordeonItem.length) {
-            console.warn('verificarEstadoParaCobro: No se encontró #orden-acordeon-' + ordenId);
-            return;
-        }
-
-        var todosEntregados = true;
-        var itemsEnOrden = ordenAcordeonItem.find('.product-row .estado-producto-texto');
-        
-        if (itemsEnOrden.length === 0) { // Si no hay items listados (ej. orden nueva sin detalles)
-            todosEntregados = false;
-        } else {
-            itemsEnOrden.each(function() {
-                if ($(this).text().trim().toLowerCase() !== 'entregado') {
-                    todosEntregados = false;
-                    return false; // Rompe el bucle .each
-                }
-            });
-        }
-
-        var botonCobrar = ordenAcordeonItem.find('.btn-cobrar-orden'); // Asumo que el botón Cobrar está DENTRO del acordeón
-        if (botonCobrar.length) {
-            if (todosEntregados) {
-                botonCobrar.prop('disabled', false)
-                           .removeClass('btn-outline-secondary disabled') // Clases para deshabilitado
-                           .addClass('btn-success'); // Clase para habilitado
-                console.log('Botón Cobrar HABILITADO para orden ' + ordenId);
-            } else {
-                botonCobrar.prop('disabled', true)
-                           .removeClass('btn-success')
-                           .addClass('btn-outline-secondary disabled');
-                console.log('Botón Cobrar DESHABILITADO para orden ' + ordenId);
-            }
-        } else {
-            console.warn('verificarEstadoParaCobro: No se encontró .btn-cobrar-orden para orden ' + ordenId);
-        }
-    }
-    
-    // Llamar a verificarEstadoParaCobro para todas las órdenes visibles en la carga inicial de la página
+    // Verificar cobro al cargar
     $('.accordion-item[id^="orden-acordeon-"]').each(function() {
         var ordenId = $(this).attr('id').replace('orden-acordeon-', '');
-        if (ordenId) {
-            verificarEstadoParaCobro(ordenId);
-        }
+        if (ordenId) verificarEstadoParaCobro(ordenId);
     });
 
-}); // Fin de $(document).ready
+});

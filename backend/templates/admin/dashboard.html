@@ -2,47 +2,174 @@
 
 {% block title %}Dashboard Admin{% endblock %}
 
+{% block head %}
+<style>
+  .kpi-card { border-radius: 10px; transition: transform 0.2s; }
+  .kpi-card:hover { transform: translateY(-2px); }
+  .kpi-icon { font-size: 1.5rem; }
+  .kpi-value { font-size: 1.8rem; font-weight: 700; }
+  .kpi-label { font-size: 0.85rem; opacity: 0.85; }
+  .activity-item { border-left: 3px solid var(--color-primary); padding-left: 0.75rem; }
+  .stock-alert-item { font-size: 0.9rem; }
+  .stock-bar { height: 6px; border-radius: 3px; background: #e0e0e0; }
+  .stock-bar-fill { height: 100%; border-radius: 3px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
-  <h1 class="mb-4">Panel de Administración</h1>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">Panel de Administración</h1>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-outline-primary btn-sm" aria-label="Reportes"><span aria-hidden="true">📊</span> Reportes</a>
+      <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-outline-primary btn-sm" aria-label="Inventario"><span aria-hidden="true">📦</span> Inventario</a>
+      <a href="{{ url_for('admin.corte_caja') }}" class="btn btn-outline-primary btn-sm" aria-label="Corte de Caja"><span aria-hidden="true">💰</span> Corte de Caja</a>
+    </div>
+  </div>
+
   <ul class="nav nav-pills mb-4">
     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
   </ul>
-  <!-- Aquí irán las tarjetas de métricas -->
-  <div class="row g-4">
-    <div class="col-md-4">
-      <div class="card text-white bg-primary">
+
+  <!-- ROW 1: KPI Cards (8 widgets) -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card text-white bg-primary h-100">
         <div class="card-body">
-          <h5 class="card-title">Ventas Hoy</h5>
-          <p class="card-text display-6" id="ventasHoy">--</p>
+          <div class="kpi-label"><span class="kpi-icon">💵</span> Ventas Hoy</div>
+          <div class="kpi-value" id="ventasHoy">
+            <div class="skeleton skeleton-text" style="width:60%"></div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card text-white bg-success">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card text-white bg-success h-100">
         <div class="card-body">
-          <h5 class="card-title">Órdenes Hoy</h5>
-          <p class="card-text display-6" id="ordenesHoy">--</p>
+          <div class="kpi-label"><span class="kpi-icon">🧾</span> Órdenes Hoy</div>
+          <div class="kpi-value" id="ordenesHoy">
+            <div class="skeleton skeleton-text" style="width:40%"></div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-md-4">
-      <div class="card text-white bg-warning">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card text-white bg-warning h-100">
         <div class="card-body">
-          <h5 class="card-title">Ticket Promedio</h5>
-          <p class="card-text display-6" id="ticketPromedio">--</p>
+          <div class="kpi-label"><span class="kpi-icon">🎫</span> Ticket Promedio</div>
+          <div class="kpi-value" id="ticketPromedio">
+            <div class="skeleton skeleton-text" style="width:50%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card text-white h-100" style="background-color: var(--color-accent);">
+        <div class="card-body">
+          <div class="kpi-label"><span class="kpi-icon">💰</span> Propinas Hoy</div>
+          <div class="kpi-value" id="propinasHoy">
+            <div class="skeleton skeleton-text" style="width:45%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body">
+          <div class="kpi-label"><span class="kpi-icon">🪑</span> Mesas Activas</div>
+          <div class="kpi-value" id="mesasActivas">
+            <div class="skeleton skeleton-text" style="width:60%"></div>
+          </div>
+          <small class="text-muted" id="mesasReservadas"></small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body">
+          <div class="kpi-label"><span class="kpi-icon">👨‍🍳</span> Órdenes en Cocina</div>
+          <div class="kpi-value" id="ordenesCocina">
+            <div class="skeleton skeleton-text" style="width:40%"></div>
+          </div>
+          <small class="text-muted" id="timerCocina"></small>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body">
+          <div class="kpi-label"><span class="kpi-icon">⚠️</span> Alertas Stock</div>
+          <div class="kpi-value" id="alertasStockCount">
+            <div class="skeleton skeleton-text" style="width:30%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card h-100">
+        <div class="card-body">
+          <div class="kpi-label"><span class="kpi-icon">📋</span> Último Corte</div>
+          <div id="ultimoCorteInfo">
+            <div class="skeleton skeleton-text" style="width:70%"></div>
+            <div class="skeleton skeleton-text-sm" style="width:50%"></div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Más secciones: gráficas, listados, etc. -->
-  <div class="mt-5">
-    <h2>Top Productos</h2>
-    <canvas id="chartTopProductos" height="100"></canvas>
+  <!-- ROW 2: Charts + Activity -->
+  <div class="row g-4 mb-4">
+    <!-- Ventas 7 días -->
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>Ventas — Últimos 7 días</strong>
+          <span class="badge bg-secondary" id="refreshTimer">Auto-refresh: 30s</span>
+        </div>
+        <div class="card-body">
+          <canvas id="chart7Dias" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+    <!-- Top Productos -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header"><strong>Top 5 Productos Hoy</strong></div>
+        <div class="card-body">
+          <canvas id="chartTopProductos" height="220"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Alertas Stock + Actividad Reciente -->
+  <div class="row g-4 mb-4">
+    <!-- Stock Alerts -->
+    <div class="col-lg-5">
+      <div class="card h-100">
+        <div class="card-header"><strong>Alertas de Inventario</strong></div>
+        <div class="card-body" id="stockAlertsList">
+          <div class="text-center text-muted py-3">
+            <div class="skeleton skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Activity Feed -->
+    <div class="col-lg-7">
+      <div class="card h-100">
+        <div class="card-header"><strong>Actividad Reciente</strong></div>
+        <div class="card-body" id="activityFeed" style="max-height:320px; overflow-y:auto;">
+          <div class="skeleton skeleton-text mb-2"></div>
+          <div class="skeleton skeleton-text mb-2"></div>
+          <div class="skeleton skeleton-text mb-2"></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

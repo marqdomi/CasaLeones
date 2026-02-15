@@ -23,6 +23,7 @@
         <td>
           <a href="{{ url_for('admin.mesa_editar', id=m.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
           <form method="POST" action="{{ url_for('admin.mesa_eliminar', id=m.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-sm btn-outline-danger"
               onclick="return confirm('Eliminar mesa #{{ m.numero }}?');">Eliminar</button>
           </form>

@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Órdenes - Estación Comal{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/cocina_timers.css') }}?v={{ config.VERSION }}">
+<script>document.documentElement.setAttribute('data-theme','dark');</script>
+{% endblock %}
 {% block content %}
 {% set total = ordenes_data.values()|map('length')|sum %}
 <div class="container mt-4">
@@ -16,6 +20,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"
         integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{{ url_for('static', filename='js/cocina_timers.js') }}?v={{ config.VERSION }}"></script>
 <script>
 $(document).ready(function() {
     var socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);

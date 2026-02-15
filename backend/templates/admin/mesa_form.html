@@ -9,10 +9,23 @@
     <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
   </ul>
   <form method="POST">
-    <div class="mb-3">
-      <label for="numero" class="form-label">Número de Mesa</label>
-      <input type="text" class="form-control" id="numero" name="numero"
-             value="{{ mesa.numero if mesa else '' }}" required>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row">
+      <div class="col-md-4 mb-3">
+        <label for="numero" class="form-label">Número de Mesa *</label>
+        <input type="text" class="form-control" id="numero" name="numero"
+               value="{{ mesa.numero if mesa else '' }}" required>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label for="capacidad" class="form-label">Capacidad (personas)</label>
+        <input type="number" class="form-control" id="capacidad" name="capacidad" min="1"
+               value="{{ mesa.capacidad if mesa else '4' }}">
+      </div>
+      <div class="col-md-4 mb-3">
+        <label for="zona" class="form-label">Zona</label>
+        <input type="text" class="form-control" id="zona" name="zona" placeholder="terraza, interior, barra..."
+               value="{{ mesa.zona if mesa else '' }}">
+      </div>
     </div>
     <button type="submit" class="btn btn-primary">Guardar</button>
     <a href="{{ url_for('admin.lista_mesas') }}" class="btn btn-secondary">Cancelar</a>

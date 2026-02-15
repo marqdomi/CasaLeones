@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}Facturas CFDI{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h2 class="mt-4">Facturas CFDI</h2>
+  <div class="mb-3">
+    <a href="{{ url_for('facturacion.lista_notas_credito') }}" class="btn btn-outline-secondary btn-sm">Ver Notas de Crédito</a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped table-sm">
+      <thead>
+        <tr><th>ID</th><th>Orden</th><th>Cliente</th><th>RFC</th><th>Total</th><th>UUID</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr>
+      </thead>
+      <tbody>
+        {% for f in facturas %}
+        <tr>
+          <td><a href="{{ url_for('facturacion.detalle_factura', factura_id=f.id) }}">{{ f.id }}</a></td>
+          <td>#{{ f.orden_id }}</td>
+          <td>{{ f.cliente.nombre if f.cliente else '' }}</td>
+          <td>{{ f.rfc_receptor }}</td>
+          <td>${{ '%.2f'|format(f.total) }}</td>
+          <td><small>{{ f.uuid_cfdi or '—' }}</small></td>
+          <td>
+            <span class="badge {% if f.estado == 'timbrada' %}bg-success{% elif f.estado == 'error' %}bg-danger{% elif f.estado == 'cancelada' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+              {{ f.estado }}
+            </span>
+          </td>
+          <td>{{ f.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>
+            {% if f.estado == 'timbrada' %}
+              <a href="{{ url_for('facturacion.download_xml', factura_id=f.id) }}" class="btn btn-sm btn-outline-info" title="Descargar XML">XML</a>
+              <a href="{{ url_for('facturacion.download_pdf', factura_id=f.id) }}" class="btn btn-sm btn-outline-primary" title="Descargar PDF">PDF</a>
+              <form method="POST" action="{{ url_for('facturacion.reenviar', factura_id=f.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-outline-success" title="Reenviar por email">📧</button>
+              </form>
+              <a href="{{ url_for('facturacion.crear_nota_credito_view', factura_id=f.id) }}" class="btn btn-sm btn-outline-warning" title="Nota de crédito">NC</a>
+              <form method="POST" action="{{ url_for('facturacion.cancelar', factura_id=f.id) }}" style="display:inline;" onsubmit="return confirm('¿Cancelar esta factura ante el SAT?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="motivo_cancelacion" value="02">
+                <button class="btn btn-sm btn-outline-danger" title="Cancelar factura">Cancelar</button>
+              </form>
+            {% elif f.estado == 'pendiente' %}
+              <span class="text-muted">PAC pendiente</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

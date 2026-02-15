@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Receta — {{ producto.nombre }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:700px;">
+  <h2 class="mt-4">Receta: {{ producto.nombre }}</h2>
+  <p>Precio: ${{ '%.2f'|format(producto.precio) }}</p>
+
+  <div id="receta-editor">
+    <table class="table table-sm" id="tabla-receta">
+      <thead><tr><th>Ingrediente</th><th>Cantidad por unidad</th><th></th></tr></thead>
+      <tbody>
+        {% for r in producto.receta_items %}
+        <tr>
+          <td>
+            <select class="form-select form-select-sm ing-select" required>
+              {% for i in ingredientes %}
+              <option value="{{ i.id }}" {% if i.id == r.ingrediente_id %}selected{% endif %}>{{ i.nombre }} ({{ i.unidad }})</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm cant-input" value="{{ r.cantidad_por_unidad }}"></td>
+          <td><button type="button" class="btn btn-sm btn-danger btn-quitar-fila">&times;</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-primary mb-3" id="btn-agregar-fila">+ Agregar ingrediente</button>
+    <div>
+      <button type="button" class="btn btn-success" id="btn-guardar-receta">Guardar Receta</button>
+      <a href="{{ url_for('inventario.lista_recetas') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tbody = document.querySelector('#tabla-receta tbody');
+    const ingredientesOptions = `{% for i in ingredientes %}<option value="{{ i.id }}">{{ i.nombre }} ({{ i.unidad }})</option>{% endfor %}`;
+
+    document.getElementById('btn-agregar-fila').addEventListener('click', function() {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><select class="form-select form-select-sm ing-select" required>${ingredientesOptions}</select></td>
+            <td><input type="number" step="0.0001" min="0.0001" class="form-control form-control-sm cant-input" value="1"></td>
+            <td><button type="button" class="btn btn-sm btn-danger btn-quitar-fila">&times;</button></td>`;
+        tbody.appendChild(tr);
+    });
+
+    tbody.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-quitar-fila')) {
+            e.target.closest('tr').remove();
+        }
+    });
+
+    document.getElementById('btn-guardar-receta').addEventListener('click', async function() {
+        const filas = tbody.querySelectorAll('tr');
+        const items = [];
+        filas.forEach(tr => {
+            const ingId = tr.querySelector('.ing-select').value;
+            const cant = tr.querySelector('.cant-input').value;
+            if (ingId && cant > 0) {
+                items.push({ ingrediente_id: parseInt(ingId), cantidad_por_unidad: parseFloat(cant) });
+            }
+        });
+
+        const res = await fetch('{{ url_for("inventario.editar_receta", producto_id=producto.id) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(items),
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('Receta guardada.');
+            window.location.href = '{{ url_for("inventario.lista_recetas") }}';
+        } else {
+            alert(data.message || 'Error al guardar.');
+        }
+    });
+});
+</script>
+{% endblock %}

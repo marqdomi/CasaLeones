@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Factura #{{ factura.id }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:900px;">
+  <h2 class="mt-4">
+    Factura #{{ factura.id }}
+    <span class="badge {% if factura.estado == 'timbrada' %}bg-success{% elif factura.estado == 'error' %}bg-danger{% elif factura.estado == 'cancelada' %}bg-secondary{% else %}bg-warning text-dark{% endif %}">
+      {{ factura.estado }}
+    </span>
+  </h2>
+
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <h5>Datos Generales</h5>
+      <table class="table table-sm">
+        <tr><th>UUID CFDI</th><td>{{ factura.uuid_cfdi or '—' }}</td></tr>
+        <tr><th>Orden</th><td>#{{ factura.orden_id }}</td></tr>
+        <tr><th>Fecha</th><td>{{ factura.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+        <tr><th>Subtotal</th><td>${{ '%.2f'|format(factura.subtotal) }}</td></tr>
+        <tr><th>IVA</th><td>${{ '%.2f'|format(factura.iva) }}</td></tr>
+        <tr><th>Total</th><td><strong>${{ '%.2f'|format(factura.total) }}</strong></td></tr>
+        <tr><th>Forma de Pago</th><td>{{ factura.forma_pago or '—' }}</td></tr>
+      </table>
+    </div>
+    <div class="col-md-6">
+      <h5>Receptor</h5>
+      <table class="table table-sm">
+        <tr><th>RFC</th><td>{{ factura.rfc_receptor }}</td></tr>
+        <tr><th>Razón Social</th><td>{{ factura.razon_social or '—' }}</td></tr>
+        <tr><th>Uso CFDI</th><td>{{ factura.uso_cfdi or '—' }}</td></tr>
+        {% if factura.cliente %}
+        <tr><th>Cliente</th><td>{{ factura.cliente.nombre }}</td></tr>
+        <tr><th>Régimen Fiscal</th><td>{{ factura.cliente.regimen_fiscal or '—' }}</td></tr>
+        {% endif %}
+      </table>
+    </div>
+  </div>
+
+  {% if factura.estado == 'timbrada' %}
+  <div class="mb-4">
+    <a href="{{ url_for('facturacion.download_xml', factura_id=factura.id) }}" class="btn btn-outline-info btn-sm">Descargar XML</a>
+    <a href="{{ url_for('facturacion.download_pdf', factura_id=factura.id) }}" class="btn btn-outline-primary btn-sm">Descargar PDF</a>
+    <form method="POST" action="{{ url_for('facturacion.reenviar', factura_id=factura.id) }}" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-success btn-sm">Reenviar por Email</button>
+    </form>
+    <a href="{{ url_for('facturacion.crear_nota_credito_view', factura_id=factura.id) }}" class="btn btn-outline-warning btn-sm">Crear Nota de Crédito</a>
+    {% if factura.metodo_pago_cfdi == 'PPD' %}
+    <a href="{{ url_for('facturacion.complemento_pago', factura_id=factura.id) }}" class="btn btn-outline-info btn-sm">
+      <i class="fas fa-file-invoice-dollar me-1"></i>Complemento de Pago
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if factura.pac_response %}
+  <div class="alert alert-info">
+    <strong>Respuesta PAC:</strong> {{ factura.pac_response }}
+  </div>
+  {% endif %}
+
+  <!-- Notas de crédito asociadas -->
+  <h4 class="mt-4">Notas de Crédito</h4>
+  {% if factura.notas_credito %}
+  <div class="table-responsive">
+    <table class="table table-sm table-striped">
+      <thead>
+        <tr><th>ID</th><th>UUID</th><th>Motivo</th><th>Monto</th><th>Estado</th><th>Fecha</th></tr>
+      </thead>
+      <tbody>
+        {% for nc in factura.notas_credito %}
+        <tr>
+          <td>{{ nc.id }}</td>
+          <td><small>{{ nc.uuid_cfdi or '—' }}</small></td>
+          <td>{{ nc.motivo }}</td>
+          <td>${{ '%.2f'|format(nc.monto) }}</td>
+          <td>
+            <span class="badge {% if nc.estado == 'timbrada' %}bg-success{% elif nc.estado == 'error' %}bg-danger{% else %}bg-warning text-dark{% endif %}">
+              {{ nc.estado }}
+            </span>
+          </td>
+          <td>{{ nc.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">No hay notas de crédito para esta factura.</p>
+  {% endif %}
+
+  <a href="{{ url_for('facturacion.lista_facturas') }}" class="btn btn-secondary mt-3">Volver a lista</a>
+</div>
+{% endblock %}

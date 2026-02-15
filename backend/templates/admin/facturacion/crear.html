@@ -1,0 +1,103 @@
+{% extends 'base.html' %}
+{% block title %}Crear Factura — Orden #{{ orden.id }}{% endblock %}
+{% block content %}
+<div class="container" style="max-width:700px;">
+  <h2 class="mt-4">Facturar Orden #{{ orden.id }}</h2>
+  <p>Total: <strong>${{ '%.2f'|format(orden.total or 0) }}</strong></p>
+
+  <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <h5>Datos del Receptor</h5>
+    <div class="mb-3">
+      <label class="form-label">Cliente existente (opcional)</label>
+      <select name="cliente_id" id="cliente_select" class="form-select" onchange="toggleDatosCliente()">
+        <option value="">— Nuevo cliente —</option>
+        {% for c in clientes %}
+        <option value="{{ c.id }}"
+                data-rfc="{{ c.rfc }}"
+                data-razon="{{ c.razon_social }}"
+                data-uso="{{ c.uso_cfdi }}"
+                data-regimen="{{ c.regimen_fiscal }}"
+                data-cp="{{ c.domicilio_fiscal }}">
+          {{ c.nombre }} {% if c.rfc %}({{ c.rfc }}){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="datos-nuevo-cliente">
+      <div class="mb-3">
+        <label class="form-label">RFC <small class="text-muted">(13 caracteres persona física, 12 moral)</small></label>
+        <input type="text" name="rfc" id="rfc_input" class="form-control"
+               data-rfc-validate maxlength="13" placeholder="XAXX010101000"
+               style="text-transform:uppercase;">
+        <div id="rfc-feedback" class="form-text"></div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Razón Social</label>
+        <input type="text" name="razon_social" id="razon_input" class="form-control" required>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Régimen Fiscal</label>
+          <select name="regimen_fiscal" id="regimen_input" class="form-select">
+            <option value="">Seleccionar…</option>
+            {% for code, desc in regimenes.items() %}
+            <option value="{{ code }}">{{ code }} — {{ desc }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Uso CFDI</label>
+          <select name="uso_cfdi" id="uso_input" class="form-select">
+            {% for code, desc in usos_cfdi.items() %}
+            <option value="{{ code }}" {% if code == 'G03' %}selected{% endif %}>{{ code }} — {{ desc }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">CP Domicilio Fiscal</label>
+        <input type="text" name="domicilio_fiscal" id="cp_input" class="form-control" maxlength="5" pattern="\d{5}">
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Método de Pago CFDI</label>
+      <select name="metodo_pago" class="form-select">
+        <option value="PUE" selected>PUE — Pago en una sola exhibición</option>
+        <option value="PPD">PPD — Pago en parcialidades o diferido</option>
+      </select>
+      <div class="form-text">PPD requiere emitir complemento de pago al recibir el pago.</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generar Factura</button>
+    <a href="{{ url_for('facturacion.lista_facturas') }}" class="btn btn-secondary">Cancelar</a>
+  </form>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+function toggleDatosCliente() {
+    const sel = document.getElementById('cliente_select');
+    const div = document.getElementById('datos-nuevo-cliente');
+    const opt = sel.options[sel.selectedIndex];
+    if (sel.value) {
+        document.getElementById('rfc_input').value = opt.dataset.rfc || '';
+        document.getElementById('razon_input').value = opt.dataset.razon || '';
+        document.getElementById('uso_input').value = opt.dataset.uso || 'G03';
+        document.getElementById('regimen_input').value = opt.dataset.regimen || '';
+        document.getElementById('cp_input').value = opt.dataset.cp || '';
+        div.style.display = 'none';
+    } else {
+        document.getElementById('rfc_input').value = '';
+        document.getElementById('razon_input').value = '';
+        document.getElementById('regimen_input').value = '';
+        document.getElementById('uso_input').value = 'G03';
+        document.getElementById('cp_input').value = '';
+        div.style.display = '';
+    }
+}
+</script>
+<script src="{{ url_for('static', filename='js/rfc-validator.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}

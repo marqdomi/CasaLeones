@@ -1,0 +1,290 @@
+/*====================================
+  Dark Mode Theme (Sprint 5 — 5.5)
+  Activated by [data-theme="dark"] on <html>
+====================================*/
+
+[data-theme="dark"] {
+  --color-primary: #D4354A;
+  --color-secondary: #3A7BBF;
+  --color-accent: #6FA352;
+  --color-light: #1E1E1E;
+  --color-dark: #F0F0F0;
+  --color-warning: #8C6A3C;
+  --bg-surface: #2A2A2A;
+  --bg-card: #333333;
+  --bg-input: #3A3A3A;
+  --text-primary: #F0F0F0;
+  --text-secondary: #B0B0B0;
+  --border-color: #444444;
+}
+
+/* Body */
+[data-theme="dark"] body {
+  background-color: #1A1A1A;
+  color: #F0F0F0;
+}
+
+/* Navbar */
+[data-theme="dark"] .navbar {
+  background-color: #222 !important;
+}
+[data-theme="dark"] .navbar.bg-light {
+  background-color: #222 !important;
+}
+[data-theme="dark"] .navbar-light .navbar-nav .nav-link {
+  color: #ccc;
+}
+[data-theme="dark"] .navbar-light .navbar-nav .nav-link:hover,
+[data-theme="dark"] .navbar-light .navbar-nav .nav-link.active {
+  color: #fff;
+}
+[data-theme="dark"] .navbar-light .navbar-brand {
+  color: #fff;
+}
+[data-theme="dark"] .dropdown-menu {
+  background-color: #333;
+  border-color: #444;
+}
+[data-theme="dark"] .dropdown-item {
+  color: #ddd;
+}
+[data-theme="dark"] .dropdown-item:hover {
+  background-color: #444;
+  color: #fff;
+}
+[data-theme="dark"] .dropdown-divider {
+  border-color: #555;
+}
+
+/* Cards */
+[data-theme="dark"] .card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+  color: #F0F0F0;
+}
+[data-theme="dark"] .card-header {
+  background-color: #3A3A3A;
+  border-color: var(--border-color);
+  color: #F0F0F0;
+}
+
+/* Tables */
+[data-theme="dark"] table {
+  background-color: var(--bg-card);
+  color: #F0F0F0;
+}
+[data-theme="dark"] thead {
+  background-color: #333;
+}
+[data-theme="dark"] th, [data-theme="dark"] td {
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .table {
+  color: #F0F0F0;
+}
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+  color: #F0F0F0;
+  background-color: #2F2F2F;
+}
+
+/* Forms */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+  background-color: var(--bg-input);
+  border-color: var(--border-color);
+  color: #F0F0F0;
+}
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+  background-color: #444;
+  border-color: var(--color-primary);
+  color: #fff;
+}
+[data-theme="dark"] .form-label {
+  color: #ccc;
+}
+
+/* Modals */
+[data-theme="dark"] .modal-content {
+  background-color: #2A2A2A;
+  border-color: var(--border-color);
+  color: #F0F0F0;
+}
+[data-theme="dark"] .modal-header {
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .modal-footer {
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .btn-close {
+  filter: invert(1);
+}
+
+/* Alerts */
+[data-theme="dark"] .alert-warning {
+  background-color: #554422;
+  color: #FFD6B0;
+  border-color: #665533;
+}
+[data-theme="dark"] .alert-success {
+  background-color: #1E4620;
+  color: #A8E6A0;
+}
+
+/* List groups */
+[data-theme="dark"] .list-group-item {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+  color: #F0F0F0;
+}
+
+/* Accordion */
+[data-theme="dark"] .accordion-button {
+  background-color: #333;
+  color: #F0F0F0;
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .accordion-button:not(.collapsed) {
+  background-color: #3A3A3A;
+  color: #F0F0F0;
+}
+[data-theme="dark"] .accordion-body {
+  background-color: var(--bg-card);
+  color: #F0F0F0;
+}
+
+/* Product cards */
+[data-theme="dark"] .product-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] .product-card:hover {
+  box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+}
+
+/* Tabs */
+[data-theme="dark"] .nav-tabs .nav-link {
+  color: #aaa;
+}
+[data-theme="dark"] .nav-tabs .nav-link.active {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+  color: #fff;
+}
+[data-theme="dark"] .nav-pills .nav-link {
+  color: #ccc;
+}
+[data-theme="dark"] .nav-pills .nav-link.active {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+/* Breadcrumbs & text */
+[data-theme="dark"] .text-muted {
+  color: #999 !important;
+}
+[data-theme="dark"] a {
+  color: var(--color-secondary);
+}
+
+/* Pagination */
+[data-theme="dark"] .page-item .page-link {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+  color: #ccc;
+}
+[data-theme="dark"] .page-item.active .page-link {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* KPI cards keep their bg colors */
+[data-theme="dark"] .kpi-card:not(.bg-primary):not(.bg-success):not(.bg-warning):not(.bg-danger):not([style*="background"]) {
+  background-color: var(--bg-card) !important;
+}
+
+/* Skeleton loading in dark mode */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+  background-size: 200px 100%;
+}
+
+/* Orden card */
+[data-theme="dark"] .orden-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+/* Toast */
+[data-theme="dark"] #toast-container .toast {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* Ticket */
+[data-theme="dark"] .ticket {
+  background-color: #2A2A2A;
+  color: #F0F0F0;
+}
+
+/* Scrollbar */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 8px;
+}
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1A1A1A;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+/*====================================
+  Accessibility — Focus Visible
+====================================*/
+*:focus-visible {
+  outline: 3px solid var(--color-primary, #A6192E);
+  outline-offset: 2px;
+}
+
+/* Override Bootstrap's default focus */
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.nav-link:focus-visible {
+  box-shadow: 0 0 0 3px rgba(166,25,46,0.4);
+}
+
+/*====================================
+  Skip to Content Link
+====================================*/
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary, #A6192E);
+  color: #fff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0 0 8px 8px;
+  z-index: 9999;
+  text-decoration: none;
+  font-weight: bold;
+  transition: top 0.2s;
+}
+.skip-to-content:focus {
+  top: 0;
+  outline: none;
+}
+
+/*====================================
+  Auto-detect system dark mode
+====================================*/
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme]) {
+    --color-primary: #D4354A;
+    --color-secondary: #3A7BBF;
+    --color-accent: #6FA352;
+    --color-light: #1E1E1E;
+    --color-dark: #F0F0F0;
+  }
+}

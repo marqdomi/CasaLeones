@@ -9,7 +9,9 @@
             <div class="card-body">
                 <h5 class="card-title">{{ item.producto.nombre }} (x{{ item.cantidad }})</h5>
                 {% if item.notas %}
-                <p class="card-text"><strong>Notas:</strong> {{ item.notas }}</p>
+                <div class="alert alert-warning py-1 px-2 mb-0 mt-1" role="alert">
+                  <strong>📝 Notas:</strong> {{ item.notas }}
+                </div>
                 {% endif %}
             </div>
             <div class="card-footer text-center">

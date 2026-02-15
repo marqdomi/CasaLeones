@@ -388,3 +388,98 @@ header {
     max-height: 100px;
   }
 }
+
+/*====================================
+  Feedback Animations (Sprint 5 — 5.3)
+====================================*/
+/* Bounce animation for product cards on add */
+@keyframes bounceIn {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.12); }
+  50%  { transform: scale(0.95); }
+  70%  { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.animate-bounce {
+  animation: bounceIn 0.45s ease;
+}
+
+/* Pulse animation for badges */
+@keyframes badgePop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+.animate-badge-pop {
+  animation: badgePop 0.35s ease;
+}
+
+/* Check mark animation for payment success */
+@keyframes checkMark {
+  0%   { transform: scale(0) rotate(-45deg); opacity: 0; }
+  50%  { transform: scale(1.2) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.animate-check {
+  animation: checkMark 0.5s ease forwards;
+  display: inline-block;
+}
+
+/* Skeleton loading placeholders */
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+  background-size: 200px 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+.skeleton-text {
+  height: 1em;
+  margin-bottom: 0.5rem;
+  width: 80%;
+}
+.skeleton-text-sm {
+  height: 0.75em;
+  width: 60%;
+}
+.skeleton-card {
+  height: 120px;
+  width: 100%;
+}
+.skeleton-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+/* Toast enhancements */
+#toast-container {
+  max-width: 360px;
+}
+#toast-container .toast {
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Slide-in animation for toasts */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+#toast-container .toast {
+  animation: slideInRight 0.3s ease;
+}
+
+/* Confetti pulse for payment success */
+@keyframes confettiPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(80,124,54,0.4); }
+  70%  { box-shadow: 0 0 0 12px rgba(80,124,54,0); }
+  100% { box-shadow: 0 0 0 0 rgba(80,124,54,0); }
+}
+.toast-confetti {
+  animation: confettiPulse 0.6s ease;
+}

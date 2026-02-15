@@ -3,4 +3,6 @@ instance/
 __pycache__/
 *.pyc
 *.sqlite3
+*.db
 .env
+backups/*.dump

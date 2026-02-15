@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <h1 class="mt-4">Reportes y Analytics</h1>
+
+  <form class="row g-3 mb-4" method="GET">
+    <div class="col-auto">
+      <label class="form-label">Desde</label>
+      <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+    </div>
+    <div class="col-auto">
+      <label class="form-label">Hasta</label>
+      <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+    </div>
+    <div class="col-auto align-self-end">
+      <button type="submit" class="btn btn-primary">Filtrar</button>
+    </div>
+  </form>
+
+  <div class="row">
+    <div class="col-md-4 mb-3">
+      <div class="card border-primary h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Ventas</h5>
+          <p class="text-muted">Resumen de ventas y tendencias diarias</p>
+          <a href="{{ url_for('reportes.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-primary">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-success h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Top Productos</h5>
+          <p class="text-muted">Productos más vendidos e ingresos</p>
+          <a href="{{ url_for('reportes.reporte_productos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-info h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Rendimiento Meseros</h5>
+          <p class="text-muted">Ventas y órdenes por mesero</p>
+          <a href="{{ url_for('reportes.reporte_meseros', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-info">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-warning h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Métodos de Pago</h5>
+          <p class="text-muted">Desglose efectivo / tarjeta / transferencia</p>
+          <a href="{{ url_for('reportes.reporte_pagos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-warning">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-danger h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Inventario / Mermas</h5>
+          <p class="text-muted">Mermas de ingredientes en el periodo</p>
+          <a href="{{ url_for('reportes.reporte_inventario', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-danger">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-secondary h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Rentabilidad</h5>
+          <p class="text-muted">Costo, margen y utilidad por producto</p>
+          <a href="{{ url_for('reportes.reporte_rentabilidad', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-secondary">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4 mb-3">
+      <div class="card border-dark h-100">
+        <div class="card-body text-center">
+          <h5 class="card-title">Delivery / Canales</h5>
+          <p class="text-muted">Ventas por canal y comisiones delivery</p>
+          <a href="{{ url_for('reportes.reporte_delivery', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-dark">Ver Reporte</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
