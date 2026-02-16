@@ -54,7 +54,9 @@ $(document).ready(function() {
             showToast(`¡${data.producto_nombre} de orden #${data.orden_id} listo!`, 'success');
             var row = $('#product-item-' + data.item_id);
             if (row.length) {
-                row.find('.estado-producto-texto').html('<span class="badge bg-success">Listo</span>');
+                // Update badge in card layout
+                row.find('.estado-producto-texto').html('<span class="cl-badge cl-badge--success cl-badge--pill" style="font-size:10px;">Listo</span>');
+                // Legacy accordion support
                 row.find('.accion-producto').html(
                     `<button class="btn btn-sm btn-primary btn-entregar-item"
                              data-detalle-id="${data.item_id}" data-orden-id="${data.orden_id}">Entregar</button>`
@@ -110,23 +112,30 @@ $(document).ready(function() {
     // Verificar estado para cobro
     // =============================================
     window.verificarEstadoParaCobro = function(ordenId) {
-        var el = $('#orden-acordeon-' + ordenId);
+        // Support both card layout (Sprint 9) and legacy accordion
+        var el = $('#orden-card-' + ordenId);
+        if (!el.length) el = $('#orden-acordeon-' + ordenId);
         if (!el.length) return;
         var todos = true;
-        var items = el.find('.product-row .estado-producto-texto');
+        var items = el.find('.estado-producto-texto');
         if (!items.length) { todos = false; }
         else {
             items.each(function() {
-                if ($(this).text().trim().toLowerCase() !== 'entregado') {
+                var txt = $(this).text().trim().toLowerCase();
+                if (txt !== 'entregado') {
                     todos = false; return false;
                 }
             });
         }
         var btn = el.find('.btn-cobrar-orden');
         if (btn.length) {
-            btn.prop('disabled', !todos)
-               .toggleClass('btn-success', todos)
-               .toggleClass('btn-outline-secondary disabled', !todos);
+            btn.prop('disabled', !todos);
+            // Style adapts to new design system
+            if (todos) {
+                btn.css({'opacity': '1', 'pointer-events': 'auto'});
+            } else {
+                btn.css({'opacity': '0.5', 'pointer-events': 'none'});
+            }
         }
     };
 
@@ -468,9 +477,10 @@ $(document).ready(function() {
         });
     }
 
-    // Verificar cobro al cargar
-    $('.accordion-item[id^="orden-acordeon-"]').each(function() {
-        var ordenId = $(this).attr('id').replace('orden-acordeon-', '');
+    // Verificar cobro al cargar — support both card and accordion layouts
+    $('[id^="orden-card-"], .accordion-item[id^="orden-acordeon-"]').each(function() {
+        var id = $(this).attr('id');
+        var ordenId = id.replace('orden-card-', '').replace('orden-acordeon-', '');
         if (ordenId) verificarEstadoParaCobro(ordenId);
     });
 

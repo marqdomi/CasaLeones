@@ -1,155 +1,216 @@
-{% extends "base.html" %}
+{# ═══════════════════════════════════════════════════════
+   Sprint 9 — 9.5: Meseros Dashboard
+   Cards grid, urgency borders, FAB, Socket.IO
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_operations.html' %}
+{% set active_op_tab = 'meseros' %}
+{% block page_title %}Meseros{% endblock %}
 
-{% block head_extra %}
-  {# Puedes añadir CSS específico para esta página aquí si es necesario #}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/meseros_dashboard.css') }}?v={{ config.VERSION }}"> {# Ejemplo de CSS específico #}
-{% endblock %}
-
-{% block title %}Dashboard de Meseros{% endblock %}
-
-{% block content %}
-<div class="container-fluid mt-4" id="meseros-dashboard">
-    <h2 class="mb-4">Dashboard de Meseros</h2>
-
-    <div class="d-flex justify-content-end mb-3">
-        <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="btn btn-danger me-2">Orden Para Llevar</a>
-        <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="btn btn-primary">Orden Para Mesa</a>
-    </div>
-
-    <h4 class="mb-3">Órdenes Activas</h4>
-
-    {% if not ordenes_mesero %}
-        <div class="alert alert-info text-center" role="alert">
-            No tienes órdenes activas en este momento.
-        </div>
-    {% else %}
-        <div class="accordion" id="accordionOrdenesActivas">
-            {% for orden in ordenes_mesero %}
-            <div class="accordion-item" id="orden-acordeon-{{ orden.id }}" data-orden-id="{{ orden.id }}">
-                <h2 class="accordion-header" id="heading-orden-{{ orden.id }}">
-                    <button class="accordion-button collapsed bg-light text-dark {% if orden.estado == 'completada' %}bg-light-success text-success-emphasis{% elif orden.estado == 'lista_para_entregar' %}bg-light-primary text-primary-emphasis{% endif %}" 
-                        type="button" data-bs-toggle="collapse" data-bs-target="#collapse-orden-{{ orden.id }}" aria-expanded="false" aria-controls="collapse-orden-{{ orden.id }}">
-                        <span class="me-2">Orden #{{ orden.id }}</span> - 
-                        <span class="mx-2">
-                            {% if orden.es_para_llevar %}
-                                Para Llevar
-                            {% else %}
-                                Mesa {{ orden.mesa.numero if orden.mesa else 'N/A' }}
-                            {% endif %}
-                        </span> - 
-                        <span class="badge 
-                            {% if orden.estado == 'pendiente' %}bg-secondary
-                            {% elif orden.estado == 'enviado' %}bg-info text-dark
-                            {% elif orden.estado == 'lista_para_entregar' %}bg-primary
-                            {% elif orden.estado == 'completada' %}bg-success
-                            {% elif orden.estado == 'cancelada' %}bg-danger
-                            {% else %}bg-light text-dark
-                            {% endif %}
-                            ms-auto estado-orden-general">
-                            {{ orden.estado|capitalize }}
-                        </span>
-                    </button>
-                </h2>
-                <div id="collapse-orden-{{ orden.id }}" class="accordion-collapse collapse" aria-labelledby="heading-orden-{{ orden.id }}" data-bs-parent="#accordionOrdenesActivas">
-                    <div class="accordion-body">
-                        <h6 class="mb-3">Detalles de la Orden:</h6>
-                        {% if orden.detalles %}
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th class="text-center">Cantidad</th>
-                                        <th>Estado</th>
-                                        <th>Acción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for detalle in orden.detalles %}
-                                    <tr id="product-item-{{ detalle.id }}" class="product-row 
-                                        {% if detalle.estado == 'listo' %}detalle-listo-cocina table-info
-                                        {% elif detalle.estado == 'entregado' %}detalle-entregado table-success
-                                        {% elif detalle.estado == 'pendiente' %}detalle-pendiente-cocina
-                                        {% endif %}">
-                                        <td>{{ detalle.producto.nombre }}</td>
-                                        <td class="text-center">{{ detalle.cantidad }}</td>
-                                        <td class="estado-producto-texto">
-                                            {% if detalle.estado == 'listo' %}
-                                                <span class="badge bg-success">Listo en cocina</span>
-                                            {% elif detalle.estado == 'entregado' %}
-                                                <span class="badge bg-secondary">Entregado</span>
-                                            {% else %}
-                                                <span class="badge bg-warning text-dark">{{ detalle.estado|capitalize }}</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="accion-producto">
-                                            {% if detalle.estado == 'listo' %}
-                                                <button class="btn btn-sm btn-primary btn-entregar-item" 
-                                                        data-detalle-id="{{ detalle.id }}" 
-                                                        data-orden-id="{{ orden.id }}">
-                                                    Entregar
-                                                </button>
-                                            {% elif detalle.estado == 'entregado' %}
-                                                <span class="text-success fw-bold">Entregado <i class="fas fa-check"></i></span>
-                                            {% else %}
-                                                <span>En preparación</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}
-                            <p class="text-muted">Esta orden no tiene productos.</p>
-                        {% endif %}
-                        <hr>
-                        <div class="text-center mt-3 orden-actions-footer">
-                            <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}" class="btn btn-outline-primary btn-sm me-2 btn-modificar-orden">
-                                <i class="fas fa-edit me-1"></i>Modificar
-                            </a>
-                            <button 
-                                type="button" 
-                                class="btn btn-warning btn-sm btn-cobrar-orden disabled" 
-                                data-orden-id="{{ orden.id }}"
-                                disabled> 
-                                <i class="fas fa-cash-register me-1"></i>Cobrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+{% block ops_content %}
+{# ── Header with counters ── #}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3" style="margin-bottom: var(--cl-space-4);">
+  <div>
+    <h1 style="font-size: var(--cl-text-2xl); font-weight: var(--cl-font-bold); color: var(--cl-text-primary); margin: 0;">
+      Mis Órdenes
+    </h1>
+  </div>
+  <div class="d-flex gap-2 align-items-center flex-wrap">
+    <span class="cl-badge cl-badge--pill" id="counterTotal" style="font-size: var(--cl-text-sm); padding: var(--cl-space-1) var(--cl-space-3);">
+      <i data-lucide="clipboard-list" class="icon-xs"></i>
+      <span>{{ ordenes_mesero|length }}</span> activas
+    </span>
+    {% set pendientes = ordenes_mesero|selectattr('estado','equalto','pendiente')|list|length + ordenes_mesero|selectattr('estado','equalto','enviado')|list|length + ordenes_mesero|selectattr('estado','equalto','en_preparacion')|list|length %}
+    {% set listas = ordenes_mesero|selectattr('estado','equalto','completada')|list|length + ordenes_mesero|selectattr('estado','equalto','lista_para_entregar')|list|length %}
+    {% if pendientes > 0 %}
+    <span class="cl-badge cl-badge--warning cl-badge--pill" style="font-size: var(--cl-text-sm); padding: var(--cl-space-1) var(--cl-space-3);">
+      <i data-lucide="clock" class="icon-xs"></i>
+      {{ pendientes }} en cocina
+    </span>
     {% endif %}
+    {% if listas > 0 %}
+    <span class="cl-badge cl-badge--success cl-badge--pill" style="font-size: var(--cl-text-sm); padding: var(--cl-space-1) var(--cl-space-3);">
+      <i data-lucide="check-circle" class="icon-xs"></i>
+      {{ listas }} listas
+    </span>
+    {% endif %}
+  </div>
 </div>
 
-<!-- Modal para Cobro -->
+{% if not ordenes_mesero %}
+{# ── Empty state ── #}
+<div style="padding: var(--cl-space-16) var(--cl-space-4); text-align: center;">
+  <div style="width: 80px; height: 80px; border-radius: var(--cl-radius-full); background: var(--cl-bg-tertiary); display: inline-flex; align-items: center; justify-content: center; margin-bottom: var(--cl-space-4);">
+    <i data-lucide="coffee" style="width: 40px; height: 40px; color: var(--cl-text-placeholder);"></i>
+  </div>
+  <h3 style="font-size: var(--cl-text-xl); font-weight: var(--cl-font-semibold); color: var(--cl-text-primary); margin-bottom: var(--cl-space-2);">Sin órdenes activas</h3>
+  <p style="color: var(--cl-text-secondary); max-width: 400px; margin: 0 auto var(--cl-space-6);">
+    No tienes órdenes en este momento. ¡Crea una nueva para comenzar!
+  </p>
+  <div class="d-flex gap-2 justify-content-center flex-wrap">
+    <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="cl-btn cl-btn--primary">
+      <i data-lucide="plus" class="icon-sm"></i> Nueva Orden Mesa
+    </a>
+    <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="cl-btn cl-btn--outline">
+      <i data-lucide="package" class="icon-sm"></i> Para Llevar
+    </a>
+  </div>
+</div>
+{% else %}
+{# ── Orders cards grid ── #}
+<div class="row g-3" id="ordenesGrid">
+  {% for orden in ordenes_mesero %}
+  {% set mins_elapsed = ((now_utc - orden.tiempo_registro).total_seconds() / 60)|int if now_utc is defined else 0 %}
+  <div class="col-12 col-sm-6 col-lg-4 col-xl-3" id="orden-card-{{ orden.id }}" data-orden-id="{{ orden.id }}">
+    <div class="cl-card cl-order-card" style="
+      border-radius: var(--cl-radius-lg);
+      border-left: 4px solid {% if orden.estado in ['completada','lista_para_entregar'] %}var(--cl-success-500){% elif mins_elapsed > 20 %}var(--cl-error-500){% elif mins_elapsed > 10 %}var(--cl-warning-500){% else %}var(--cl-success-500){% endif %};
+      transition: transform var(--cl-transition-fast), box-shadow var(--cl-transition-fast);
+      cursor: pointer;
+      height: 100%;
+    " onclick="window.location='{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}'">
+      {# Card header #}
+      <div style="padding: var(--cl-space-3) var(--cl-space-4); border-bottom: 1px solid var(--cl-border-secondary); display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <span style="font-weight: var(--cl-font-bold); font-size: var(--cl-text-lg); color: var(--cl-text-primary);">
+            #{{ orden.id }}
+          </span>
+          <span style="color: var(--cl-text-secondary); font-size: var(--cl-text-sm); margin-left: var(--cl-space-2);">
+            {% if orden.es_para_llevar %}
+              <i data-lucide="package" class="icon-xs"></i> Para llevar
+            {% else %}
+              <i data-lucide="utensils-crossed" class="icon-xs"></i> Mesa {{ orden.mesa.numero if orden.mesa else 'N/A' }}
+            {% endif %}
+          </span>
+        </div>
+        {% if orden.estado == 'pendiente' %}
+          <span class="cl-badge cl-badge--warning" style="font-size: 11px;">Pendiente</span>
+        {% elif orden.estado == 'enviado' or orden.estado == 'en_preparacion' %}
+          <span class="cl-badge cl-badge--info" style="font-size: 11px;">En cocina</span>
+        {% elif orden.estado == 'lista_para_entregar' %}
+          <span class="cl-badge cl-badge--success" style="font-size: 11px;">Lista</span>
+        {% elif orden.estado == 'completada' %}
+          <span class="cl-badge cl-badge--success" style="font-size: 11px;">Completada</span>
+        {% else %}
+          <span class="cl-badge" style="font-size: 11px;">{{ orden.estado|capitalize }}</span>
+        {% endif %}
+      </div>
+
+      {# Card body — items summary #}
+      <div style="padding: var(--cl-space-3) var(--cl-space-4);">
+        <div style="display: flex; flex-direction: column; gap: var(--cl-space-1); margin-bottom: var(--cl-space-3);">
+          {% for detalle in orden.detalles[:5] %}
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: var(--cl-text-sm);" id="product-item-{{ detalle.id }}">
+            <span style="color: var(--cl-text-primary); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              {{ detalle.producto.nombre }}
+              <span style="color: var(--cl-text-tertiary);">x{{ detalle.cantidad }}</span>
+            </span>
+            <span class="estado-producto-texto" style="flex-shrink: 0; margin-left: var(--cl-space-2);">
+              {% if detalle.estado == 'listo' %}
+                <span class="cl-badge cl-badge--success cl-badge--pill" style="font-size: 10px;">Listo</span>
+              {% elif detalle.estado == 'entregado' %}
+                <span class="cl-badge cl-badge--pill" style="font-size: 10px; background: var(--cl-bg-tertiary); color: var(--cl-text-tertiary);">Entregado</span>
+              {% else %}
+                <span class="cl-badge cl-badge--warning cl-badge--pill" style="font-size: 10px;">{{ detalle.estado|capitalize }}</span>
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+          {% if orden.detalles|length > 5 %}
+          <span style="font-size: var(--cl-text-xs); color: var(--cl-text-tertiary);">+{{ orden.detalles|length - 5 }} más...</span>
+          {% endif %}
+        </div>
+
+        {# Timer + items count #}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: var(--cl-space-2); border-top: 1px solid var(--cl-border-secondary);">
+          <span style="font-size: var(--cl-text-xs); color: var(--cl-text-tertiary);">
+            <i data-lucide="clock" class="icon-xs"></i>
+            {{ orden.tiempo_registro.strftime('%H:%M') }}
+          </span>
+          <span style="font-size: var(--cl-text-xs); color: var(--cl-text-secondary);">
+            {{ orden.detalles|length }} item{{ 's' if orden.detalles|length != 1 else '' }}
+          </span>
+        </div>
+      </div>
+
+      {# Card footer — actions #}
+      <div style="padding: var(--cl-space-2) var(--cl-space-4) var(--cl-space-3); display: flex; gap: var(--cl-space-2);" onclick="event.stopPropagation();">
+        <a href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}"
+           class="cl-btn cl-btn--outline cl-btn--sm" style="flex: 1; justify-content: center;">
+          <i data-lucide="pencil" class="icon-xs"></i> Modificar
+        </a>
+        <button type="button"
+                class="cl-btn cl-btn--sm btn-cobrar-orden"
+                style="flex: 1; justify-content: center; background: var(--cl-gold, #D4A843); color: white; border: none;"
+                data-orden-id="{{ orden.id }}"
+                {% set all_entregados = orden.detalles|selectattr('estado','equalto','entregado')|list|length == orden.detalles|length and orden.detalles|length > 0 %}
+                {% if not all_entregados %}disabled{% endif %}>
+          <i data-lucide="credit-card" class="icon-xs"></i> Cobrar
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# ── FAB — Nueva Orden ── #}
+<div class="cl-fab-container" style="position: fixed; bottom: 80px; right: var(--cl-space-4); z-index: 1040; display: flex; flex-direction: column; gap: var(--cl-space-2); align-items: flex-end;">
+  <a href="{{ url_for('meseros.crear_orden_para_llevar') }}"
+     class="cl-btn cl-btn--outline cl-btn--sm"
+     style="border-radius: var(--cl-radius-full); padding: var(--cl-space-2) var(--cl-space-4); background: var(--cl-bg-primary); box-shadow: var(--cl-shadow-lg);"
+     id="fabParaLlevar" title="Orden para llevar">
+    <i data-lucide="package" class="icon-sm"></i>
+    <span class="d-none d-sm-inline">Para Llevar</span>
+  </a>
+  <a href="{{ url_for('meseros.seleccionar_mesa') }}"
+     class="cl-btn cl-btn--primary"
+     style="border-radius: var(--cl-radius-full); padding: var(--cl-space-3) var(--cl-space-5); box-shadow: var(--cl-shadow-xl); font-weight: var(--cl-font-semibold);"
+     id="fabNuevaOrden" title="Nueva orden">
+    <i data-lucide="plus" class="icon-sm"></i>
+    <span>Nueva Orden</span>
+  </a>
+</div>
+
+{# ── Cobro Modal ── #}
 <div class="modal fade" id="modalCobro" tabindex="-1" aria-labelledby="modalCobroLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="modalCobroLabel">Detalle de Cobro</h5>
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border-radius: var(--cl-radius-xl); border: none; overflow: hidden;">
+      <div class="modal-header" style="background: var(--cl-red-500); color: white; border: none;">
+        <h5 class="modal-title" id="modalCobroLabel" style="font-weight: var(--cl-font-semibold);">
+          <i data-lucide="credit-card" class="icon-sm" style="vertical-align: -2px;"></i>
+          Detalle de Cobro
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
-      <div class="modal-body" id="modalCobroBody">
-        {# Contenido se carga dinámicamente con JavaScript #}
-        <div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div></div>
+      <div class="modal-body" id="modalCobroBody" style="padding: var(--cl-space-6);">
+        <div class="text-center py-5">
+          <div class="spinner-border" style="color: var(--cl-red-500);" role="status">
+            <span class="visually-hidden">Cargando...</span>
+          </div>
+        </div>
       </div>
-      {# Los botones de pie de modal se añaden dinámicamente en mostrarCobro() #}
     </div>
   </div>
 </div>
 
-{# Contenedor para Toasts - asegúrate que esto exista, idealmente en base.html #}
-<div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050; min-width: 250px;"></div>
+{# Toast container #}
+<div id="toast-container" style="position: fixed; top: 1rem; right: 1rem; z-index: 1200; min-width: 250px;" role="region" aria-label="Notificaciones"></div>
 
-{% endblock %}
+<style>
+.cl-order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cl-shadow-lg) !important;
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.cl-order-card--new {
+  animation: slideInRight 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+</style>
 
-{% block scripts %}
-  {{ super() }} {# Si base.html tiene scripts, los incluye #}
-  <!-- Socket.IO Client -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <!-- Tu script de meseros -->
-  <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
+{# ── Scripts ── #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
 {% endblock %}

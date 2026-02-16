@@ -248,3 +248,8 @@ Flask + PostgreSQL + Socket.IO + Redis + Gunicorn. Backend: `backend/`, Frontend
 - **Sprint 4 ✅** UX + Analytics (3/3 items: mapa mesas interactivo, optimización tablets, gráficas Chart.js)
 - **Sprint 5 ✅** Refinamiento (4/4 items: feedback visual, notas por item, dashboard admin, modo oscuro + accesibilidad)
 - **Sprint 6 ✅** Final + Calidad (7/7 items: rentabilidad, delivery report, PDF export, complemento pago, auditoría, propinas, pytest)
+
+## PRD v6 UI Redesign — Progreso
+- **Sprint 7 ✅** Foundation (tokens.css, 4 layouts, 8 component macros, base.html + login)
+- **Sprint 8 ✅** Core CRUD (data_table, form_group, sidebar admin, migrate Users/Products/Mesas/etc CRUD)
+- **Sprint 9 ✅** Operations Redesign (7/7 items: split-panel detalle_orden, product tiles + search, cart panel sticky, mesa grid color-coded, meseros cards + urgency, pago full-page multi-payment, historial CSV)

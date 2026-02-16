@@ -1,72 +1,138 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container mt-4 me-5">
-  <h2 class="mt-4">Detalle de Orden #{{ orden.id }}</h2>
-  <!-- Cart icon with badge to toggle order summary dropdown -->
-  <button id="toggleResumen" type="button" class="btn btn-outline-primary position-relative ms-3" aria-label="Ver resumen de orden" aria-expanded="false" aria-controls="resumenDropdown">
-    🛒 <span id="badgeCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-  </button>
-  <div id="resumenDropdown" class="dropdown-menu p-3 resumen-amazon">
-    <h6 class="dropdown-header">Resumen de Orden</h6>
-    <div id="productosList" class="list-group"></div>
-  </div>
-  {% if orden.es_para_llevar %}
-    <p><strong>Tipo de orden:</strong> Para llevar</p>
-  {% else %}
-    <p><strong>Mesa:</strong> {{ orden.mesa.numero }}</p>
-  {% endif %}
-  <p><strong>Estado:</strong> {{ orden.estado }}</p>
-  <p><strong>Tiempo de Registro:</strong> {{ orden.tiempo_registro }}</p>
-  
-  <!-- Tabs de categorías -->
-  <ul class="nav nav-tabs mb-3" id="tabCategorias" role="tablist">
-    {% for categoria, productos_categoria in productos_por_categoria.items() %}
-      <li class="nav-item" role="presentation">
-        {% if loop.first %}
-          <button class="nav-link active" id="tab-{{ loop.index }}-tab" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button" role="tab">
-            {{ categoria }}
-          </button>
-        {% else %}
-          <button class="nav-link" id="tab-{{ loop.index }}-tab" data-bs-toggle="tab" data-bs-target="#tab-{{ loop.index }}" type="button" role="tab">
-            {{ categoria }}
-          </button>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
+{# ═══════════════════════════════════════════════════════
+   Sprint 9 — 9.1-9.3: Detalle de Orden — Split Panel
+   60% products (left) + 40% sticky cart (right)
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_operations.html' %}
+{% set active_op_tab = 'meseros' %}
+{% block page_title %}Orden #{{ orden.id }}{% endblock %}
 
-  <div class="tab-content mt-3" id="tabCategoriasContent">
-    {% for categoria, productos_categoria in productos_por_categoria.items() %}
-      <div class="tab-pane fade {% if loop.first %}show active{% endif %}" id="tab-{{ loop.index }}" role="tabpanel" aria-labelledby="tab-{{ loop.index }}-tab">
-        <div class="row">
-          {% for producto in productos_categoria %}
-            <div class="col-md-3 mb-3">
-              <div class="card text-center product-card" data-orden-id="{{ orden.id }}" data-producto-id="{{ producto.id }}" onclick="agregarProductoDirecto(this)">
-                <div class="card-body">
-                  <h6 class="card-title">{{ producto.nombre }}</h6>
-                </div>
-              </div>
-            </div>
-          {% endfor %}
+{% block ops_content %}
+<div class="split-panel">
+  {# ═══════════════════════ LEFT — Products Panel (60%) ═══════════════════════ #}
+  <div class="split-panel__products">
+    {# Search bar #}
+    <div style="margin-bottom: var(--cl-space-3);">
+      <div class="position-relative">
+        <i data-lucide="search" class="icon-sm" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--cl-text-tertiary);"></i>
+        <input type="text" id="productSearch" class="cl-input" style="padding-left: 36px;"
+               placeholder="Buscar producto... ( / )" autocomplete="off">
+      </div>
+    </div>
+
+    {# Category pills — horizontal scrollable #}
+    <div class="category-pills" id="categoryPills">
+      <button class="cl-pill active" data-category="all" onclick="filterCategory('all', this)">Todos</button>
+      {% for categoria in productos_por_categoria.keys() %}
+      <button class="cl-pill" data-category="{{ categoria }}" onclick="filterCategory('{{ categoria }}', this)">
+        {{ categoria }}
+      </button>
+      {% endfor %}
+    </div>
+
+    {# Product tiles grid #}
+    <div class="row g-2" id="productGrid">
+      {% for categoria, productos_lista in productos_por_categoria.items() %}
+        {% for producto in productos_lista %}
+        <div class="col-6 col-sm-4 col-lg-3 product-tile-wrapper" data-category="{{ categoria }}"
+             data-name="{{ producto.nombre|lower }}">
+          <div class="cl-product-tile" data-orden-id="{{ orden.id }}" data-producto-id="{{ producto.id }}"
+               data-nombre="{{ producto.nombre }}" data-precio="{{ producto.precio }}"
+               onclick="agregarProductoDirecto(this)" role="button" tabindex="0"
+               aria-label="Agregar {{ producto.nombre }} ${{ '%.2f'|format(producto.precio) }}">
+            <div class="cl-product-tile__name">{{ producto.nombre }}</div>
+            <div class="cl-product-tile__price">${{ '%.2f'|format(producto.precio) }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ═══════════════════════ RIGHT — Cart Panel (40%) ═══════════════════════ #}
+  <div class="split-panel__cart" id="cartPanel">
+    {# Cart header #}
+    <div class="cart-header">
+      <div>
+        <h2 class="cart-header__title">Orden #{{ orden.id }}</h2>
+        <div class="cart-header__meta">
+          {% if orden.es_para_llevar %}
+            <span class="cl-badge cl-badge--pill" style="background: var(--cl-warning-100); color: var(--cl-warning-700);">
+              <i data-lucide="package" class="icon-xs"></i> Para llevar
+            </span>
+          {% else %}
+            <span class="cl-badge cl-badge--pill" style="background: var(--cl-primary-100); color: var(--cl-primary-700);">
+              <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero }}
+            </span>
+          {% endif %}
+          <span class="cl-badge cl-badge--pill" style="background: var(--cl-gray-100); color: var(--cl-gray-600);">
+            {{ orden.estado|capitalize }}
+          </span>
         </div>
       </div>
-    {% endfor %}
-  </div>
-  <div class="d-flex justify-content-start gap-2 mt-4">
-    <a href="{{ url_for('meseros.view_meseros') }}" class="btn" style="background-color: #d2b38b; color: #fff;">Regresar</a>
-    <form method="POST" action="{{ url_for('meseros.enviar_orden_a_cocina', orden_id=orden.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-danger">Enviar a Cocina</button>
-    </form>
-    <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#modalCancelar">Cancelar Orden</button>
-  </div>
+      <span class="cl-badge cl-badge--pill" style="background: var(--cl-primary-500); color: white; font-size: var(--cl-text-base); min-width: 28px; text-align: center;" id="badgeCount">0</span>
+    </div>
 
-<!-- Modal Cancelar Orden (Sprint 5 — 5.3) -->
+    {# Cart items list #}
+    <div class="cart-items" id="productosList">
+      <div class="cart-empty" id="cartEmpty">
+        <i data-lucide="shopping-cart" style="width: 36px; height: 36px; color: var(--cl-gray-300);"></i>
+        <p style="color: var(--cl-text-tertiary); margin: var(--cl-space-2) 0 0; font-size: var(--cl-text-sm);">
+          Agrega productos del menú
+        </p>
+      </div>
+    </div>
+
+    {# Cart totals #}
+    <div class="cart-totals" id="cartTotals" style="display: none;">
+      <div class="cart-totals__row">
+        <span>Subtotal</span>
+        <span id="cartSubtotal">$0.00</span>
+      </div>
+      <div class="cart-totals__row" style="color: var(--cl-text-tertiary); font-size: var(--cl-text-xs);">
+        <span>IVA (16%)</span>
+        <span id="cartIVA">$0.00</span>
+      </div>
+      <div class="cart-totals__row cart-totals__total">
+        <span>Total</span>
+        <span id="cartTotal">$0.00</span>
+      </div>
+    </div>
+
+    {# Cart actions #}
+    <div class="cart-actions">
+      {% if orden.estado == 'pendiente' %}
+      <form method="POST" action="{{ url_for('meseros.enviar_orden_a_cocina', orden_id=orden.id) }}" style="flex: 1;" id="formEnviarCocina">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="cl-btn cl-btn--success" style="width: 100%; height: 48px; font-weight: var(--cl-font-semibold);" id="btnEnviarCocina" disabled>
+          <i data-lucide="send" class="icon-sm"></i> Enviar a Cocina
+        </button>
+      </form>
+      {% endif %}
+      <button type="button" class="cl-btn" style="height: 48px; font-weight: var(--cl-font-semibold); background: var(--cl-gold-500); color: white; flex: 1;"
+              onclick="window.location.href='{{ url_for('meseros.pago_view', orden_id=orden.id) }}'">
+        <i data-lucide="credit-card" class="icon-sm"></i> Cobrar
+      </button>
+      <button type="button" class="cl-btn cl-btn--outline" style="height: 48px;" data-bs-toggle="modal" data-bs-target="#modalCancelar" aria-label="Cancelar orden">
+        <i data-lucide="x" class="icon-sm"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+{# ═══ Mobile cart toggle FAB ═══ #}
+<button class="cart-fab d-lg-none" id="cartFab" onclick="toggleMobileCart()" aria-label="Ver carrito">
+  <i data-lucide="shopping-cart" class="icon-md"></i>
+  <span class="cart-fab__badge" id="cartFabBadge">0</span>
+</button>
+
+{# ═══════════════════════ Modal: Cancelar Orden ═══════════════════════ #}
 <div class="modal fade" id="modalCancelar" tabindex="-1" aria-labelledby="modalCancelarLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title" id="modalCancelarLabel">Cancelar Orden #{{ orden.id }}</h5>
+    <div class="modal-content" style="border-radius: var(--cl-radius-xl); overflow: hidden;">
+      <div class="modal-header" style="background: var(--cl-error-500); color: white;">
+        <h5 class="modal-title" id="modalCancelarLabel">
+          <i data-lucide="alert-triangle" class="icon-sm"></i> Cancelar Orden #{{ orden.id }}
+        </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <form method="POST" action="{{ url_for('meseros.cancelar_orden', orden_id=orden.id) }}">
@@ -90,196 +156,535 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">No, regresar</button>
-          <button type="submit" class="btn btn-danger">Sí, cancelar orden</button>
+          <button type="button" class="cl-btn cl-btn--outline" data-bs-dismiss="modal">No, regresar</button>
+          <button type="submit" class="cl-btn" style="background: var(--cl-error-500); color: white;">Sí, cancelar orden</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- Modal Notas Rápidas (Sprint 5 — 3.4) -->
+{# ═══════════════════════ Modal: Notas Rápidas ═══════════════════════ #}
 <div class="modal fade" id="modalNotas" tabindex="-1" aria-labelledby="modalNotasLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalNotasLabel">Notas para <span id="notasProductoNombre"></span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    <div class="modal-content" style="border-radius: var(--cl-radius-xl); overflow: hidden;">
+      <div class="modal-header" style="background: var(--cl-primary-500); color: white;">
+        <h5 class="modal-title" id="modalNotasLabel">
+          <i data-lucide="message-square" class="icon-sm"></i> Notas para <span id="notasProductoNombre"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
-        <div id="notasRapidasBtns" class="d-flex flex-wrap gap-2 mb-3">
-          <!-- Populated by JS -->
-        </div>
+        <div id="notasRapidasBtns" class="d-flex flex-wrap gap-2 mb-3"></div>
         <div class="mb-3">
           <label for="notasLibre" class="form-label">Nota personalizada</label>
-          <input type="text" id="notasLibre" class="form-control" maxlength="200" placeholder="Escribe una nota...">
+          <input type="text" id="notasLibre" class="cl-input" maxlength="200" placeholder="Escribe una nota...">
         </div>
         <div class="mb-2">
           <label class="form-label">Cantidad</label>
-          <input type="number" id="notasCantidad" class="form-control qty-input" value="1" min="1" max="50">
+          <input type="number" id="notasCantidad" class="cl-input" value="1" min="1" max="50" style="width: 80px;">
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" id="btnAgregarSinNotas">Agregar sin notas</button>
-        <button type="button" class="btn btn-primary" id="btnAgregarConNotas">Agregar con notas</button>
+        <button type="button" class="cl-btn cl-btn--outline" id="btnAgregarSinNotas">Agregar sin notas</button>
+        <button type="button" class="cl-btn cl-btn--primary" id="btnAgregarConNotas">Agregar con notas</button>
       </div>
     </div>
   </div>
 </div>
 
+{# ═══════════════════════ Styles ═══════════════════════ #}
+<style>
+/* Split panel layout */
+.split-panel {
+  display: flex;
+  gap: var(--cl-space-4);
+  height: calc(100vh - 140px);
+  min-height: 500px;
+}
+.split-panel__products {
+  flex: 0 0 60%;
+  overflow-y: auto;
+  padding-right: var(--cl-space-2);
+}
+.split-panel__cart {
+  flex: 0 0 38%;
+  display: flex;
+  flex-direction: column;
+  background: var(--cl-surface);
+  border-radius: var(--cl-radius-xl);
+  border: 1px solid var(--cl-border);
+  overflow: hidden;
+}
+
+/* Category pills */
+.category-pills {
+  display: flex;
+  gap: var(--cl-space-2);
+  overflow-x: auto;
+  padding-bottom: var(--cl-space-2);
+  margin-bottom: var(--cl-space-3);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.category-pills::-webkit-scrollbar { display: none; }
+.cl-pill {
+  white-space: nowrap;
+  padding: var(--cl-space-2) var(--cl-space-3);
+  border-radius: var(--cl-radius-full);
+  border: 1px solid var(--cl-border);
+  background: var(--cl-surface);
+  color: var(--cl-text-secondary);
+  font-size: var(--cl-text-sm);
+  font-weight: var(--cl-font-medium);
+  cursor: pointer;
+  transition: all var(--cl-transition-fast);
+}
+.cl-pill:hover { border-color: var(--cl-primary-500); color: var(--cl-primary-500); }
+.cl-pill.active {
+  background: var(--cl-primary-500);
+  color: white;
+  border-color: var(--cl-primary-500);
+}
+
+/* Product tiles */
+.cl-product-tile {
+  background: var(--cl-surface);
+  border: 1px solid var(--cl-border);
+  border-radius: var(--cl-radius-lg);
+  padding: var(--cl-space-3);
+  cursor: pointer;
+  transition: transform var(--cl-transition-fast), box-shadow var(--cl-transition-fast), border-color var(--cl-transition-fast);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 80px;
+}
+.cl-product-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--cl-shadow-md);
+  border-color: var(--cl-primary-300);
+}
+.cl-product-tile:active { transform: scale(0.97); }
+.cl-product-tile__name {
+  font-size: var(--cl-text-sm);
+  font-weight: var(--cl-font-medium);
+  color: var(--cl-text-primary);
+  line-height: 1.3;
+  margin-bottom: var(--cl-space-1);
+}
+.cl-product-tile__price {
+  font-size: var(--cl-text-sm);
+  font-weight: var(--cl-font-bold);
+  color: var(--cl-primary-600);
+}
+
+/* Bounce animation on add */
+@keyframes tileAdded {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.tile-added { animation: tileAdded 0.3s ease; }
+
+/* Cart panel sections */
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: var(--cl-space-4);
+  border-bottom: 1px solid var(--cl-border);
+}
+.cart-header__title {
+  font-size: var(--cl-text-lg);
+  font-weight: var(--cl-font-bold);
+  color: var(--cl-text-primary);
+  margin: 0;
+}
+.cart-header__meta {
+  display: flex;
+  gap: var(--cl-space-1);
+  margin-top: var(--cl-space-1);
+  flex-wrap: wrap;
+}
+.cart-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--cl-space-3);
+}
+.cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cl-space-8) 0;
+}
+.cart-item {
+  display: flex;
+  align-items: center;
+  gap: var(--cl-space-2);
+  padding: var(--cl-space-2) 0;
+  border-bottom: 1px solid var(--cl-border-light, var(--cl-gray-100));
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.cart-item__name {
+  flex: 1;
+  font-size: var(--cl-text-sm);
+  font-weight: var(--cl-font-medium);
+  color: var(--cl-text-primary);
+}
+.cart-item__notes {
+  font-size: var(--cl-text-xs);
+  color: var(--cl-text-tertiary);
+  font-style: italic;
+}
+.cart-item__qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: var(--cl-radius-full);
+  background: var(--cl-primary-100);
+  color: var(--cl-primary-700);
+  font-size: var(--cl-text-xs);
+  font-weight: var(--cl-font-bold);
+}
+.cart-item__remove {
+  background: none;
+  border: none;
+  color: var(--cl-error-400);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--cl-radius-sm);
+  transition: color var(--cl-transition-fast), background var(--cl-transition-fast);
+  display: flex;
+  align-items: center;
+}
+.cart-item__remove:hover {
+  color: var(--cl-error-600);
+  background: var(--cl-error-50);
+}
+
+/* Cart totals */
+.cart-totals {
+  padding: var(--cl-space-3) var(--cl-space-4);
+  border-top: 1px solid var(--cl-border);
+  background: var(--cl-gray-50);
+}
+.cart-totals__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--cl-text-sm);
+  color: var(--cl-text-secondary);
+  margin-bottom: var(--cl-space-1);
+}
+.cart-totals__total {
+  font-size: var(--cl-text-lg);
+  font-weight: var(--cl-font-bold);
+  color: var(--cl-text-primary);
+  margin-top: var(--cl-space-1);
+  padding-top: var(--cl-space-2);
+  border-top: 2px solid var(--cl-border);
+}
+
+/* Cart actions */
+.cart-actions {
+  display: flex;
+  gap: var(--cl-space-2);
+  padding: var(--cl-space-3);
+  border-top: 1px solid var(--cl-border);
+}
+
+/* Mobile cart FAB */
+.cart-fab {
+  position: fixed;
+  bottom: 80px;
+  right: 16px;
+  z-index: 1050;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--cl-primary-500);
+  color: white;
+  border: none;
+  box-shadow: var(--cl-shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cart-fab__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--cl-error-500);
+  color: white;
+  font-size: 11px;
+  font-weight: var(--cl-font-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive: mobile stacks vertically, cart hides behind FAB */
+@media (max-width: 991.98px) {
+  .split-panel {
+    flex-direction: column;
+    height: auto;
+    min-height: auto;
+  }
+  .split-panel__products {
+    flex: none;
+    overflow-y: visible;
+    padding-right: 0;
+  }
+  .split-panel__cart {
+    flex: none;
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 1060;
+    border-radius: 0;
+    border: none;
+  }
+  .split-panel__cart.mobile-open { display: flex; }
+}
+</style>
+
+{# ═══════════════════════ Scripts ═══════════════════════ #}
 <script>
-  // =============================================
-  // Notas rápidas system (Sprint 5 — 3.4)
-  // =============================================
-  let _notasRapidas = [];
-  let _pendingOrdenId = null;
-  let _pendingProductoId = null;
-  let _pendingEl = null;
+const ORDEN_ID = {{ orden.id }};
+const IVA_RATE = 0.16;
 
-  // Load quick notes
-  fetch('/static/js/notas_rapidas.json')
+// =============================================
+// Category filter
+// =============================================
+function filterCategory(cat, btn) {
+  document.querySelectorAll('.cl-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.product-tile-wrapper').forEach(tile => {
+    tile.style.display = (cat === 'all' || tile.dataset.category === cat) ? '' : 'none';
+  });
+}
+
+// =============================================
+// Product search
+// =============================================
+const searchInput = document.getElementById('productSearch');
+searchInput.addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  // Reset category pills to "all"
+  document.querySelectorAll('.cl-pill').forEach(p => p.classList.remove('active'));
+  document.querySelector('.cl-pill[data-category="all"]').classList.add('active');
+  document.querySelectorAll('.product-tile-wrapper').forEach(tile => {
+    tile.style.display = tile.dataset.name.includes(q) ? '' : 'none';
+  });
+});
+
+// Keyboard shortcut: / to focus search
+document.addEventListener('keydown', function(e) {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    searchInput.focus();
+  }
+  if (e.key === 'Escape') {
+    searchInput.value = '';
+    searchInput.dispatchEvent(new Event('input'));
+    searchInput.blur();
+  }
+});
+
+// =============================================
+// Notas rápidas system
+// =============================================
+let _notasRapidas = [];
+let _pendingOrdenId = null;
+let _pendingProductoId = null;
+let _pendingEl = null;
+
+fetch('/static/js/notas_rapidas.json')
+  .then(r => r.json())
+  .then(data => { _notasRapidas = data.notas || []; })
+  .catch(() => { _notasRapidas = []; });
+
+function agregarProductoDirecto(el) {
+  _pendingOrdenId = el.dataset.ordenId;
+  _pendingProductoId = el.dataset.productoId;
+  _pendingEl = el;
+
+  document.getElementById('notasProductoNombre').textContent = el.dataset.nombre || 'Producto';
+  document.getElementById('notasLibre').value = '';
+  document.getElementById('notasCantidad').value = '1';
+
+  const container = document.getElementById('notasRapidasBtns');
+  container.innerHTML = _notasRapidas.map(n =>
+    `<button type="button" class="cl-btn cl-btn--sm cl-btn--outline nota-rapida-btn">${n}</button>`
+  ).join('');
+  container.querySelectorAll('.nota-rapida-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      this.classList.toggle('cl-btn--outline');
+      this.classList.toggle('cl-btn--primary');
+    });
+  });
+
+  new bootstrap.Modal(document.getElementById('modalNotas')).show();
+}
+
+function _enviarProducto(notas, cantidad) {
+  fetch(`/api/ordenes/${_pendingOrdenId}/detalle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ producto_id: Number(_pendingProductoId), cantidad, notas })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.error) {
+      alert('Error: ' + data.error);
+    } else {
+      if (_pendingEl) {
+        _pendingEl.classList.remove('tile-added');
+        void _pendingEl.offsetWidth;
+        _pendingEl.classList.add('tile-added');
+      }
+      cargarDetalleProductos(_pendingOrdenId);
+    }
+  })
+  .catch(console.error);
+
+  const m = bootstrap.Modal.getInstance(document.getElementById('modalNotas'));
+  if (m) m.hide();
+}
+
+document.getElementById('btnAgregarSinNotas').addEventListener('click', function() {
+  _enviarProducto('', parseInt(document.getElementById('notasCantidad').value) || 1);
+});
+
+document.getElementById('btnAgregarConNotas').addEventListener('click', function() {
+  const selected = [];
+  document.querySelectorAll('#notasRapidasBtns .nota-rapida-btn:not(.cl-btn--outline)').forEach(b => selected.push(b.textContent));
+  const libre = document.getElementById('notasLibre').value.trim();
+  if (libre) selected.push(libre);
+  _enviarProducto(selected.join(', '), parseInt(document.getElementById('notasCantidad').value) || 1);
+});
+
+// =============================================
+// Cart — load, render, remove
+// =============================================
+function cargarDetalleProductos(ordenId) {
+  fetch(`/api/ordenes/${ordenId}/detalle`)
     .then(r => r.json())
-    .then(data => { _notasRapidas = data.notas || []; })
-    .catch(() => { _notasRapidas = []; });
-
-  function agregarProductoDirecto(el) {
-    _pendingOrdenId = el.dataset.ordenId;
-    _pendingProductoId = el.dataset.productoId;
-    _pendingEl = el;
-
-    const nombreEl = el.querySelector('.card-title');
-    document.getElementById('notasProductoNombre').textContent = nombreEl ? nombreEl.textContent : 'Producto';
-    document.getElementById('notasLibre').value = '';
-    document.getElementById('notasCantidad').value = '1';
-
-    // Populate quick-note buttons
-    const container = document.getElementById('notasRapidasBtns');
-    container.innerHTML = _notasRapidas.map(n =>
-      `<button type="button" class="btn btn-sm btn-outline-secondary nota-rapida-btn">${n}</button>`
-    ).join('');
-
-    // Deselect all
-    container.querySelectorAll('.nota-rapida-btn').forEach(btn => {
-      btn.addEventListener('click', function() {
-        this.classList.toggle('active');
-        this.classList.toggle('btn-outline-secondary');
-        this.classList.toggle('btn-primary');
-      });
-    });
-
-    new bootstrap.Modal(document.getElementById('modalNotas')).show();
-  }
-
-  function _enviarProducto(notas, cantidad) {
-    fetch(`/api/ordenes/${_pendingOrdenId}/detalle`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ producto_id: Number(_pendingProductoId), cantidad: cantidad, notas: notas })
-    })
-    .then(res => res.json())
     .then(data => {
-      if (data.error) {
-        alert('Error: ' + data.error);
-      } else {
-        // Bounce animation on card
-        if (_pendingEl) {
-          _pendingEl.classList.remove('animate-bounce');
-          void _pendingEl.offsetWidth;
-          _pendingEl.classList.add('animate-bounce');
-        }
-        cargarDetalleProductos(_pendingOrdenId);
+      const detalles = data.detalles || data;
+      const totalCantidad = detalles.reduce((s, i) => s + i.cantidad, 0);
+
+      // Update badges
+      document.getElementById('badgeCount').textContent = totalCantidad;
+      document.getElementById('cartFabBadge').textContent = totalCantidad;
+
+      // Enable/disable enviar button
+      const btnEnviar = document.getElementById('btnEnviarCocina');
+      if (btnEnviar) btnEnviar.disabled = totalCantidad === 0;
+
+      const listEl = document.getElementById('productosList');
+      const emptyEl = document.getElementById('cartEmpty');
+      const totalsEl = document.getElementById('cartTotals');
+
+      if (detalles.length === 0) {
+        listEl.innerHTML = '';
+        if (emptyEl) listEl.appendChild(emptyEl);
+        if (emptyEl) emptyEl.style.display = 'flex';
+        if (totalsEl) totalsEl.style.display = 'none';
+        return;
       }
+
+      if (emptyEl) emptyEl.style.display = 'none';
+      if (totalsEl) totalsEl.style.display = 'block';
+
+      // Calculate totals (price_unitario * cantidad)
+      // API doesn't return precio, let's compute from product data
+      let subtotal = 0;
+
+      let html = '';
+      detalles.forEach(item => {
+        const nombre = item.nombre || item.producto_nombre;
+        const notasHtml = item.notas ? `<div class="cart-item__notes">📝 ${item.notas}</div>` : '';
+        // Try to get precio from the product tile data
+        const tileEl = document.querySelector(`.cl-product-tile[data-producto-id="${item.producto_id}"]`);
+        const precio = tileEl ? parseFloat(tileEl.dataset.precio) : 0;
+        subtotal += precio * item.cantidad;
+
+        html += `
+          <div class="cart-item">
+            <div class="cart-item__name">
+              ${nombre}
+              ${notasHtml}
+            </div>
+            <span class="cart-item__qty">${item.cantidad}</span>
+            <button class="cart-item__remove" onclick="quitarItem(${ordenId}, ${item.id})" aria-label="Eliminar ${nombre}">
+              <i data-lucide="trash-2" class="icon-xs"></i>
+            </button>
+          </div>`;
+      });
+      listEl.innerHTML = html;
+
+      // Update totals
+      const iva = subtotal * IVA_RATE;
+      const total = subtotal + iva;
+      document.getElementById('cartSubtotal').textContent = '$' + subtotal.toFixed(2);
+      document.getElementById('cartIVA').textContent = '$' + iva.toFixed(2);
+      document.getElementById('cartTotal').textContent = '$' + total.toFixed(2);
+
+      // Re-init Lucide icons for new elements
+      if (window.lucide) lucide.createIcons();
     })
-    .catch(console.error);
+    .catch(err => console.error('Error al cargar detalle:', err));
+}
 
-    // Close modal
-    const m = bootstrap.Modal.getInstance(document.getElementById('modalNotas'));
-    if (m) m.hide();
-  }
+function quitarItem(ordenId, detalleId) {
+  fetch(`/api/ordenes/${ordenId}/detalle/${detalleId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' }
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.error) alert('Error: ' + result.error);
+    else cargarDetalleProductos(ordenId);
+  })
+  .catch(err => console.error('Error al quitar item:', err));
+}
 
-  document.getElementById('btnAgregarSinNotas').addEventListener('click', function() {
-    const cantidad = parseInt(document.getElementById('notasCantidad').value) || 1;
-    _enviarProducto('', cantidad);
+// =============================================
+// Mobile cart toggle
+// =============================================
+function toggleMobileCart() {
+  const cart = document.getElementById('cartPanel');
+  cart.classList.toggle('mobile-open');
+}
+
+// =============================================
+// Cancel modal — toggle "otro" field
+// =============================================
+const motivoSelect = document.getElementById('motivo_cancelacion');
+if (motivoSelect) {
+  motivoSelect.addEventListener('change', function() {
+    document.getElementById('motivoOtroGroup').style.display =
+      this.value === 'otro' ? 'block' : 'none';
   });
+}
 
-  document.getElementById('btnAgregarConNotas').addEventListener('click', function() {
-    // Collect selected quick notes + free text
-    const selected = [];
-    document.querySelectorAll('#notasRapidasBtns .nota-rapida-btn.active').forEach(b => selected.push(b.textContent));
-    const libre = document.getElementById('notasLibre').value.trim();
-    if (libre) selected.push(libre);
-    const notas = selected.join(', ');
-    const cantidad = parseInt(document.getElementById('notasCantidad').value) || 1;
-    _enviarProducto(notas, cantidad);
-  });
-  function cargarDetalleProductos(ordenId) {
-    fetch(`/api/ordenes/${ordenId}/detalle`)
-      .then(response => response.json())
-      .then(data => {
-        const detalles = data.detalles || data;  // handle both formats
-        // Sum total quantity for badge
-        const totalCantidad = detalles.reduce((sum, item) => sum + item.cantidad, 0);
-        const badge = document.getElementById('badgeCount');
-        badge.innerText = totalCantidad;
-        // Badge pop animation
-        badge.classList.remove('animate-badge-pop');
-        void badge.offsetWidth;
-        badge.classList.add('animate-badge-pop');
-        // Build HTML: list each detalle with image, name, quantity badge and remove button
-        let html = '';
-        detalles.forEach(item => {
-          const nombre = item.nombre || item.producto_nombre;
-          const imagenUrl = item.imagen_url || '/static/img/placeholder.png';
-          const notasHtml = item.notas ? `<div class="text-muted small fst-italic">📝 ${item.notas}</div>` : '';
-          html += `
-            <div class="d-flex align-items-center resumen-item">
-              <img src="${imagenUrl}" class="resumen-thumb me-2" alt="${nombre}">
-              <div class="flex-grow-1">${nombre}${notasHtml}</div>
-              <span class="badge bg-primary resumen-cantidad me-2">${item.cantidad}</span>
-              <button class="btn btn-sm btn-outline-danger resumen-remove" onclick="quitarItem(${ordenId}, ${item.id})" aria-label="Eliminar ${nombre} de la orden">&times;</button>
-            </div>`;
-        });
-        document.getElementById('productosList').innerHTML = html;
-      })
-      .catch(error => console.error('Error al cargar detalle:', error));
-  }
-
-  // Función para quitar un item del detalle de la orden
-  function quitarItem(ordenId, detalleId) {
-    fetch(`/api/ordenes/${ordenId}/detalle/${detalleId}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' }
-    })
-    .then(response => response.json())
-    .then(result => {
-      if (result.error) {
-        alert('Error: ' + result.error);
-      } else {
-        cargarDetalleProductos(ordenId);
-      }
-    })
-    .catch(err => console.error('Error al quitar item:', err));
-  }
-  
-  // Al cargar la página, actualiza el detalle de productos
-  document.addEventListener('DOMContentLoaded', function() {
-    cargarDetalleProductos(parseInt('{{ orden.id }}'));
-  });
-
-  // Toggle summary dropdown
-  document.getElementById('toggleResumen').addEventListener('click', function() {
-    const dropdown = document.getElementById('resumenDropdown');
-    dropdown.classList.toggle('show');
-  });
-
-  // Toggle "otro" motivo field in cancel modal
-  const motivoSelect = document.getElementById('motivo_cancelacion');
-  if (motivoSelect) {
-    motivoSelect.addEventListener('change', function() {
-      document.getElementById('motivoOtroGroup').style.display =
-        this.value === 'otro' ? 'block' : 'none';
-    });
-  }
+// =============================================
+// Init
+// =============================================
+document.addEventListener('DOMContentLoaded', function() {
+  cargarDetalleProductos(ORDEN_ID);
+});
 </script>
-</div>
 {% endblock %}

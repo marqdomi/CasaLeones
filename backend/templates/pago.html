@@ -1,74 +1,553 @@
-{% extends "base.html" %}
-{% block title %}Pago Orden #{{ orden.id }}{% endblock %}
-{% block content %}
-  <div class="container">
-    <h1>Pago Orden #{{ orden.id }}</h1>
-    <p>Mesa: {{ orden.mesa_id or 'Para llevar' }}</p>
+{# ═══════════════════════════════════════════════════════
+   Sprint 9 — 9.6: Pago — Full-page Payment View
+   Multi-method, tips, discounts, quick cash buttons
+   Uses cobrar_info GET + pago POST APIs
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_operations.html' %}
+{% set active_op_tab = 'meseros' %}
+{% block page_title %}Cobro #{{ orden.id }}{% endblock %}
 
-    <div class="table-responsive">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Producto</th>
-            <th>Cantidad</th>
-            <th>Precio Unitario</th>
-            <th>Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for detalle in detalles %}
-          <tr>
-            <td>{{ detalle.producto.nombre }}</td>
-            <td>{{ detalle.cantidad }}</td>
-            <td>{{ detalle.producto.precio }}</td>
-            <td>{{ (detalle.cantidad * detalle.producto.precio) | round(2) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="3"><strong>Total</strong></td>
-            <td><strong>{{ total }}</strong></td>
-          </tr>
-        </tfoot>
-      </table>
+{% block ops_content %}
+<div class="pago-layout">
+  {# ═══ LEFT — Order Summary ═══ #}
+  <div class="pago-summary">
+    <div class="pago-summary__header">
+      <a href="{{ url_for('meseros.view_meseros') }}" class="cl-btn cl-btn--outline cl-btn--sm" style="margin-right: auto;">
+        <i data-lucide="arrow-left" class="icon-xs"></i> Regresar
+      </a>
+      <h2 style="margin: 0; font-size: var(--cl-text-xl); font-weight: var(--cl-font-bold);">
+        Orden #{{ orden.id }}
+      </h2>
+      <span class="cl-badge cl-badge--pill" style="background: var(--cl-primary-100); color: var(--cl-primary-700);">
+        {% if orden.es_para_llevar %}
+          <i data-lucide="package" class="icon-xs"></i> Para llevar
+        {% else %}
+          <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero if orden.mesa else '' }}
+        {% endif %}
+      </span>
     </div>
 
-    <!-- Sección de cobro -->
-    <div class="row mb-4">
-      <div class="col-md-4">
-        <label for="monto_recibido" class="form-label">Monto recibido:</label>
-        <input type="number" step="0.01" id="monto_recibido" class="form-control" min="0" />
-      </div>
-      <div class="col-md-4">
-        <label for="cambio" class="form-label">Cambio:</label>
-        <input type="text" id="cambio" class="form-control" readonly />
+    {# Items list (loaded via JS) #}
+    <div class="pago-items" id="pagoItems">
+      <div style="text-align: center; padding: var(--cl-space-6); color: var(--cl-text-tertiary);">
+        Cargando...
       </div>
     </div>
 
-    <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-success" id="btnConfirmPago" disabled>Confirmar Pago</button>
-      <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-secondary">Cancelar</a>
-    </form>
+    {# Totals #}
+    <div class="pago-totals" id="pagoTotals">
+      <div class="pago-totals__row">
+        <span>Subtotal</span><span id="pagoSubtotal">$0.00</span>
+      </div>
+      <div class="pago-totals__row" id="descuentoRow" style="display: none; color: var(--cl-success-600);">
+        <span>Descuento</span><span id="pagoDescuento">-$0.00</span>
+      </div>
+      <div class="pago-totals__row" style="color: var(--cl-text-tertiary); font-size: var(--cl-text-xs);">
+        <span>IVA (<span id="pagoIvaRate">16</span>%)</span><span id="pagoIVA">$0.00</span>
+      </div>
+      <div class="pago-totals__row pago-totals__total">
+        <span>Total</span><span id="pagoTotal">$0.00</span>
+      </div>
+      <div class="pago-totals__row" id="pagadoRow" style="display: none; color: var(--cl-success-600);">
+        <span>Pagado</span><span id="pagoPagado">$0.00</span>
+      </div>
+      <div class="pago-totals__row pago-totals__saldo" id="saldoRow">
+        <span>Saldo pendiente</span><span id="pagoSaldo">$0.00</span>
+      </div>
+    </div>
   </div>
-{% endblock %}
 
-{% block scripts %}
-{{ super() }}
+  {# ═══ RIGHT — Payment Panel ═══ #}
+  <div class="pago-panel">
+    {# Payment method selector #}
+    <h3 style="font-size: var(--cl-text-lg); font-weight: var(--cl-font-bold); margin: 0 0 var(--cl-space-3);">
+      Método de Pago
+    </h3>
+    <div class="pago-methods" id="pagoMethods">
+      <button class="pago-method active" data-method="efectivo" onclick="selectMethod('efectivo', this)">
+        <i data-lucide="banknote" class="icon-md"></i>
+        <span>Efectivo</span>
+      </button>
+      <button class="pago-method" data-method="tarjeta" onclick="selectMethod('tarjeta', this)">
+        <i data-lucide="credit-card" class="icon-md"></i>
+        <span>Tarjeta</span>
+      </button>
+      <button class="pago-method" data-method="transferencia" onclick="selectMethod('transferencia', this)">
+        <i data-lucide="smartphone" class="icon-md"></i>
+        <span>Transferencia</span>
+      </button>
+    </div>
+
+    {# Quick cash buttons (for efectivo) #}
+    <div id="quickCashSection">
+      <p style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); margin: var(--cl-space-3) 0 var(--cl-space-2);">Monto rápido</p>
+      <div class="pago-quick-cash">
+        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(100)">$100</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(200)">$200</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(500)">$500</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(1000)">$1,000</button>
+        <button class="cl-btn cl-btn--primary cl-btn--sm" onclick="setMontoExacto()" title="Pago exacto">Exacto</button>
+      </div>
+    </div>
+
+    {# Monto input #}
+    <div style="margin-top: var(--cl-space-3);">
+      <label style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); display: block; margin-bottom: var(--cl-space-1);">Monto a pagar</label>
+      <input type="number" id="montoInput" class="cl-input" step="0.01" min="0" placeholder="0.00"
+             style="font-size: var(--cl-text-2xl); font-weight: var(--cl-font-bold); text-align: center; height: 60px;" oninput="calcularCambio()">
+    </div>
+
+    {# Cambio display (efectivo only) #}
+    <div id="cambioSection" style="margin-top: var(--cl-space-2);">
+      <div class="pago-cambio" id="cambioDisplay" style="display: none;">
+        <span style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary);">Cambio:</span>
+        <span style="font-size: var(--cl-text-xl); font-weight: var(--cl-font-bold); color: var(--cl-success-600);" id="cambioMonto">$0.00</span>
+      </div>
+    </div>
+
+    {# Referencia (tarjeta/transferencia) #}
+    <div id="referenciaSection" style="display: none; margin-top: var(--cl-space-2);">
+      <label style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); display: block; margin-bottom: var(--cl-space-1);">Referencia</label>
+      <input type="text" id="referenciaInput" class="cl-input" placeholder="Últimos 4 dígitos / referencia">
+    </div>
+
+    {# Propina section #}
+    <div style="margin-top: var(--cl-space-4); padding-top: var(--cl-space-3); border-top: 1px solid var(--cl-border);">
+      <p style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); margin-bottom: var(--cl-space-2);">Propina</p>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn active" data-pct="0" onclick="selectPropina(0, this)">0%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="10" onclick="selectPropina(10, this)">10%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="15" onclick="selectPropina(15, this)">15%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="20" onclick="selectPropina(20, this)">20%</button>
+        <input type="number" id="propinaCustom" class="cl-input" style="width: 80px; height: 32px; font-size: var(--cl-text-sm);"
+               placeholder="$" min="0" step="0.5" oninput="customPropina()">
+      </div>
+      <p style="font-size: var(--cl-text-xs); color: var(--cl-text-tertiary); margin-top: var(--cl-space-1);" id="propinaLabel">Propina: $0.00</p>
+    </div>
+
+    {# Previous payments (multi-pago) #}
+    <div id="previousPayments" style="display: none; margin-top: var(--cl-space-3); padding-top: var(--cl-space-3); border-top: 1px solid var(--cl-border);">
+      <p style="font-size: var(--cl-text-sm); font-weight: var(--cl-font-semibold); margin-bottom: var(--cl-space-2);">Pagos registrados</p>
+      <div id="previousPaymentsList"></div>
+    </div>
+
+    {# Confirm button #}
+    <button class="pago-confirm" id="btnConfirmar" onclick="confirmarPago()" disabled>
+      <i data-lucide="check-circle" class="icon-md"></i>
+      Confirmar Pago
+    </button>
+  </div>
+</div>
+
+{# ═══ Success overlay ═══ #}
+<div class="pago-success-overlay" id="successOverlay" style="display: none;">
+  <div class="pago-success-content">
+    <div class="pago-success-check">✓</div>
+    <h2 style="color: var(--cl-success-700); margin: var(--cl-space-3) 0 var(--cl-space-1);">¡Pago exitoso!</h2>
+    <p style="color: var(--cl-text-secondary);" id="successMsg">Orden completada</p>
+  </div>
+</div>
+
+<style>
+.pago-layout {
+  display: flex;
+  gap: var(--cl-space-4);
+  height: calc(100vh - 140px);
+  min-height: 500px;
+}
+
+/* Left — Summary */
+.pago-summary {
+  flex: 0 0 45%;
+  display: flex;
+  flex-direction: column;
+  background: var(--cl-surface);
+  border-radius: var(--cl-radius-xl);
+  border: 1px solid var(--cl-border);
+  overflow: hidden;
+}
+.pago-summary__header {
+  display: flex;
+  align-items: center;
+  gap: var(--cl-space-2);
+  padding: var(--cl-space-3) var(--cl-space-4);
+  border-bottom: 1px solid var(--cl-border);
+}
+.pago-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--cl-space-3) var(--cl-space-4);
+}
+.pago-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--cl-space-2) 0;
+  border-bottom: 1px solid var(--cl-gray-100);
+  font-size: var(--cl-text-sm);
+}
+.pago-item__name { flex: 1; color: var(--cl-text-primary); }
+.pago-item__qty {
+  min-width: 24px; text-align: center;
+  background: var(--cl-gray-100); border-radius: var(--cl-radius-full);
+  font-size: var(--cl-text-xs); font-weight: var(--cl-font-bold);
+  padding: 2px 8px; margin: 0 var(--cl-space-2);
+}
+.pago-item__price { font-weight: var(--cl-font-semibold); color: var(--cl-text-primary); white-space: nowrap; }
+
+/* Totals */
+.pago-totals {
+  padding: var(--cl-space-3) var(--cl-space-4);
+  border-top: 1px solid var(--cl-border);
+  background: var(--cl-gray-50);
+}
+.pago-totals__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--cl-text-sm);
+  color: var(--cl-text-secondary);
+  margin-bottom: var(--cl-space-1);
+}
+.pago-totals__total {
+  font-size: var(--cl-text-xl);
+  font-weight: var(--cl-font-bold);
+  color: var(--cl-text-primary);
+  margin-top: var(--cl-space-1);
+  padding-top: var(--cl-space-2);
+  border-top: 2px solid var(--cl-border);
+  margin-bottom: var(--cl-space-2);
+}
+.pago-totals__saldo {
+  font-weight: var(--cl-font-bold);
+  color: var(--cl-primary-600);
+}
+
+/* Right — Payment panel */
+.pago-panel {
+  flex: 0 0 53%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--cl-space-4);
+  background: var(--cl-surface);
+  border-radius: var(--cl-radius-xl);
+  border: 1px solid var(--cl-border);
+  overflow-y: auto;
+}
+
+/* Payment method cards */
+.pago-methods {
+  display: flex;
+  gap: var(--cl-space-2);
+}
+.pago-method {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--cl-space-1);
+  padding: var(--cl-space-3);
+  border-radius: var(--cl-radius-lg);
+  border: 2px solid var(--cl-border);
+  background: var(--cl-surface);
+  cursor: pointer;
+  transition: all var(--cl-transition-fast);
+  font-size: var(--cl-text-sm);
+  font-weight: var(--cl-font-medium);
+  color: var(--cl-text-secondary);
+}
+.pago-method:hover { border-color: var(--cl-primary-300); }
+.pago-method.active {
+  border-color: var(--cl-primary-500);
+  color: var(--cl-primary-600);
+  background: var(--cl-primary-50);
+}
+
+/* Quick cash */
+.pago-quick-cash {
+  display: flex;
+  gap: var(--cl-space-2);
+  flex-wrap: wrap;
+}
+
+/* Cambio display */
+.pago-cambio {
+  display: flex;
+  align-items: center;
+  gap: var(--cl-space-2);
+  padding: var(--cl-space-2) var(--cl-space-3);
+  background: var(--cl-success-50);
+  border-radius: var(--cl-radius-md);
+}
+
+/* Confirm button */
+.pago-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cl-space-2);
+  width: 100%;
+  height: 64px;
+  margin-top: auto;
+  padding-top: var(--cl-space-3);
+  border: none;
+  border-radius: var(--cl-radius-lg);
+  background: var(--cl-gold-500, #D4A843);
+  color: white;
+  font-size: var(--cl-text-lg);
+  font-weight: var(--cl-font-bold);
+  cursor: pointer;
+  transition: all var(--cl-transition-fast);
+}
+.pago-confirm:hover:not(:disabled) { background: var(--cl-gold-600, #C09838); transform: translateY(-1px); box-shadow: var(--cl-shadow-lg); }
+.pago-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Success overlay */
+.pago-success-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(255,255,255,0.95);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pago-success-content { text-align: center; }
+.pago-success-check {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: var(--cl-success-500);
+  color: white;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  animation: scaleIn 0.4s ease;
+}
+@keyframes scaleIn {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Responsive */
+@media (max-width: 991.98px) {
+  .pago-layout {
+    flex-direction: column;
+    height: auto;
+    min-height: auto;
+  }
+  .pago-summary, .pago-panel { flex: none; }
+  .pago-summary { max-height: 40vh; }
+}
+</style>
+
 <script>
-  (function() {
-    const btnConfirm = document.getElementById('btnConfirmPago');
-    const montoInput = document.getElementById('monto_recibido');
-    const cambioInput = document.getElementById('cambio');
-    const total = parseFloat("{{ total }}");
+const ORDEN_ID = {{ orden.id }};
+let _orderData = {};
+let _selectedMethod = 'efectivo';
+let _propina = 0;
 
-    montoInput.addEventListener('input', function() {
-      const recibido = parseFloat(montoInput.value) || 0;
-      const cambio = recibido - total;
-      cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
-      btnConfirm.disabled = recibido < total;
-    });
-  })();
+// =============================================
+// Load order info
+// =============================================
+function loadOrderInfo() {
+  fetch(`/meseros/ordenes/${ORDEN_ID}/cobrar_info`)
+    .then(r => r.json())
+    .then(data => {
+      _orderData = data;
+      renderItems(data.detalles);
+      renderTotals(data);
+      renderPreviousPayments(data.pagos, data.total_pagado);
+
+      // Pre-fill monto with saldo
+      document.getElementById('montoInput').value = data.saldo_pendiente.toFixed(2);
+      calcularCambio();
+    })
+    .catch(err => console.error('Error loading order info:', err));
+}
+
+function renderItems(detalles) {
+  const html = detalles.map(d => `
+    <div class="pago-item">
+      <span class="pago-item__name">${d.nombre}</span>
+      <span class="pago-item__qty">${d.cantidad}</span>
+      <span class="pago-item__price">$${d.subtotal.toFixed(2)}</span>
+    </div>
+  `).join('');
+  document.getElementById('pagoItems').innerHTML = html;
+}
+
+function renderTotals(data) {
+  document.getElementById('pagoSubtotal').textContent = '$' + data.subtotal.toFixed(2);
+  document.getElementById('pagoIvaRate').textContent = data.iva_rate;
+  document.getElementById('pagoIVA').textContent = '$' + data.iva.toFixed(2);
+  document.getElementById('pagoTotal').textContent = '$' + data.total.toFixed(2);
+  document.getElementById('pagoSaldo').textContent = '$' + data.saldo_pendiente.toFixed(2);
+
+  // Show descuento if applicable
+  const descRow = document.getElementById('descuentoRow');
+  const descMonto = data.descuento_monto || (data.subtotal * data.descuento_pct / 100);
+  if (descMonto > 0) {
+    descRow.style.display = 'flex';
+    document.getElementById('pagoDescuento').textContent = '-$' + descMonto.toFixed(2);
+  }
+
+  // Show pagado if multi-pago
+  if (data.total_pagado > 0) {
+    document.getElementById('pagadoRow').style.display = 'flex';
+    document.getElementById('pagoPagado').textContent = '$' + data.total_pagado.toFixed(2);
+  }
+}
+
+function renderPreviousPayments(pagos, totalPagado) {
+  if (!pagos || pagos.length === 0) return;
+  document.getElementById('previousPayments').style.display = 'block';
+  const html = pagos.map(p => `
+    <div style="display: flex; justify-content: space-between; font-size: var(--cl-text-sm); padding: 4px 0; color: var(--cl-text-secondary);">
+      <span>${p.metodo} ${p.referencia ? '(' + p.referencia + ')' : ''}</span>
+      <span>$${p.monto.toFixed(2)}</span>
+    </div>
+  `).join('');
+  document.getElementById('previousPaymentsList').innerHTML = html;
+}
+
+// =============================================
+// Payment method
+// =============================================
+function selectMethod(method, btn) {
+  _selectedMethod = method;
+  document.querySelectorAll('.pago-method').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById('quickCashSection').style.display = method === 'efectivo' ? 'block' : 'none';
+  document.getElementById('cambioSection').style.display = method === 'efectivo' ? 'block' : 'none';
+  document.getElementById('referenciaSection').style.display = method !== 'efectivo' ? 'block' : 'none';
+
+  calcularCambio();
+}
+
+// =============================================
+// Quick cash + monto
+// =============================================
+function setMonto(val) {
+  document.getElementById('montoInput').value = val.toFixed(2);
+  calcularCambio();
+}
+function setMontoExacto() {
+  const saldo = _orderData.saldo_pendiente || 0;
+  document.getElementById('montoInput').value = saldo.toFixed(2);
+  calcularCambio();
+}
+
+function calcularCambio() {
+  const monto = parseFloat(document.getElementById('montoInput').value) || 0;
+  const saldo = _orderData.saldo_pendiente || 0;
+  const btn = document.getElementById('btnConfirmar');
+
+  if (_selectedMethod === 'efectivo') {
+    const cambio = monto - saldo;
+    const cambioEl = document.getElementById('cambioDisplay');
+    if (monto > 0 && cambio >= 0) {
+      cambioEl.style.display = 'flex';
+      document.getElementById('cambioMonto').textContent = '$' + cambio.toFixed(2);
+    } else {
+      cambioEl.style.display = 'none';
+    }
+    btn.disabled = monto <= 0;
+  } else {
+    btn.disabled = monto <= 0 || monto > saldo;
+  }
+}
+
+// =============================================
+// Propina
+// =============================================
+function selectPropina(pct, btn) {
+  document.querySelectorAll('.propina-btn').forEach(b => {
+    b.classList.remove('cl-btn--primary');
+    b.classList.add('cl-btn--outline');
+  });
+  btn.classList.remove('cl-btn--outline');
+  btn.classList.add('cl-btn--primary');
+
+  const subtotal = _orderData.subtotal || 0;
+  _propina = subtotal * pct / 100;
+  document.getElementById('propinaCustom').value = '';
+  updatePropinaLabel();
+}
+
+function customPropina() {
+  _propina = parseFloat(document.getElementById('propinaCustom').value) || 0;
+  document.querySelectorAll('.propina-btn').forEach(b => {
+    b.classList.remove('cl-btn--primary');
+    b.classList.add('cl-btn--outline');
+  });
+  updatePropinaLabel();
+}
+
+function updatePropinaLabel() {
+  document.getElementById('propinaLabel').textContent = 'Propina: $' + _propina.toFixed(2);
+}
+
+// =============================================
+// Confirm payment
+// =============================================
+function confirmarPago() {
+  const btn = document.getElementById('btnConfirmar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando...';
+
+  const monto = parseFloat(document.getElementById('montoInput').value) || 0;
+  const referencia = document.getElementById('referenciaInput').value.trim();
+
+  fetch(`/meseros/ordenes/${ORDEN_ID}/pago`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      metodo: _selectedMethod,
+      monto: Math.min(monto, _orderData.saldo_pendiente),
+      referencia: referencia,
+      propina: _propina,
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      if (data.orden_cerrada) {
+        // Show success overlay
+        document.getElementById('successMsg').textContent =
+          `Orden #${ORDEN_ID} pagada — $${data.total_pagado.toFixed(2)}`;
+        document.getElementById('successOverlay').style.display = 'flex';
+        setTimeout(() => {
+          window.location.href = '{{ url_for("meseros.view_meseros") }}';
+        }, 2000);
+      } else {
+        // Multi-pago: reload to show updated saldo
+        loadOrderInfo();
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check-circle" class="icon-md"></i> Confirmar Pago';
+        if (window.lucide) lucide.createIcons();
+      }
+    } else {
+      alert('Error: ' + (data.message || 'Error al procesar pago'));
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check-circle" class="icon-md"></i> Confirmar Pago';
+      if (window.lucide) lucide.createIcons();
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert('Error de conexión');
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check-circle" class="icon-md"></i> Confirmar Pago';
+    if (window.lucide) lucide.createIcons();
+  });
+}
+
+// =============================================
+// Init
+// =============================================
+document.addEventListener('DOMContentLoaded', loadOrderInfo);
 </script>
 {% endblock %}

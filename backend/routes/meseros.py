@@ -11,7 +11,7 @@ from backend.utils import login_required, verificar_propiedad_orden, filtrar_por
 from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
-from datetime import datetime
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def view_meseros():
     query = filtrar_por_sucursal(query, Orden)
     ordenes_mesero = query.order_by(Orden.tiempo_registro.desc()).all()
 
-    return render_template('meseros.html', ordenes_mesero=ordenes_mesero)
+    return render_template('meseros.html', ordenes_mesero=ordenes_mesero, now_utc=datetime.utcnow())
 
 
 # =====================================================================
@@ -51,6 +51,63 @@ def mapa_mesas():
     zonas = sorted(set(m.zona for m in mesas if m.zona))
     is_admin = current_user.rol in ('admin', 'superadmin')
     return render_template('meseros/mapa_mesas.html', zonas=zonas, is_admin=is_admin)
+
+
+# =====================================================================
+# Historial del día (Sprint 9 — moved from cocina, accessible to meseros)
+# =====================================================================
+@meseros_bp.route('/historial')
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def historial_dia():
+    hoy = date.today()
+    query = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+    ).filter(
+        db.func.date(Orden.tiempo_registro) == hoy,
+        Orden.estado.in_(['finalizada', 'pagada']),
+    )
+    query = filtrar_por_sucursal(query, Orden)
+    ordenes = query.order_by(Orden.tiempo_registro.desc()).all()
+    return render_template('historial_dia.html', ordenes=ordenes)
+
+
+# =====================================================================
+# Historial CSV export (Sprint 9 — 9.7)
+# =====================================================================
+@meseros_bp.route('/historial/csv')
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def historial_csv():
+    import csv
+    import io
+    from flask import Response
+
+    hoy = date.today()
+    query = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+    ).filter(
+        db.func.date(Orden.tiempo_registro) == hoy,
+        Orden.estado.in_(['finalizada', 'pagada']),
+    )
+    query = filtrar_por_sucursal(query, Orden)
+    ordenes = query.order_by(Orden.tiempo_registro.desc()).all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Orden', 'Hora', 'Mesa', 'Estado', 'Productos', 'Total'])
+    for o in ordenes:
+        mesa = f'Mesa {o.mesa.numero}' if o.mesa else 'Para llevar'
+        productos = '; '.join(f'{d.producto.nombre} x{d.cantidad}' for d in o.detalles)
+        total = float(o.total or 0)
+        writer.writerow([f'#{o.id}', o.tiempo_registro.strftime('%H:%M'), mesa, o.estado, productos, f'${total:.2f}'])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=historial_{hoy.isoformat()}.csv'},
+    )
 
 
 # =====================================================================
@@ -100,7 +157,19 @@ def seleccionar_mesa():
         return redirect(url_for('meseros.seleccionar_mesa'))
 
     mesas = filtrar_por_sucursal(Mesa.query, Mesa).order_by(Mesa.numero).all()
-    return render_template('seleccionar_mesa.html', mesas=mesas)
+
+    # Sprint 9 — 9.4: enrich mesas with active order info
+    active_orders = Orden.query.filter(
+        Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']),
+    ).all()
+    mesa_order_map = {}
+    for o in active_orders:
+        if o.mesa_id:
+            mesa_order_map[o.mesa_id] = o
+
+    zonas = sorted(set(m.zona for m in mesas if m.zona))
+    return render_template('seleccionar_mesa.html', mesas=mesas,
+                           mesa_order_map=mesa_order_map, zonas=zonas)
 
 
 # =====================================================================
@@ -198,6 +267,20 @@ def agregar_productos_a_orden(orden_id):
         flash(f'Error: {e}', 'danger')
 
     return redirect(url_for('meseros.detalle_orden', orden_id=orden_id))
+
+
+# =====================================================================
+# Pago — full-page payment view (Sprint 9 — 9.6)
+# =====================================================================
+@meseros_bp.route('/ordenes/<int:orden_id>/pago_view', methods=['GET'])
+@login_required(roles='mesero')
+@verificar_propiedad_orden
+def pago_view(orden_id):
+    orden = Orden.query.options(
+        joinedload(Orden.mesa),
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+    ).get_or_404(orden_id)
+    return render_template('pago.html', orden=orden)
 
 
 # =====================================================================
