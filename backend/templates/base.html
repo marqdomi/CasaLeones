@@ -15,6 +15,8 @@
   <meta name="apple-mobile-web-app-title" content="CasaLeones">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-192.svg') }}">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- Design System v6 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v={{ config.VERSION }}">
   <!-- Custom global styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tablet.css') }}?v={{ config.VERSION }}">
@@ -36,6 +38,9 @@
   <a href="#main-content" class="skip-to-content">Saltar al contenido</a>
   <!-- Toast container for real-time notifications -->
   <div id="toast-container" class="position-fixed bottom-0 end-0 p-3" style="z-index: 1200;" role="region" aria-label="Notificaciones" aria-live="polite"></div>
+
+  {% block body_layout %}
+  {# ── Default layout: Top navbar + container ── #}
   <nav class="navbar navbar-expand-lg navbar-light bg-light custom-navbar" role="navigation" aria-label="Navegación principal">
     <div class="container-fluid">
       <a class="navbar-brand" href="/">
@@ -118,7 +123,11 @@
   <main id="main-content" class="container mt-4">
     {% block content %}{% endblock %}
   </main>
+  {% endblock body_layout %}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js?v={{ config.VERSION }}"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', function(){ if(window.lucide) lucide.createIcons(); });</script>
   {% block scripts %}
     <script src="/socket.io/socket.io.js"></script>
     {% if request.endpoint == 'meseros.view_meseros' %}

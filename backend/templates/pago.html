@@ -1,7 +1,4 @@
 {% extends "base.html" %}
-{% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
-{% endblock %}
 {% block title %}Pago Orden #{{ orden.id }}{% endblock %}
 {% block content %}
   <div class="container">
@@ -50,25 +47,28 @@
     </div>
 
     <form method="POST" action="{{ url_for('meseros.pagar_orden', orden_id=orden.id) }}">
-      <button type="submit" class="btn btn-success">Confirmar Pago</button>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="btn btn-success" id="btnConfirmPago" disabled>Confirmar Pago</button>
       <a href="{{ url_for('meseros.view_meseros') }}" class="btn btn-secondary">Cancelar</a>
     </form>
   </div>
+{% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
-  // Deshabilitar botón de confirmar hasta que el monto recibido cubra el total
-  const btnConfirm = document.querySelector('button[type="submit"]');
-  btnConfirm.disabled = true;
-  const montoInput = document.getElementById('monto_recibido');
-  const cambioInput = document.getElementById('cambio');
-  montoInput.addEventListener('input', () => {
-   const total = parseFloat("{{ total }}");
-    const recibido = parseFloat(montoInput.value) || 0;
-    const cambio = recibido - total;
-    cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
-    btnConfirm.disabled = recibido < total;
-  });
+  (function() {
+    const btnConfirm = document.getElementById('btnConfirmPago');
+    const montoInput = document.getElementById('monto_recibido');
+    const cambioInput = document.getElementById('cambio');
+    const total = parseFloat("{{ total }}");
+
+    montoInput.addEventListener('input', function() {
+      const recibido = parseFloat(montoInput.value) || 0;
+      const cambio = recibido - total;
+      cambioInput.value = cambio >= 0 ? cambio.toFixed(2) : '';
+      btnConfirm.disabled = recibido < total;
+    });
+  })();
 </script>
-{% endblock %}
 {% endblock %}

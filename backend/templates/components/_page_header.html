@@ -1,0 +1,38 @@
+{# ═══════════════════════════════════════════
+   Page Header Component
+   Usage:
+     {% from 'components/_page_header.html' import page_header %}
+     {% call page_header('Usuarios', breadcrumb=[('Dashboard', url_for('admin.dashboard')), ('Usuarios', '')]) %}
+       <a href="{{ url_for('admin.crear_usuario') }}" class="cl-btn cl-btn--primary">
+         <i data-lucide="plus" class="icon-sm"></i> Nuevo Usuario
+       </a>
+     {% endcall %}
+   ═══════════════════════════════════════════ #}
+
+{% macro page_header(title, breadcrumb=[], subtitle='') %}
+<div class="cl-page-header">
+  <div class="cl-page-header__left">
+    {% if breadcrumb %}
+    <nav class="cl-page-header__breadcrumb" aria-label="Breadcrumb">
+      {% for label, href in breadcrumb %}
+        {% if href %}
+          <a href="{{ href }}">{{ label }}</a>
+          <span aria-hidden="true">/</span>
+        {% else %}
+          <span aria-current="page">{{ label }}</span>
+        {% endif %}
+      {% endfor %}
+    </nav>
+    {% endif %}
+    <h1 class="cl-page-header__title">{{ title }}</h1>
+    {% if subtitle %}
+    <p class="text-sm" style="color: var(--cl-text-secondary); margin: 0;">{{ subtitle }}</p>
+    {% endif %}
+  </div>
+  {% if caller %}
+  <div class="cl-page-header__actions">
+    {{ caller() }}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

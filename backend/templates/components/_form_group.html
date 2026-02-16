@@ -1,0 +1,85 @@
+{# ═══════════════════════════════════════════
+   Form Group Component
+   Usage:
+     {% from 'components/_form_group.html' import form_group, form_select, form_textarea %}
+     {{ form_group('nombre', 'Nombre', value=producto.nombre, required=true, icon='tag') }}
+     {{ form_select('categoria_id', 'Categoría', options=categorias, value=producto.categoria_id, placeholder='Selecciona…') }}
+     {{ form_textarea('descripcion', 'Descripción', value=producto.descripcion, rows=3) }}
+   ═══════════════════════════════════════════ #}
+
+{% macro form_group(name, label, type='text', value='', required=false, placeholder='', icon='', hint='', disabled=false, readonly=false, min='', max='', step='', pattern='', autocomplete='off', id='', class_extra='') %}
+{% set field_id = id or ('field_' + name) %}
+<div class="cl-form-group {{ class_extra }}">
+  <label class="cl-form-label" for="{{ field_id }}">
+    {{ label }}
+    {% if required %}<span class="text-danger">*</span>{% endif %}
+  </label>
+  <div class="position-relative">
+    {% if icon %}
+    <i data-lucide="{{ icon }}" class="icon-sm" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--cl-text-placeholder);pointer-events:none"></i>
+    {% endif %}
+    <input type="{{ type }}"
+           class="cl-form-input{% if icon %} ps-5{% endif %}"
+           id="{{ field_id }}"
+           name="{{ name }}"
+           value="{{ value if value is not none else '' }}"
+           {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+           {% if required %}required{% endif %}
+           {% if disabled %}disabled{% endif %}
+           {% if readonly %}readonly{% endif %}
+           {% if min != '' %}min="{{ min }}"{% endif %}
+           {% if max != '' %}max="{{ max }}"{% endif %}
+           {% if step %}step="{{ step }}"{% endif %}
+           {% if pattern %}pattern="{{ pattern }}"{% endif %}
+           autocomplete="{{ autocomplete }}">
+  </div>
+  {% if hint %}
+  <small class="cl-form-hint">{{ hint }}</small>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro form_select(name, label, options, value='', required=false, placeholder='Selecciona…', disabled=false, id='', option_label='nombre', option_value='id', class_extra='') %}
+{% set field_id = id or ('field_' + name) %}
+<div class="cl-form-group {{ class_extra }}">
+  <label class="cl-form-label" for="{{ field_id }}">
+    {{ label }}
+    {% if required %}<span class="text-danger">*</span>{% endif %}
+  </label>
+  <select class="cl-form-input cl-form-select"
+          id="{{ field_id }}"
+          name="{{ name }}"
+          {% if required %}required{% endif %}
+          {% if disabled %}disabled{% endif %}>
+    {% if placeholder %}
+    <option value="">{{ placeholder }}</option>
+    {% endif %}
+    {% for opt in options %}
+    <option value="{{ opt[option_value] if opt is mapping else opt.id }}"
+            {% if (opt[option_value] if opt is mapping else opt.id)|string == value|string %}selected{% endif %}>
+      {{ opt[option_label] if opt is mapping else opt.nombre }}
+    </option>
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro form_textarea(name, label, value='', required=false, placeholder='', rows=3, disabled=false, hint='', id='', class_extra='') %}
+{% set field_id = id or ('field_' + name) %}
+<div class="cl-form-group {{ class_extra }}">
+  <label class="cl-form-label" for="{{ field_id }}">
+    {{ label }}
+    {% if required %}<span class="text-danger">*</span>{% endif %}
+  </label>
+  <textarea class="cl-form-input"
+            id="{{ field_id }}"
+            name="{{ name }}"
+            rows="{{ rows }}"
+            {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+            {% if required %}required{% endif %}
+            {% if disabled %}disabled{% endif %}>{{ value if value is not none else '' }}</textarea>
+  {% if hint %}
+  <small class="cl-form-hint">{{ hint }}</small>
+  {% endif %}
+</div>
+{% endmacro %}

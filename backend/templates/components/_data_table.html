@@ -1,0 +1,106 @@
+{# ═══════════════════════════════════════════
+   Data Table Component
+   Usage:
+     {% from 'components/_data_table.html' import data_table %}
+     {% call(row) data_table(
+         items=productos,
+         columns=[
+           ('Nombre', 'nombre', true),
+           ('Precio', 'precio', true),
+           ('Categoría', none, false)
+         ],
+         empty_text='No hay productos',
+         empty_icon='package',
+         search_placeholder='Buscar producto…',
+         id='tblProductos'
+     ) %}
+       <td>{{ row.nombre }}</td>
+       <td>${{ '%.2f'|format(row.precio) }}</td>
+       <td>{{ row.categoria.nombre if row.categoria else '—' }}</td>
+     {% endcall %}
+   ═══════════════════════════════════════════ #}
+
+{% macro data_table(
+    items,
+    columns,
+    empty_text='Sin resultados',
+    empty_icon='inbox',
+    search_placeholder='Buscar…',
+    show_search=true,
+    id='dataTable',
+    striped=true,
+    hoverable=true,
+    responsive=true,
+    actions_header='Acciones',
+    show_actions=false,
+    class_extra=''
+) %}
+<div class="cl-table__toolbar" id="{{ id }}_toolbar">
+  {% if show_search %}
+  <div class="cl-table__search">
+    <i data-lucide="search" class="icon-sm"></i>
+    <input type="search"
+           class="cl-form-input"
+           placeholder="{{ search_placeholder }}"
+           aria-label="{{ search_placeholder }}"
+           data-table-search="{{ id }}"
+           autocomplete="off">
+  </div>
+  {% endif %}
+  {{ caller.toolbar() if caller is defined and caller.toolbar is defined else '' }}
+</div>
+
+{% if responsive %}<div class="table-responsive">{% endif %}
+<table class="cl-table{% if striped %} cl-table--striped{% endif %}{% if hoverable %} cl-table--hover{% endif %} {{ class_extra }}"
+       id="{{ id }}">
+  <thead>
+    <tr>
+      {% for label, field, sortable in columns %}
+      <th{% if sortable %} class="cl-table__sortable" data-sort="{{ field }}"{% endif %}>
+        {{ label }}
+        {% if sortable %}<i data-lucide="arrow-up-down" class="icon-xs" style="opacity:.4"></i>{% endif %}
+      </th>
+      {% endfor %}
+      {% if show_actions %}<th class="text-end">{{ actions_header }}</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% if items %}
+      {% for row in items %}
+      <tr data-id="{{ row.id if row.id is defined else loop.index }}">
+        {{ caller(row) }}
+        {% if show_actions %}
+        <td class="text-end">{{ caller.actions(row) if caller.actions is defined else '' }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    {% else %}
+      <tr>
+        <td colspan="{{ columns|length + (1 if show_actions else 0) }}">
+          <div class="cl-empty-state" style="padding:var(--cl-space-10) 0">
+            <i data-lucide="{{ empty_icon }}" class="cl-empty-state__icon"></i>
+            <p class="cl-empty-state__text">{{ empty_text }}</p>
+          </div>
+        </td>
+      </tr>
+    {% endif %}
+  </tbody>
+</table>
+{% if responsive %}</div>{% endif %}
+
+{# Client-side search filtering #}
+<script>
+(function(){
+  const input = document.querySelector('[data-table-search="{{ id }}"]');
+  if(!input) return;
+  const table = document.getElementById('{{ id }}');
+  if(!table) return;
+  input.addEventListener('input', function(){
+    const q = this.value.toLowerCase();
+    table.querySelectorAll('tbody tr').forEach(function(tr){
+      tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endmacro %}

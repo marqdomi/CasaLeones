@@ -1,0 +1,266 @@
+{# ═══════════════════════════════════════════════════════
+   Layout: Admin Back-office with Sidebar
+   Extends: base.html  (overrides {% block body_layout %})
+   Used by: Dashboard, Usuarios, Productos, Mesas, Inventario,
+            Clientes, Reservaciones, Reportes, Facturación,
+            Corte de Caja, Delivery, Sucursales, Auditoría
+
+   Usage:
+     {% extends 'layouts/_layout_admin.html' %}
+     {% block page_title %}Productos{% endblock %}
+     {% block admin_content %}
+       ...your content here...
+     {% endblock %}
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'base.html' %}
+
+{% block title %}{% block page_title %}Admin{% endblock %} — CasaLeones{% endblock %}
+
+{# ── Navigation config: sidebar groups + items ── #}
+{# Each item: (icon, label, endpoint, [children])
+   Children: list of (label, endpoint) for sub-nav  #}
+{% set sidebar_nav = [
+  {
+    'group': '',
+    'items': [
+      {'icon': 'layout-dashboard', 'label': 'Dashboard', 'endpoint': 'admin.dashboard'}
+    ]
+  },
+  {
+    'group': 'Operaciones',
+    'items': [
+      {'icon': 'clipboard-list', 'label': 'Órdenes Activas', 'endpoint': 'meseros.view_meseros'},
+      {'icon': 'map',            'label': 'Mapa de Mesas',   'endpoint': 'meseros.mapa_mesas'},
+      {'icon': 'history',        'label': 'Historial del Día','endpoint': 'meseros.historial_dia'}
+    ]
+  },
+  {
+    'group': 'Catálogo',
+    'items': [
+      {'icon': 'package',  'label': 'Productos',   'endpoint': 'admin.lista_productos'},
+      {'icon': 'grid-3x3', 'label': 'Mesas',       'endpoint': 'admin.lista_mesas'}
+    ]
+  },
+  {
+    'group': 'Inventario',
+    'items': [
+      {'icon': 'flask-conical', 'label': 'Ingredientes', 'endpoint': 'inventario.lista_ingredientes'}
+    ]
+  },
+  {
+    'group': 'Ventas',
+    'items': [
+      {'icon': 'wallet',      'label': 'Corte de Caja', 'endpoint': 'admin.corte_caja'},
+      {'icon': 'bar-chart-3', 'label': 'Reportes',      'endpoint': 'reportes.dashboard_reportes',
+       'children': [
+         {'label': 'Ventas',       'endpoint': 'reportes.reporte_ventas'},
+         {'label': 'Productos',    'endpoint': 'reportes.reporte_productos'},
+         {'label': 'Meseros',      'endpoint': 'reportes.reporte_meseros'},
+         {'label': 'Pagos',        'endpoint': 'reportes.reporte_pagos'},
+         {'label': 'Inventario',   'endpoint': 'reportes.reporte_inventario'}
+       ]}
+    ]
+  },
+  {
+    'group': 'CRM',
+    'items': [
+      {'icon': 'users',    'label': 'Clientes',      'endpoint': 'clientes.lista_clientes'},
+      {'icon': 'calendar', 'label': 'Reservaciones', 'endpoint': 'reservaciones.lista_reservaciones'}
+    ]
+  },
+  {
+    'group': 'Fiscal',
+    'items': [
+      {'icon': 'receipt', 'label': 'Facturación', 'endpoint': 'facturacion.lista_facturas'}
+    ]
+  },
+  {
+    'group': 'Configuración',
+    'items': [
+      {'icon': 'user-cog', 'label': 'Usuarios',    'endpoint': 'admin.lista_usuarios'},
+      {'icon': 'building', 'label': 'Sucursales',  'endpoint': 'sucursales.lista_sucursales'},
+      {'icon': 'truck',    'label': 'Delivery',    'endpoint': 'delivery.admin_delivery'},
+      {'icon': 'shield',   'label': 'Auditoría',   'endpoint': 'auditoria.lista_auditoria'}
+    ]
+  }
+] %}
+
+{# ── Override body_layout: sidebar + topbar + main ── #}
+{% block body_layout %}
+  {# ── Sidebar ── #}
+  <aside class="cl-sidebar" id="adminSidebar" aria-label="Menú de administración">
+    {# Brand #}
+    <div class="cl-sidebar__brand">
+      <a href="{{ url_for('admin.dashboard') }}">
+        <img src="{{ url_for('static', filename='img/logoCasaLeones.svg') }}" alt="CasaLeones" class="cl-sidebar__logo">
+        <span class="cl-sidebar__brand-text">CasaLeones</span>
+      </a>
+    </div>
+
+    {# Navigation #}
+    <nav class="cl-sidebar__nav">
+      {% for group in sidebar_nav %}
+        {% if group.group %}
+        <div class="cl-sidebar__group-label">{{ group.group }}</div>
+        {% endif %}
+
+        {% for item in group.items %}
+          {% set is_active = request.endpoint == item.endpoint %}
+          {% set has_children = item.children is defined and item.children %}
+          {% set child_active = false %}
+          {% if has_children %}
+            {% for child in item.children %}
+              {% if request.endpoint == child.endpoint %}{% set child_active = true %}{% endif %}
+            {% endfor %}
+          {% endif %}
+
+          {% if has_children %}
+          {# Collapsible sub-menu #}
+          <div class="cl-sidebar__item-group">
+            <a class="cl-sidebar__link{% if is_active or child_active %} active{% endif %}"
+               href="#sidebar_sub_{{ loop.index0 }}_{{ loop.parent.loop.index0 if loop.parent is defined else 0 }}"
+               data-bs-toggle="collapse"
+               aria-expanded="{{ 'true' if child_active else 'false' }}"
+               role="button">
+              <i data-lucide="{{ item.icon }}" class="icon-sm"></i>
+              <span class="cl-sidebar__label">{{ item.label }}</span>
+              <i data-lucide="chevron-down" class="icon-xs cl-sidebar__chevron ms-auto"></i>
+            </a>
+            <div class="collapse{% if child_active %} show{% endif %}" id="sidebar_sub_{{ loop.index0 }}_{{ loop.parent.loop.index0 if loop.parent is defined else 0 }}">
+              {% for child in item.children %}
+              <a class="cl-sidebar__sublink{% if request.endpoint == child.endpoint %} active{% endif %}"
+                 href="{{ url_for(child.endpoint) }}">
+                {{ child.label }}
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+          {% else %}
+          {# Regular link #}
+          <a class="cl-sidebar__link{% if is_active %} active{% endif %}"
+             href="{{ url_for(item.endpoint) }}">
+            <i data-lucide="{{ item.icon }}" class="icon-sm"></i>
+            <span class="cl-sidebar__label">{{ item.label }}</span>
+          </a>
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </nav>
+
+    {# Collapse toggle (bottom) #}
+    <button class="cl-sidebar__toggle" id="sidebarToggle"
+            aria-label="Colapsar menú" title="Colapsar menú">
+      <i data-lucide="panel-left-close" class="icon-sm" id="sidebarToggleIcon"></i>
+    </button>
+  </aside>
+
+  {# ── Backdrop (mobile) ── #}
+  <div class="cl-sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  {# ── Main wrapper ── #}
+  <div class="cl-main" id="adminMain">
+    {# Topbar #}
+    <header class="cl-topbar">
+      <div class="cl-topbar__left">
+        <button class="cl-topbar__hamburger d-lg-none" id="sidebarOpen"
+                aria-label="Abrir menú" title="Menú">
+          <i data-lucide="menu" class="icon-sm"></i>
+        </button>
+        {# Breadcrumb set by child templates #}
+        {% block admin_breadcrumb %}{% endblock %}
+      </div>
+      <div class="cl-topbar__right">
+        {% if session.get('sucursal_nombre') %}
+        <span class="cl-badge cl-badge--info cl-badge--pill">
+          <i data-lucide="building" class="icon-xs"></i>
+          {{ session['sucursal_nombre'] }}
+        </span>
+        {% endif %}
+        <button class="cl-topbar__icon-btn" id="darkModeToggle"
+                aria-label="Alternar modo oscuro" title="Modo oscuro">
+          <span id="darkModeIcon">🌙</span>
+        </button>
+        {% if current_user.is_authenticated %}
+        <div class="dropdown">
+          <button class="cl-topbar__user-btn dropdown-toggle" data-bs-toggle="dropdown"
+                  aria-expanded="false" id="userMenuBtn">
+            <span class="cl-topbar__avatar">{{ current_user.nombre[0]|upper }}</span>
+            <span class="cl-topbar__user-name d-none d-md-inline">{{ current_user.nombre }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuBtn">
+            <li><span class="dropdown-item-text text-muted small">{{ current_user.rol|capitalize }}</span></li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                <i data-lucide="log-out" class="icon-sm me-2"></i>Cerrar sesión
+              </a>
+            </li>
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+    </header>
+
+    {# Page content #}
+    <div class="cl-main__content" id="main-content">
+      {# Flash messages #}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="cl-toast-container" role="region" aria-label="Notificaciones">
+        {% for category, message in messages %}
+        {% set variant = 'error' if category in ('danger', 'error') else category %}
+        <div class="cl-toast cl-toast--{{ variant }}" role="alert" aria-atomic="true">
+          <i data-lucide="{{ {'success':'check-circle','error':'x-circle','warning':'alert-triangle','info':'info'}.get(variant,'info') }}" class="icon-sm"></i>
+          <span>{{ message }}</span>
+          <button type="button" class="cl-toast__close" aria-label="Cerrar" onclick="this.parentElement.remove()">
+            <i data-lucide="x" class="icon-xs"></i>
+          </button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      {% block admin_content %}{% endblock %}
+    </div>
+  </div>
+
+  {# ── Sidebar JS ── #}
+  <script>
+  (function(){
+    var sidebar = document.getElementById('adminSidebar');
+    var main    = document.getElementById('adminMain');
+    var backdrop= document.getElementById('sidebarBackdrop');
+    var toggleBtn= document.getElementById('sidebarToggle');
+    var openBtn  = document.getElementById('sidebarOpen');
+    var icon     = document.getElementById('sidebarToggleIcon');
+
+    // Desktop collapse
+    var collapsed = localStorage.getItem('sidebar_collapsed') === 'true';
+    if(collapsed) { sidebar.classList.add('collapsed'); main.classList.add('cl-main--expanded'); }
+
+    toggleBtn.addEventListener('click', function(){
+      collapsed = !collapsed;
+      sidebar.classList.toggle('collapsed', collapsed);
+      main.classList.toggle('cl-main--expanded', collapsed);
+      localStorage.setItem('sidebar_collapsed', collapsed);
+      if(window.lucide) lucide.createIcons();
+    });
+
+    // Mobile open/close
+    openBtn.addEventListener('click', function(){
+      sidebar.classList.add('open');
+      backdrop.classList.add('active');
+    });
+    backdrop.addEventListener('click', function(){
+      sidebar.classList.remove('open');
+      backdrop.classList.remove('active');
+    });
+
+    // Auto-dismiss toasts
+    document.querySelectorAll('.cl-toast').forEach(function(t){
+      setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 4000);
+    });
+  })();
+  </script>
+{% endblock body_layout %}

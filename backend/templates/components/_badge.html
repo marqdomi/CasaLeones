@@ -1,0 +1,38 @@
+{# ═══════════════════════════════════════════
+   Badge Component
+   Usage:
+     {% from 'components/_badge.html' import badge, status_badge %}
+     {{ badge('Activo', 'success') }}
+     {{ badge('3 pendientes', 'warning', icon='clock') }}
+     {{ status_badge('pagada') }}
+   ═══════════════════════════════════════════ #}
+
+{% macro badge(text, variant='gray', icon='', pill=true) %}
+<span class="cl-badge cl-badge--{{ variant }}{% if pill %} cl-badge--pill{% endif %}">
+  {% if icon %}<i data-lucide="{{ icon }}" class="icon-xs"></i> {% endif %}
+  {{ text }}
+</span>
+{% endmacro %}
+
+{# ── Convenience: auto-maps status strings to variant+icon ── #}
+{% macro status_badge(status) %}
+{% set map = {
+  'disponible':  ('success',  'check-circle'),
+  'ocupada':     ('error',    'users'),
+  'reservada':   ('warning',  'calendar'),
+  'mantenimiento':('gray',    'wrench'),
+  'activa':      ('info',     'clock'),
+  'pagada':      ('success',  'credit-card'),
+  'cancelada':   ('error',    'x-circle'),
+  'confirmada':  ('success',  'check'),
+  'completada':  ('success',  'check-circle'),
+  'no_show':     ('warning',  'user-x'),
+  'pendiente':   ('warning',  'clock'),
+  'timbrada':    ('success',  'file-check'),
+  'entregado':   ('success',  'check'),
+  'preparando':  ('warning',  'flame'),
+  'listo':       ('info',     'bell'),
+} %}
+{% set variant, icon = map.get(status|lower, ('gray', 'circle')) %}
+{{ badge(status|capitalize, variant, icon) }}
+{% endmacro %}

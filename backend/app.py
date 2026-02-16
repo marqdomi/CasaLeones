@@ -56,6 +56,11 @@ def create_app():
     from config import config_by_name
     app.config.from_object(config_by_name.get(env, config_by_name['default']))
 
+    @app.route('/')
+    def index():
+        from flask import redirect, url_for
+        return redirect(url_for('auth.login'))
+
     # Development settings
     if app.config.get('DEBUG') or os.getenv('FLASK_ENV') == 'development':
         app.config['DEBUG'] = True

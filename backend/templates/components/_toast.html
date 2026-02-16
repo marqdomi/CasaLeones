@@ -1,0 +1,36 @@
+{# ═══════════════════════════════════════════
+   Toast Helper (server-side flash rendering)
+   Usage:
+     {% from 'components/_toast.html' import render_flashes %}
+     {{ render_flashes() }}
+   
+   Renders Bootstrap/CasaLeones toasts from Flask flash messages.
+   Categories: success, error/danger, warning, info
+   ═══════════════════════════════════════════ #}
+
+{% macro render_flashes() %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="cl-toast-container" role="region" aria-label="Notificaciones" id="toastContainer">
+  {% for category, message in messages %}
+  {% set variant = 'error' if category in ('danger', 'error') else category %}
+  {% set icons = {'success': 'check-circle', 'error': 'x-circle', 'warning': 'alert-triangle', 'info': 'info'} %}
+  <div class="cl-toast cl-toast--{{ variant }}" role="alert" aria-atomic="true">
+    <i data-lucide="{{ icons.get(variant, 'info') }}" class="icon-sm"></i>
+    <span>{{ message }}</span>
+    <button type="button" class="cl-toast__close" aria-label="Cerrar" onclick="this.parentElement.remove()">
+      <i data-lucide="x" class="icon-xs"></i>
+    </button>
+  </div>
+  {% endfor %}
+</div>
+<script>
+(function(){
+  document.querySelectorAll('.cl-toast').forEach(function(t){
+    setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 4000);
+  });
+})();
+</script>
+{% endif %}
+{% endwith %}
+{% endmacro %}

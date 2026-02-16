@@ -1,0 +1,28 @@
+{# ═══════════════════════════════════════════
+   KPI Card Component
+   Usage:
+     {% from 'components/_kpi_card.html' import kpi_card %}
+     {{ kpi_card('Ventas Hoy', '$12,500', 'dollar-sign', color='success', trend='+12%', trend_up=true) }}
+   ═══════════════════════════════════════════ #}
+
+{% macro kpi_card(title, value, icon='activity', color='primary', trend=None, trend_up=true, prefix='', suffix='', id='') %}
+<div class="cl-kpi-card cl-kpi-card--{{ color }}" {% if id %}id="{{ id }}"{% endif %}>
+  <div class="cl-kpi-card__header">
+    <span class="cl-kpi-card__icon">
+      <i data-lucide="{{ icon }}" class="icon-lg"></i>
+    </span>
+    <span class="cl-kpi-card__title">{{ title }}</span>
+  </div>
+  <div class="cl-kpi-card__value">
+    {% if prefix %}<span class="cl-kpi-card__prefix">{{ prefix }}</span>{% endif %}
+    <span {% if id %}data-kpi="{{ id }}"{% endif %}>{{ value }}</span>
+    {% if suffix %}<span class="cl-kpi-card__suffix">{{ suffix }}</span>{% endif %}
+  </div>
+  {% if trend is not none %}
+  <div class="cl-kpi-card__trend cl-kpi-card__trend--{{ 'up' if trend_up else 'down' }}">
+    <i data-lucide="{{ 'trending-up' if trend_up else 'trending-down' }}" class="icon-xs"></i>
+    <span>{{ trend }}</span>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

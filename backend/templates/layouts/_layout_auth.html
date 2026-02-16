@@ -1,0 +1,128 @@
+{# ═══════════════════════════════════════════════════════
+   Layout: Auth (Login, etc.)
+   Extends: base.html  (overrides {% block body_layout %})
+   Centered card on gradient/image background. No nav.
+
+   Usage:
+     {% extends 'layouts/_layout_auth.html' %}
+     {% block page_title %}Iniciar Sesión{% endblock %}
+     {% block auth_content %}
+       <form>...</form>
+     {% endblock %}
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'base.html' %}
+
+{% block title %}{% block page_title %}Login{% endblock %} — CasaLeones{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+  .cl-auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--cl-space-4);
+    background: linear-gradient(135deg, var(--cl-gray-900) 0%, var(--cl-red-900) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .cl-auth::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 20%, rgba(196,30,58,.15) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 80%, rgba(196,30,58,.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .cl-auth__card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--cl-bg-primary);
+    border-radius: var(--cl-radius-xl);
+    box-shadow: var(--cl-shadow-2xl);
+    padding: var(--cl-space-8) var(--cl-space-6);
+    position: relative;
+    z-index: 1;
+    /* Glass-morphism subtle effect */
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--cl-border-color);
+  }
+  [data-theme="dark"] .cl-auth__card,
+  [data-bs-theme="dark"] .cl-auth__card {
+    background: rgba(16,24,40,.85);
+    border-color: rgba(255,255,255,.08);
+  }
+  .cl-auth__logo {
+    display: block;
+    margin: 0 auto var(--cl-space-2);
+    height: 72px;
+    width: auto;
+  }
+  .cl-auth__title {
+    text-align: center;
+    font-size: var(--cl-text-xl);
+    font-weight: var(--cl-font-semibold);
+    color: var(--cl-text-primary);
+    margin-bottom: var(--cl-space-1);
+  }
+  .cl-auth__subtitle {
+    text-align: center;
+    font-size: var(--cl-text-sm);
+    color: var(--cl-text-secondary);
+    margin-bottom: var(--cl-space-6);
+  }
+  .cl-auth__input-group {
+    position: relative;
+    margin-bottom: var(--cl-space-4);
+  }
+  .cl-auth__input-group .cl-form-label {
+    margin-bottom: var(--cl-space-1);
+  }
+  .cl-auth__input-group .cl-form-input {
+    padding: var(--cl-space-3) var(--cl-space-3) var(--cl-space-3) 44px;
+    font-size: var(--cl-text-base);
+    height: 48px;
+  }
+  .cl-auth__input-icon {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    color: var(--cl-text-placeholder);
+    pointer-events: none;
+  }
+  .cl-auth__pw-toggle {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    background: none;
+    border: none;
+    padding: var(--cl-space-1);
+    color: var(--cl-text-placeholder);
+    cursor: pointer;
+    border-radius: var(--cl-radius-md);
+  }
+  .cl-auth__pw-toggle:hover { color: var(--cl-text-primary); }
+  .cl-auth__submit {
+    width: 100%;
+    height: 48px;
+    font-size: var(--cl-text-base);
+    font-weight: var(--cl-font-semibold);
+    margin-top: var(--cl-space-2);
+  }
+  .cl-auth__footer {
+    text-align: center;
+    margin-top: var(--cl-space-5);
+    font-size: var(--cl-text-xs);
+    color: var(--cl-text-placeholder);
+  }
+</style>
+{% endblock %}
+
+{% block body_layout %}
+  <div class="cl-auth">
+    <div class="cl-auth__card">
+      {% block auth_content %}{% endblock %}
+    </div>
+  </div>
+{% endblock body_layout %}

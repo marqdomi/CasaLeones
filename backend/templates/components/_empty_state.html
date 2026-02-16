@@ -1,0 +1,22 @@
+{# ═══════════════════════════════════════════
+   Empty State Component
+   Usage:
+     {% from 'components/_empty_state.html' import empty_state %}
+     {{ empty_state('No hay usuarios', icon='users', cta_text='Crear usuario', cta_href=url_for('admin.crear_usuario')) }}
+   ═══════════════════════════════════════════ #}
+
+{% macro empty_state(text, icon='inbox', cta_text='', cta_href='', subtitle='') %}
+<div class="cl-empty-state">
+  <i data-lucide="{{ icon }}" class="cl-empty-state__icon"></i>
+  <p class="cl-empty-state__text">{{ text }}</p>
+  {% if subtitle %}
+  <p class="text-sm" style="color: var(--cl-text-placeholder); margin-top: -0.5rem;">{{ subtitle }}</p>
+  {% endif %}
+  {% if cta_text and cta_href %}
+  <a href="{{ cta_href }}" class="cl-btn cl-btn--primary">
+    <i data-lucide="plus" class="icon-sm"></i>
+    {{ cta_text }}
+  </a>
+  {% endif %}
+</div>
+{% endmacro %}

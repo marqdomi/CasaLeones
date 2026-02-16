@@ -1,0 +1,62 @@
+{# ═══════════════════════════════════════════
+   Confirm Modal Component
+   Usage:
+     {% from 'components/_modal.html' import confirm_modal %}
+     {{ confirm_modal(
+         id='modalEliminar',
+         title='¿Eliminar producto?',
+         body='Esta acción no se puede deshacer.',
+         confirm_text='Eliminar',
+         confirm_variant='danger',
+         icon='trash-2'
+     ) }}
+
+     // JS trigger:
+     document.getElementById('modalEliminar').dataset.action = '/admin/producto/5/eliminar';
+     new bootstrap.Modal(document.getElementById('modalEliminar')).show();
+   ═══════════════════════════════════════════ #}
+
+{% macro confirm_modal(
+    id='confirmModal',
+    title='¿Estás seguro?',
+    body='Esta acción no se puede deshacer.',
+    confirm_text='Confirmar',
+    cancel_text='Cancelar',
+    confirm_variant='danger',
+    icon='alert-triangle',
+    form_action='',
+    method='POST'
+) %}
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="{{ id }}Label" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content cl-confirm-modal">
+      <div class="modal-body text-center py-4">
+        <div class="mb-3">
+          <i data-lucide="{{ icon }}" style="width:48px;height:48px;color:var(--cl-{{ 'red-500' if confirm_variant == 'danger' else 'gold-500' }})"></i>
+        </div>
+        <h5 class="mb-2" id="{{ id }}Label">{{ title }}</h5>
+        <p class="text-sm" style="color:var(--cl-text-secondary)">{{ body }}</p>
+      </div>
+      <div class="modal-footer justify-content-center border-0 pt-0 pb-4 gap-2">
+        <button type="button" class="cl-btn cl-btn--ghost" data-bs-dismiss="modal">
+          {{ cancel_text }}
+        </button>
+        {% if form_action %}
+        <form method="{{ method }}" action="{{ form_action }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="cl-btn cl-btn--{{ confirm_variant }}">
+            <i data-lucide="{{ icon }}" class="icon-sm"></i>
+            {{ confirm_text }}
+          </button>
+        </form>
+        {% else %}
+        <button type="button" class="cl-btn cl-btn--{{ confirm_variant }}" data-bs-dismiss="modal" data-confirm="{{ id }}">
+          <i data-lucide="{{ icon }}" class="icon-sm"></i>
+          {{ confirm_text }}
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}

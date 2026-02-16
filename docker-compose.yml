@@ -35,7 +35,7 @@ services:
       POSTGRES_PASSWORD: casaleones_secret
       POSTGRES_DB: casaleones
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
