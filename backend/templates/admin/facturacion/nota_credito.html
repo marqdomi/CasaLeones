@@ -1,18 +1,20 @@
-{% extends 'base.html' %}
-{% block title %}Nota de Crédito — Factura #{{ factura.id }}{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">Crear Nota de Crédito</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Nota de Crédito{% endblock %}
 
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5 class="card-title">Factura de Origen #{{ factura.id }}</h5>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Crear Nota de Crédito', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Facturación','url':url_for('facturacion.lista_facturas')}, {'label':'Factura #' ~ factura.id, 'url':url_for('facturacion.detalle_factura', factura_id=factura.id)}]) %}{% endcall %}
+
+<div style="max-width:600px;">
+  <div class="cl-card mb-4">
+    <div class="cl-card__header"><strong>Factura de Origen #{{ factura.id }}</strong></div>
+    <div class="cl-card__body">
       <p class="mb-1"><strong>UUID:</strong> {{ factura.uuid_cfdi or '—' }}</p>
       <p class="mb-1"><strong>RFC Receptor:</strong> {{ factura.rfc_receptor }}</p>
       <p class="mb-1"><strong>Razón Social:</strong> {{ factura.razon_social or '—' }}</p>
       <p class="mb-1"><strong>Total Factura:</strong> ${{ '%.2f'|format(factura.total) }}</p>
       {% if factura.notas_credito %}
-      <p class="mb-0 text-warning">
+      <p class="mb-0" style="color:var(--cl-warning);">
         <strong>Notas existentes:</strong> {{ factura.notas_credito|length }}
         (total: ${{ '%.2f'|format(factura.notas_credito|sum(attribute='monto')) }})
       </p>
@@ -24,19 +26,19 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="mb-3">
-      <label class="form-label">Monto de la nota de crédito</label>
-      <div class="input-group">
-        <span class="input-group-text">$</span>
-        <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
+      <label class="cl-form-label">Monto de la nota de crédito</label>
+      <div class="d-flex align-items-center gap-2">
+        <span style="color:var(--cl-text-muted);font-weight:600;">$</span>
+        <input type="number" name="monto" class="cl-form-input" step="0.01" min="0.01"
                max="{{ factura.total }}" required
                placeholder="0.00">
       </div>
-      <div class="form-text">Máximo: ${{ '%.2f'|format(factura.total) }}. Para devolución total ingrese el monto completo.</div>
+      <small style="color:var(--cl-text-muted);">Máximo: ${{ '%.2f'|format(factura.total) }}. Para devolución total ingrese el monto completo.</small>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Motivo</label>
-      <select name="motivo" class="form-select">
+      <label class="cl-form-label">Motivo</label>
+      <select name="motivo" class="cl-form-input">
         <option value="Devolución">Devolución</option>
         <option value="Descuento posterior">Descuento posterior</option>
         <option value="Bonificación">Bonificación</option>
@@ -44,10 +46,13 @@
       </select>
     </div>
 
-    <button type="submit" class="btn btn-warning" onclick="return confirm('¿Generar nota de crédito por este monto?');">
-      Generar Nota de Crédito
-    </button>
-    <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="btn btn-secondary">Cancelar</a>
+    <div class="d-flex gap-2">
+      <button type="submit" class="cl-btn cl-btn--primary" style="background:var(--cl-warning);border-color:var(--cl-warning);color:#000;"
+              onclick="return confirm('¿Generar nota de crédito por este monto?');">
+        <i data-lucide="file-minus" class="icon-sm"></i> Generar Nota de Crédito
+      </button>
+      <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="cl-btn cl-btn--outline">Cancelar</a>
+    </div>
   </form>
 </div>
 {% endblock %}

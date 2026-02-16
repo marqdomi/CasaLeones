@@ -1,87 +1,46 @@
-{% extends 'base.html' %}
-{% block title %}Reportes{% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h1 class="mt-4">Reportes y Analytics</h1>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Reportes{% endblock %}
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto">
-      <label class="form-label">Desde</label>
-      <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
-    </div>
-    <div class="col-auto">
-      <label class="form-label">Hasta</label>
-      <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
-    </div>
-    <div class="col-auto align-self-end">
-      <button type="submit" class="btn btn-primary">Filtrar</button>
-    </div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Reportes y Analytics', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':'#'}]) %}{% endcall %}
 
-  <div class="row">
-    <div class="col-md-4 mb-3">
-      <div class="card border-primary h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Ventas</h5>
-          <p class="text-muted">Resumen de ventas y tendencias diarias</p>
-          <a href="{{ url_for('reportes.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-primary">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-success h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Top Productos</h5>
-          <p class="text-muted">Productos más vendidos e ingresos</p>
-          <a href="{{ url_for('reportes.reporte_productos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-info h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Rendimiento Meseros</h5>
-          <p class="text-muted">Ventas y órdenes por mesero</p>
-          <a href="{{ url_for('reportes.reporte_meseros', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-info">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-warning h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Métodos de Pago</h5>
-          <p class="text-muted">Desglose efectivo / tarjeta / transferencia</p>
-          <a href="{{ url_for('reportes.reporte_pagos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-warning">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-danger h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Inventario / Mermas</h5>
-          <p class="text-muted">Mermas de ingredientes en el periodo</p>
-          <a href="{{ url_for('reportes.reporte_inventario', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-danger">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-secondary h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Rentabilidad</h5>
-          <p class="text-muted">Costo, margen y utilidad por producto</p>
-          <a href="{{ url_for('reportes.reporte_rentabilidad', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-secondary">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4 mb-3">
-      <div class="card border-dark h-100">
-        <div class="card-body text-center">
-          <h5 class="card-title">Delivery / Canales</h5>
-          <p class="text-muted">Ventas por canal y comisiones delivery</p>
-          <a href="{{ url_for('reportes.reporte_delivery', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-dark">Ver Reporte</a>
-        </div>
-      </div>
-    </div>
+{# Date filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
+  </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
+
+{# Report cards grid #}
+<div class="row g-4">
+  {% set reports = [
+    {'icon': 'trending-up',      'title': 'Ventas',              'desc': 'Resumen de ventas y tendencias diarias',          'url': url_for('reportes.reporte_ventas', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),       'color': 'primary'},
+    {'icon': 'package',          'title': 'Top Productos',       'desc': 'Productos más vendidos e ingresos',               'url': url_for('reportes.reporte_productos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),    'color': 'success'},
+    {'icon': 'users',            'title': 'Rendimiento Meseros', 'desc': 'Ventas y órdenes por mesero',                     'url': url_for('reportes.reporte_meseros', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),      'color': 'info'},
+    {'icon': 'credit-card',      'title': 'Métodos de Pago',     'desc': 'Desglose efectivo / tarjeta / transferencia',     'url': url_for('reportes.reporte_pagos', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),        'color': 'warning'},
+    {'icon': 'alert-triangle',   'title': 'Inventario / Mermas', 'desc': 'Mermas de ingredientes en el periodo',            'url': url_for('reportes.reporte_inventario', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),   'color': 'danger'},
+    {'icon': 'percent',          'title': 'Rentabilidad',        'desc': 'Costo, margen y utilidad por producto',           'url': url_for('reportes.reporte_rentabilidad', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin), 'color': 'gray'},
+    {'icon': 'bike',             'title': 'Delivery / Canales',  'desc': 'Ventas por canal y comisiones delivery',          'url': url_for('reportes.reporte_delivery', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin),     'color': 'secondary'}
+  ] %}
+  {% for r in reports %}
+  <div class="col-md-4 col-lg-3">
+    <a href="{{ r.url }}" class="cl-card cl-card--hover h-100 d-block text-decoration-none" style="border-top: 3px solid var(--cl-{{ r.color }});">
+      <div class="cl-card__body text-center py-4">
+        <i data-lucide="{{ r.icon }}" style="width:32px;height:32px;color:var(--cl-{{ r.color }});margin-bottom:.75rem;"></i>
+        <h6 class="fw-semibold mb-1">{{ r.title }}</h6>
+        <p class="text-muted mb-0" style="font-size:var(--cl-text-sm);">{{ r.desc }}</p>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
 </div>
 {% endblock %}

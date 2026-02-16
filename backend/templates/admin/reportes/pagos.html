@@ -1,58 +1,65 @@
-{% extends 'base.html' %}
-{% block title %}Reporte Métodos de Pago{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Métodos de Pago{% endblock %}
 {% block head %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Métodos de Pago</h2>
-  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
-    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
-    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Métodos de Pago', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':url_for('reportes.dashboard_reportes')}]) %}{% endcall %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Desglose de Pagos</h5>
-    <div>
-      <button id="btnTogglePagos" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
-      <button id="btnExportPagos" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
-    </div>
+{# Filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-
-  <!-- Chart -->
-  <div id="chartsPagos">
-    <div class="row justify-content-center">
-      <div class="col-lg-6 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <div class="chart-container-md"><canvas id="chartPagos"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  <!-- Cards (hidden by default) -->
-  <div id="tablaPagos">
-    <div class="row">
-      {% for row in datos_pagos %}
-      <div class="col-md-4 mb-3">
-        <div class="card">
-          <div class="card-body text-center">
-            <h6 class="text-muted text-capitalize">{{ row.metodo }}</h6>
-            <h3>${{ '%.2f'|format(row.total) }}</h3>
-            <small class="text-muted">{{ row.cantidad }} transacciones</small>
-          </div>
-        </div>
+{# Toggle #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-semibold mb-0">Desglose de Pagos</h6>
+  <div class="d-flex gap-2">
+    <button id="btnTogglePagos" class="cl-btn cl-btn--outline cl-btn--sm"><i data-lucide="table" class="icon-sm"></i> Ver Tabla</button>
+    <button id="btnExportPagos" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica"><i data-lucide="download" class="icon-sm"></i> PNG</button>
+  </div>
+</div>
+
+{# Chart #}
+<div id="chartsPagos">
+  <div class="row justify-content-center">
+    <div class="col-lg-6 mb-4">
+      <div class="cl-card">
+        <div class="cl-card__body"><div class="chart-container-md"><canvas id="chartPagos"></canvas></div></div>
       </div>
-      {% endfor %}
     </div>
   </div>
 </div>
+
+{# Cards (hidden by default) #}
+<div id="tablaPagos">
+  <div class="row g-3">
+    {% for row in datos_pagos %}
+    <div class="col-md-4">
+      <div class="cl-card text-center" style="padding:var(--cl-space-5);">
+        <p class="text-capitalize" style="color:var(--cl-text-muted);margin-bottom:var(--cl-space-2);">{{ row.metodo }}</p>
+        <h3 style="margin-bottom:var(--cl-space-1);">${{ '%.2f'|format(row.total) }}</h3>
+        <small style="color:var(--cl-text-muted);">{{ row.cantidad }} transacciones</small>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
 {% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/reportes-charts.js') }}?v={{ config.VERSION }}"></script>

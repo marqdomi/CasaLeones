@@ -1,0 +1,50 @@
+{# KDS Cards Fragment — returned by fragmento_ordenes AJAX endpoint.
+   Rendered inside .cl-kds__grid container.
+   Variables: ordenes_data (dict: Orden → [OrdenDetalle]) #}
+{% if ordenes_data %}
+  {% for orden, detalles in ordenes_data.items() %}
+  <div class="kds-card orden-timer-card kds-card--new" id="kds-orden-{{ orden.id }}"
+       data-tiempo-registro="{{ orden.tiempo_registro.isoformat() }}"
+       data-orden-id="{{ orden.id }}">
+    <div class="kds-card__header">
+      <span class="kds-card__order-num">#{{ orden.id }}</span>
+      <div class="kds-card__meta">
+        <span class="kds-card__mesa">
+          {% if orden.es_para_llevar %}
+            <span class="kds-card__para-llevar">🛍 Para Llevar</span>
+          {% else %}
+            Mesa {{ orden.mesa.numero if orden.mesa else '—' }}
+          {% endif %}
+        </span>
+        <span class="kds-card__timer timer-badge" data-timer-orden="{{ orden.id }}">00:00</span>
+      </div>
+    </div>
+    <div class="kds-card__body">
+      {% for item in detalles %}
+      <div class="kds-item" id="kds-item-{{ item.id }}">
+        <div>
+          <span class="kds-item__name">{{ item.producto.nombre }}</span>
+          {% if item.notas %}
+          <span class="kds-item__notes">{{ item.notas }}</span>
+          {% endif %}
+        </div>
+        <span class="kds-item__qty">×{{ item.cantidad }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="kds-card__footer">
+      <button class="kds-btn-listo" data-orden-id="{{ orden.id }}"
+              onclick="marcarTodosListos(this, {{ orden.id }}, [{% for item in detalles %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}])">
+        <i data-lucide="check-circle" style="width:28px;height:28px;"></i>
+        LISTO
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="cl-kds__empty">
+  <i data-lucide="chef-hat"></i>
+  <p style="font-size:clamp(18px,2vw,28px);margin-top:16px;">No hay órdenes pendientes</p>
+  <p style="font-size:14px;opacity:.5;">Las nuevas órdenes aparecerán automáticamente</p>
+</div>
+{% endif %}

@@ -143,6 +143,38 @@
         </tbody>
       </table>
     </div>
+    {# ── Pagination ── #}
+    {% if pagination and pagination.pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-3 py-3" style="border-top:1px solid var(--cl-border);">
+      <small style="color:var(--cl-text-muted);">
+        Mostrando {{ ((pagination.page - 1) * pagination.per_page) + 1 }}–{{ [pagination.page * pagination.per_page, pagination.total] | min }} de {{ pagination.total }} cortes
+      </small>
+      <nav aria-label="Paginación cortes">
+        <ul class="pagination pagination-sm mb-0 gap-1">
+          <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="cl-btn cl-btn--outline cl-btn--sm" href="{{ url_for('admin.corte_caja', page=pagination.prev_num) if pagination.has_prev else '#' }}">
+              <i data-lucide="chevron-left" class="icon-sm"></i>
+            </a>
+          </li>
+          {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+              <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                <a class="cl-btn cl-btn--sm {% if p == pagination.page %}cl-btn--primary{% else %}cl-btn--outline{% endif %}"
+                   href="{{ url_for('admin.corte_caja', page=p) }}">{{ p }}</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="cl-btn cl-btn--sm cl-btn--outline">…</span></li>
+            {% endif %}
+          {% endfor %}
+          <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="cl-btn cl-btn--outline cl-btn--sm" href="{{ url_for('admin.corte_caja', page=pagination.next_num) if pagination.has_next else '#' }}">
+              <i data-lucide="chevron-right" class="icon-sm"></i>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
   </div>
 </div>
 

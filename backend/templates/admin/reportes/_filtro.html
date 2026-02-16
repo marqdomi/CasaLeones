@@ -1,17 +1,15 @@
-{# Partial: filtro de fechas reutilizable #}
-<form class="row g-3 mb-4" method="GET">
-  <div class="col-auto">
-    <label class="form-label">Desde</label>
-    <input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}">
+{# Partial: date range filter — cl-* design system #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-  <div class="col-auto">
-    <label class="form-label">Hasta</label>
-    <input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}">
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
-  <div class="col-auto align-self-end">
-    <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
-  </div>
-  <div class="col-auto align-self-end">
-    {% block export_btn %}{% endblock %}
-  </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+  {% block export_btn %}{% endblock %}
 </form>

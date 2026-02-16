@@ -1,7 +1,7 @@
 /**
- * Admin Dashboard — Sprint 5 (5.4)
- * Fetches 9 API endpoints, renders 8 KPI widgets, 2 charts,
- * stock alerts, activity feed. Auto-refreshes every 30s.
+ * Admin Dashboard — Sprint 10 (period selector + trends)
+ * Fetches 9 API endpoints with period filter, renders 8 KPI widgets,
+ * 2 charts, stock alerts, activity feed. Auto-refreshes every 30s.
  */
 (function() {
   'use strict';
@@ -17,23 +17,30 @@
   const REFRESH_MS = 30000;
   let chart7Dias = null;
   let chartTop = null;
+  let currentPeriod = 'today';
 
   // Currency formatter
   const currency = v => '$' + Number(v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Fetch helper
-  const api = endpoint => fetch(`/admin/api/dashboard/${endpoint}`).then(r => r.json());
+  // Fetch helper — appends period query param
+  const api = endpoint => fetch(`/admin/api/dashboard/${endpoint}?period=${currentPeriod}`).then(r => r.json());
 
   // Estado badge helper
   function estadoBadge(estado) {
     const map = {
-      pendiente: 'bg-warning text-dark',
-      en_preparacion: 'bg-info text-dark',
-      completada: 'bg-success',
-      pagado: 'bg-primary',
-      cancelada: 'bg-danger',
+      pendiente: 'cl-badge cl-badge--warning',
+      en_preparacion: 'cl-badge cl-badge--info',
+      completada: 'cl-badge cl-badge--success',
+      pagado: 'cl-badge cl-badge--primary',
+      cancelada: 'cl-badge cl-badge--danger',
     };
-    return `<span class="badge ${map[estado] || 'bg-secondary'}">${estado}</span>`;
+    return `<span class="${map[estado] || 'cl-badge cl-badge--gray'}">${estado}</span>`;
+  }
+
+  // Period label for dynamic titles
+  function periodLabel() {
+    const labels = { today: 'Hoy', yesterday: 'Ayer', week: 'Últimos 7 días', month: 'Últimos 30 días' };
+    return labels[currentPeriod] || 'Hoy';
   }
 
   // ---- KPI Updates ----
@@ -57,22 +64,20 @@
 
       // Mesas
       document.getElementById('mesasActivas').textContent = `${mesas.ocupadas}/${mesas.total}`;
-      document.getElementById('mesasReservadas').textContent = mesas.reservadas > 0 ? `${mesas.reservadas} reservada(s)` : '';
+      const mesRes = document.getElementById('mesasReservadas');
+      if (mesRes) mesRes.textContent = mesas.reservadas > 0 ? `${mesas.reservadas} reservada(s)` : '';
 
       // Cocina
       document.getElementById('ordenesCocina').textContent = cocina.pendientes;
-      document.getElementById('timerCocina').textContent = cocina.timer_promedio_min > 0
+      const timerEl = document.getElementById('timerCocina');
+      if (timerEl) timerEl.textContent = cocina.timer_promedio_min > 0
         ? `~${cocina.timer_promedio_min} min promedio`
         : 'Sin órdenes activas';
 
       // Stock alerts count
       const countEl = document.getElementById('alertasStockCount');
       countEl.textContent = stock.count;
-      if (stock.count > 0) {
-        countEl.classList.add('text-danger');
-      } else {
-        countEl.classList.remove('text-danger');
-      }
+      countEl.classList.toggle('text-danger', stock.count > 0);
 
       // Stock alerts list
       const stockList = document.getElementById('stockAlertsList');
@@ -81,7 +86,7 @@
       } else {
         stockList.innerHTML = stock.items.map(item => {
           const pct = item.minimo > 0 ? Math.min((item.stock / item.minimo) * 100, 100) : 0;
-          const color = pct < 30 ? '#dc3545' : pct < 70 ? '#ffc107' : '#28a745';
+          const color = pct < 30 ? 'var(--cl-danger)' : pct < 70 ? 'var(--cl-warning)' : 'var(--cl-success)';
           return `
             <div class="stock-alert-item d-flex justify-content-between align-items-center mb-2">
               <div>
@@ -98,14 +103,15 @@
       // Último corte
       const corteEl = document.getElementById('ultimoCorteInfo');
       if (!corte.exists) {
-        corteEl.innerHTML = '<div class="kpi-value">—</div><small class="text-muted">Sin cortes registrados</small>';
+        corteEl.innerHTML = '<div class="cl-kpi-card__value">—</div><small class="text-muted">Sin cortes registrados</small>';
       } else {
-        const diffClass = corte.diferencia >= 0 ? 'text-success' : 'text-danger';
+        const diffClass = corte.diferencia >= 0 ? 'cl-kpi-trend--up' : 'cl-kpi-trend--down';
         const diffSign = corte.diferencia >= 0 ? '+' : '';
+        const diffIcon = corte.diferencia >= 0 ? '↑' : '↓';
         corteEl.innerHTML = `
-          <div class="kpi-value" style="font-size:1.2rem;">${currency(corte.total_ingresos)}</div>
+          <div class="cl-kpi-card__value" style="font-size:1.2rem;">${currency(corte.total_ingresos)}</div>
           <small class="text-muted">${corte.fecha} · ${corte.usuario}</small><br>
-          <small class="${diffClass} fw-bold">Dif: ${diffSign}${currency(corte.diferencia)}</small>`;
+          <small class="${diffClass} fw-bold">${diffIcon} ${diffSign}${currency(corte.diferencia)}</small>`;
       }
 
     } catch (err) {
@@ -158,6 +164,7 @@
 
       // Top products bar chart
       const ctxTop = document.getElementById('chartTopProductos');
+      const topLabel = `Top 5 — ${periodLabel()}`;
       if (chartTop) {
         chartTop.data.labels = top.labels;
         chartTop.data.datasets[0].data = top.data;
@@ -211,6 +218,20 @@
     }
   }
 
+  // ---- Period Selector ----
+  function initPeriodSelector() {
+    const container = document.getElementById('periodSelector');
+    if (!container) return;
+    container.addEventListener('click', (e) => {
+      const pill = e.target.closest('.cl-period-pill');
+      if (!pill) return;
+      container.querySelectorAll('.cl-period-pill').forEach(p => p.classList.remove('cl-period-pill--active'));
+      pill.classList.add('cl-period-pill--active');
+      currentPeriod = pill.dataset.period;
+      refreshAll();
+    });
+  }
+
   // ---- Auto-refresh ----
   function refreshAll() {
     refreshKPIs();
@@ -219,6 +240,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    initPeriodSelector();
     refreshAll();
     setInterval(refreshAll, REFRESH_MS);
   });

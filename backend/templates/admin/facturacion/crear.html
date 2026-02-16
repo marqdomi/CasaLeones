@@ -1,17 +1,21 @@
-{% extends 'base.html' %}
-{% block title %}Crear Factura — Orden #{{ orden.id }}{% endblock %}
-{% block content %}
-<div class="container" style="max-width:700px;">
-  <h2 class="mt-4">Facturar Orden #{{ orden.id }}</h2>
-  <p>Total: <strong>${{ '%.2f'|format(orden.total or 0) }}</strong></p>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Crear Factura{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Facturar Orden #' ~ orden.id, breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Facturación','url':url_for('facturacion.lista_facturas')}]) %}{% endcall %}
+
+<div style="max-width:700px;">
+  <p style="color:var(--cl-text-muted);">Total: <strong>${{ '%.2f'|format(orden.total or 0) }}</strong></p>
 
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    <h5>Datos del Receptor</h5>
+    <h6 class="fw-semibold mb-3">Datos del Receptor</h6>
+
     <div class="mb-3">
-      <label class="form-label">Cliente existente (opcional)</label>
-      <select name="cliente_id" id="cliente_select" class="form-select" onchange="toggleDatosCliente()">
+      <label class="cl-form-label">Cliente existente (opcional)</label>
+      <select name="cliente_id" id="cliente_select" class="cl-form-input" onchange="toggleDatosCliente()">
         <option value="">— Nuevo cliente —</option>
         {% for c in clientes %}
         <option value="{{ c.id }}"
@@ -28,20 +32,20 @@
 
     <div id="datos-nuevo-cliente">
       <div class="mb-3">
-        <label class="form-label">RFC <small class="text-muted">(13 caracteres persona física, 12 moral)</small></label>
-        <input type="text" name="rfc" id="rfc_input" class="form-control"
+        <label class="cl-form-label">RFC <small style="color:var(--cl-text-muted)">(13 caracteres persona física, 12 moral)</small></label>
+        <input type="text" name="rfc" id="rfc_input" class="cl-form-input"
                data-rfc-validate maxlength="13" placeholder="XAXX010101000"
                style="text-transform:uppercase;">
         <div id="rfc-feedback" class="form-text"></div>
       </div>
       <div class="mb-3">
-        <label class="form-label">Razón Social</label>
-        <input type="text" name="razon_social" id="razon_input" class="form-control" required>
+        <label class="cl-form-label">Razón Social</label>
+        <input type="text" name="razon_social" id="razon_input" class="cl-form-input" required>
       </div>
-      <div class="row">
+      <div class="row g-3">
         <div class="col-md-6 mb-3">
-          <label class="form-label">Régimen Fiscal</label>
-          <select name="regimen_fiscal" id="regimen_input" class="form-select">
+          <label class="cl-form-label">Régimen Fiscal</label>
+          <select name="regimen_fiscal" id="regimen_input" class="cl-form-input">
             <option value="">Seleccionar…</option>
             {% for code, desc in regimenes.items() %}
             <option value="{{ code }}">{{ code }} — {{ desc }}</option>
@@ -49,8 +53,8 @@
           </select>
         </div>
         <div class="col-md-6 mb-3">
-          <label class="form-label">Uso CFDI</label>
-          <select name="uso_cfdi" id="uso_input" class="form-select">
+          <label class="cl-form-label">Uso CFDI</label>
+          <select name="uso_cfdi" id="uso_input" class="cl-form-input">
             {% for code, desc in usos_cfdi.items() %}
             <option value="{{ code }}" {% if code == 'G03' %}selected{% endif %}>{{ code }} — {{ desc }}</option>
             {% endfor %}
@@ -58,22 +62,26 @@
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label">CP Domicilio Fiscal</label>
-        <input type="text" name="domicilio_fiscal" id="cp_input" class="form-control" maxlength="5" pattern="\d{5}">
+        <label class="cl-form-label">CP Domicilio Fiscal</label>
+        <input type="text" name="domicilio_fiscal" id="cp_input" class="cl-form-input" maxlength="5" pattern="\d{5}">
       </div>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Método de Pago CFDI</label>
-      <select name="metodo_pago" class="form-select">
+      <label class="cl-form-label">Método de Pago CFDI</label>
+      <select name="metodo_pago" class="cl-form-input">
         <option value="PUE" selected>PUE — Pago en una sola exhibición</option>
         <option value="PPD">PPD — Pago en parcialidades o diferido</option>
       </select>
-      <div class="form-text">PPD requiere emitir complemento de pago al recibir el pago.</div>
+      <small style="color:var(--cl-text-muted);">PPD requiere emitir complemento de pago al recibir el pago.</small>
     </div>
 
-    <button type="submit" class="btn btn-primary">Generar Factura</button>
-    <a href="{{ url_for('facturacion.lista_facturas') }}" class="btn btn-secondary">Cancelar</a>
+    <div class="d-flex gap-2">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="file-check" class="icon-sm"></i> Generar Factura
+      </button>
+      <a href="{{ url_for('facturacion.lista_facturas') }}" class="cl-btn cl-btn--outline">Cancelar</a>
+    </div>
   </form>
 </div>
 

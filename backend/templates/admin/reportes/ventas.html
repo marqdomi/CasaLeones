@@ -1,64 +1,77 @@
-{% extends 'base.html' %}
-{% block title %}Reporte de Ventas{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Reporte de Ventas{% endblock %}
 {% block head %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Reporte de Ventas</h2>
-  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
-    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
-    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
-    <div class="col-auto align-self-end">
-      <a href="{{ url_for('reportes.export_ventas_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
-      <a href="{{ url_for('reportes.export_ventas_pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-danger btn-sm">Exportar PDF</a>
-    </div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Reporte de Ventas', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':url_for('reportes.dashboard_reportes')}]) %}
+  <a href="{{ url_for('reportes.export_ventas_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="file-spreadsheet" class="icon-sm"></i> CSV
+  </a>
+  <a href="{{ url_for('reportes.export_ventas_pdf', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="cl-btn cl-btn--outline cl-btn--sm" style="color:var(--cl-danger);">
+    <i data-lucide="file-text" class="icon-sm"></i> PDF
+  </a>
+{% endcall %}
 
-  <div class="row text-center mb-4">
-    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted">Total Ventas</h6><h3>${{ '%.2f'|format(total_ventas) }}</h3></div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted"># Ventas</h6><h3>{{ num_ventas }}</h3></div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-body"><h6 class="text-muted">Ticket Promedio</h6><h3>${{ '%.2f'|format(ticket_promedio) }}</h3></div></div></div>
+{# Filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Ventas por Día</h5>
-    <div>
-      <button id="btnToggleVentas" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
-      <button id="btnExportVentasDia" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
-      <button id="btnExportVentasHora" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica hora"><i class="fas fa-download me-1"></i>PNG Hora</button>
-    </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  <!-- Charts -->
-  <div id="chartsVentas">
-    <div class="row">
-      <div class="col-lg-8 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <h6 class="card-title text-muted">Tendencia Diaria</h6>
-            <div class="chart-container-sm"><canvas id="chartVentasDia"></canvas></div>
-          </div>
-        </div>
+{# KPI Cards #}
+{% from 'components/_kpi_card.html' import kpi_card %}
+<div class="cl-dashboard-kpi mb-4" style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--cl-space-4);">
+  {{ kpi_card('Total Ventas', '$' ~ '%.2f'|format(total_ventas), icon='dollar-sign', variant='primary') }}
+  {{ kpi_card('# Ventas', num_ventas, icon='receipt', variant='success') }}
+  {{ kpi_card('Ticket Promedio', '$' ~ '%.2f'|format(ticket_promedio), icon='ticket', variant='warning') }}
+</div>
+
+{# Toggle #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-semibold mb-0">Ventas por Día</h6>
+  <div class="d-flex gap-2">
+    <button id="btnToggleVentas" class="cl-btn cl-btn--outline cl-btn--sm"><i data-lucide="table" class="icon-sm"></i> Ver Tabla</button>
+    <button id="btnExportVentasDia" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica"><i data-lucide="download" class="icon-sm"></i> PNG</button>
+    <button id="btnExportVentasHora" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica hora"><i data-lucide="download" class="icon-sm"></i> PNG Hora</button>
+  </div>
+</div>
+
+{# Charts #}
+<div id="chartsVentas">
+  <div class="row g-4">
+    <div class="col-lg-8 mb-4">
+      <div class="cl-card">
+        <div class="cl-card__header"><strong>Tendencia Diaria</strong></div>
+        <div class="cl-card__body"><div class="chart-container-sm"><canvas id="chartVentasDia"></canvas></div></div>
       </div>
-      <div class="col-lg-4 mb-4">
-        <div class="card">
-          <div class="card-body">
-            <h6 class="card-title text-muted">Ventas por Hora</h6>
-            <div class="chart-container-sm"><canvas id="chartVentasHora"></canvas></div>
-          </div>
-        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+      <div class="cl-card">
+        <div class="cl-card__header"><strong>Ventas por Hora</strong></div>
+        <div class="cl-card__body"><div class="chart-container-sm"><canvas id="chartVentasHora"></canvas></div></div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Table (hidden by default) -->
-  <div id="tablaVentasDia">
-    <div class="table-responsive">
-      <table class="table table-sm table-striped">
+{# Table (hidden by default) #}
+<div id="tablaVentasDia">
+  <div class="cl-card">
+    <div class="cl-card__body" style="overflow-x:auto;">
+      <table class="cl-table">
         <thead><tr><th>Día</th><th>Total</th><th># Ventas</th><th>Promedio</th></tr></thead>
         <tbody>
           {% for row in ventas_por_dia %}
@@ -75,6 +88,7 @@
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/reportes-charts.js') }}?v={{ config.VERSION }}"></script>

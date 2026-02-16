@@ -1,40 +1,50 @@
-{% extends 'base.html' %}
-{% block title %}Rendimiento Meseros{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Rendimiento Meseros{% endblock %}
 {% block head %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Rendimiento por Mesero</h2>
-  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
-    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
-    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Rendimiento por Mesero', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':url_for('reportes.dashboard_reportes')}]) %}{% endcall %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Comparativo Meseros</h5>
-    <div>
-      <button id="btnToggleMeseros" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
-      <button id="btnExportMeseros" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
-    </div>
+{# Filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-
-  <!-- Chart -->
-  <div id="chartsMeseros">
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="chart-container-md"><canvas id="chartMeseros"></canvas></div>
-      </div>
-    </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  <!-- Table (hidden by default) -->
-  <div id="tablaMeseros">
-    <div class="table-responsive">
-      <table class="table table-striped">
+{# Toggle #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-semibold mb-0">Comparativo Meseros</h6>
+  <div class="d-flex gap-2">
+    <button id="btnToggleMeseros" class="cl-btn cl-btn--outline cl-btn--sm"><i data-lucide="table" class="icon-sm"></i> Ver Tabla</button>
+    <button id="btnExportMeseros" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica"><i data-lucide="download" class="icon-sm"></i> PNG</button>
+  </div>
+</div>
+
+{# Chart #}
+<div id="chartsMeseros">
+  <div class="cl-card mb-4">
+    <div class="cl-card__body"><div class="chart-container-md"><canvas id="chartMeseros"></canvas></div></div>
+  </div>
+</div>
+
+{# Table (hidden by default) #}
+<div id="tablaMeseros">
+  <div class="cl-card">
+    <div class="cl-card__body" style="overflow-x:auto;">
+      <table class="cl-table">
         <thead><tr><th>#</th><th>Mesero</th><th># Ventas</th><th>Total Ventas</th><th>Ticket Promedio</th><th>Propinas</th></tr></thead>
         <tbody>
           {% for row in datos_meseros %}
@@ -44,7 +54,7 @@
             <td>{{ row.num_ventas }}</td>
             <td>${{ '%.2f'|format(row.total_ventas) }}</td>
             <td>${{ '%.2f'|format(row.total_ventas / row.num_ventas if row.num_ventas else 0) }}</td>
-            <td class="text-success">${{ '%.2f'|format(propinas_map.get(row.nombre, 0)) }}</td>
+            <td style="color:var(--cl-success)">${{ '%.2f'|format(propinas_map.get(row.nombre, 0)) }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -53,6 +63,7 @@
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/reportes-charts.js') }}?v={{ config.VERSION }}"></script>

@@ -823,20 +823,34 @@ Beneficio: Reducir dark-mode.css de ~291 líneas a ~50 líneas (solo overrides d
 - `pago.html` — reescritura completa: broken template → full-page multi-payment
 - `meseros.js` — updated: verificarEstadoParaCobro + init loop + badge classes
 
-### Sprint 10 — KDS, Polish & Dark Mode (Semana 7-8)
+### Sprint 10 — KDS, Polish & Dark Mode (Semana 7-8) ✅ COMPLETADO
 
-| # | Item | Tipo | Prioridad | Est. |
-|---|------|------|-----------|------|
-| 10.1 | KDS rediseño: conveyor layout, urgency gradients | Feature | P0 | 8h |
-| 10.2 | KDS: eliminar jQuery, migrar a fetch | Refactor | P1 | 4h |
-| 10.3 | KDS: sonido configurable para nuevas órdenes | Feature | P2 | 3h |
-| 10.4 | Dashboard admin: trends, sparklines, período selector | Feature | P1 | 6h |
-| 10.5 | Migrar dark mode a `data-bs-theme` nativo | Refactor | P1 | 6h |
-| 10.6 | Reportes: cargar Lucide, daterange picker | Fix | P1 | 4h |
-| 10.7 | Facturación templates: nueva UI | Migración | P1 | 6h |
-| 10.8 | Corte de Caja: paginación historial, mejoras visuales | Feature | P2 | 3h |
+| # | Item | Tipo | Prioridad | Est. | Estado |
+|---|------|------|-----------|------|--------|
+| 10.1 | KDS rediseño: conveyor layout, urgency gradients | Feature | P0 | 8h | ✅ |
+| 10.2 | KDS: eliminar jQuery, migrar a fetch | Refactor | P1 | 4h | ✅ |
+| 10.3 | KDS: sonido configurable para nuevas órdenes | Feature | P2 | 3h | ✅ |
+| 10.4 | Dashboard admin: trends, sparklines, período selector | Feature | P1 | 6h | ✅ |
+| 10.5 | Migrar dark mode a `data-bs-theme` nativo | Refactor | P1 | 6h | ✅ |
+| 10.6 | Reportes: cargar Lucide, daterange picker | Fix | P1 | 4h | ✅ |
+| 10.7 | Facturación templates: nueva UI | Migración | P1 | 6h | ✅ |
+| 10.8 | Corte de Caja: paginación historial, mejoras visuales | Feature | P2 | 3h | ✅ |
 
-**Entregable Sprint 10:** Cocina enterprise, dark mode nativo, pulido general.
+**Entregable Sprint 10:** Cocina enterprise, dark mode nativo, pulido general. ✅
+
+**Archivos modificados Sprint 10:**
+- `cocina.py` — STATION_CONFIG dict, DRY helpers (`_get_items`, `_emit_item_listo`), unified `kds_station` route
+- `kds_station.html` — unified KDS template with conveyor layout, 4-tier urgency gradients, configurable sound
+- `cocina/_kds_cards_fragment.html` — AJAX fragment for KDS cards
+- `cocina_timers.js` — rewritten: 4-tier urgency system, fetch API (no jQuery), audio notifications
+- `admin/dashboard.html` — period selector pills (Hoy/Ayer/7 días/30 días)
+- `admin-dashboard.js` — currentPeriod state, api() appends ?period=, initPeriodSelector()
+- `admin_routes.py` — _period_range() helper, 5 endpoints date-filtered, corte_caja pagination (.paginate)
+- `base.html` — dual data-bs-theme + data-theme attributes, toggle guard
+- `dark-mode.css` — rewritten 291→160 lines, cl-* overrides only
+- `reportes/_filtro.html`, `dashboard.html`, `ventas.html`, `productos.html`, `meseros.html`, `pagos.html`, `inventario.html`, `rentabilidad.html`, `delivery.html` — migrated to _layout_admin.html + Lucide + cl-* classes
+- `facturacion/lista.html`, `crear.html`, `detalle.html`, `nota_credito.html`, `notas_credito.html`, `complemento_pago.html` — migrated to _layout_admin.html + Lucide + cl-* classes
+- `corte_caja.html` — pagination controls for historial table
 
 ### Sprint 11 — Accessibility, Animation & QA (Semana 9-10)
 

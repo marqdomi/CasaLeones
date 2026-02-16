@@ -1,44 +1,55 @@
-{% extends 'base.html' %}
-{% block title %}Rentabilidad por Producto{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Rentabilidad{% endblock %}
 {% block head %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Rentabilidad por Producto</h2>
-  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
-    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
-    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
-    <div class="col-auto align-self-end">
-      <a href="{{ url_for('reportes.export_rentabilidad_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
-    </div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Rentabilidad por Producto', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':url_for('reportes.dashboard_reportes')}]) %}
+  <a href="{{ url_for('reportes.export_rentabilidad_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="file-spreadsheet" class="icon-sm"></i> CSV
+  </a>
+{% endcall %}
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Margen y Rentabilidad</h5>
-    <div>
-      <button id="btnToggleRentabilidad" class="btn btn-outline-secondary btn-sm"><i class="fas fa-chart-scatter me-1"></i>Ver Gráfica</button>
-      <button id="btnExportRentabilidad" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
-    </div>
+{# Filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-
-  <!-- Chart (hidden by default) -->
-  <div id="chartRentabilidadContainer" style="display:none;">
-    <div class="card mb-4">
-      <div class="card-body">
-        <h6 class="card-title text-muted">Precio Venta vs Margen %</h6>
-        <div style="position:relative;height:400px;"><canvas id="chartRentabilidad"></canvas></div>
-      </div>
-    </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  <!-- Table -->
-  <div id="tablaRentabilidad">
-    <div class="table-responsive">
-      <table class="table table-striped table-hover">
+{# Toggle #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-semibold mb-0">Margen y Rentabilidad</h6>
+  <div class="d-flex gap-2">
+    <button id="btnToggleRentabilidad" class="cl-btn cl-btn--outline cl-btn--sm"><i data-lucide="scatter-chart" class="icon-sm"></i> Ver Gráfica</button>
+    <button id="btnExportRentabilidad" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica"><i data-lucide="download" class="icon-sm"></i> PNG</button>
+  </div>
+</div>
+
+{# Chart (hidden by default) #}
+<div id="chartRentabilidadContainer" style="display:none;">
+  <div class="cl-card mb-4">
+    <div class="cl-card__header"><strong>Precio Venta vs Margen %</strong></div>
+    <div class="cl-card__body"><div style="position:relative;height:400px;"><canvas id="chartRentabilidad"></canvas></div></div>
+  </div>
+</div>
+
+{# Table #}
+<div id="tablaRentabilidad">
+  <div class="cl-card">
+    <div class="cl-card__body" style="overflow-x:auto;">
+      <table class="cl-table">
         <thead>
           <tr>
             <th>#</th>
@@ -53,15 +64,15 @@
         </thead>
         <tbody>
           {% for row in rows %}
-          <tr{% if row.margen_pct is not none and row.margen_pct < 30 %} class="table-danger"{% endif %}>
+          <tr{% if row.margen_pct is not none and row.margen_pct < 30 %} style="background:var(--cl-danger-bg,rgba(220,53,69,.08));"{% endif %}>
             <td>{{ loop.index }}</td>
             <td>{{ row.nombre }}</td>
             <td class="text-end">${{ '%.2f'|format(row.precio_venta) }}</td>
-            <td class="text-end">{% if row.costo is not none %}${{ '%.2f'|format(row.costo) }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
+            <td class="text-end">{% if row.costo is not none %}${{ '%.2f'|format(row.costo) }}{% else %}<span style="color:var(--cl-text-muted)">N/A</span>{% endif %}</td>
             <td class="text-end">{% if row.margen_abs is not none %}${{ '%.2f'|format(row.margen_abs) }}{% else %}-{% endif %}</td>
             <td class="text-end">
               {% if row.margen_pct is not none %}
-                <span class="badge {% if row.margen_pct >= 50 %}bg-success{% elif row.margen_pct >= 30 %}bg-warning text-dark{% else %}bg-danger{% endif %}">
+                <span class="cl-badge {% if row.margen_pct >= 50 %}cl-badge--success{% elif row.margen_pct >= 30 %}cl-badge--warning{% else %}cl-badge--danger{% endif %}">
                   {{ '%.1f'|format(row.margen_pct) }}%
                 </span>
               {% else %}-{% endif %}
@@ -76,6 +87,7 @@
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <script nonce="{{ csp_nonce }}">
@@ -90,8 +102,9 @@ document.addEventListener('DOMContentLoaded', function() {
     chartDiv.style.display = showChart ? 'block' : 'none';
     tableDiv.style.display = showChart ? 'none' : 'block';
     btnToggle.innerHTML = showChart
-      ? '<i class="fas fa-table me-1"></i>Ver Tabla'
-      : '<i class="fas fa-chart-scatter me-1"></i>Ver Gráfica';
+      ? '<i data-lucide="table" class="icon-sm"></i> Ver Tabla'
+      : '<i data-lucide="scatter-chart" class="icon-sm"></i> Ver Gráfica';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
     if (showChart && !chartInstance) loadChart();
   });
 

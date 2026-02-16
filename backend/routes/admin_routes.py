@@ -16,6 +16,22 @@ logger = logging.getLogger(__name__)
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+
+def _period_range():
+    """Return (start_date, end_date) tuple from ?period= query param.
+    Supports: today (default), yesterday, week, month.
+    """
+    period = request.args.get('period', 'today')
+    hoy = date.today()
+    if period == 'yesterday':
+        return hoy - timedelta(days=1), hoy - timedelta(days=1)
+    elif period == 'week':
+        return hoy - timedelta(days=6), hoy
+    elif period == 'month':
+        return hoy - timedelta(days=29), hoy
+    return hoy, hoy  # today
+
+
 @admin_bp.route('/dashboard', methods=['GET'])
 @login_required(roles=['admin','superadmin'])
 def dashboard():
@@ -59,10 +75,11 @@ def crear_usuario():
 @admin_bp.route('/api/dashboard/ventas_hoy')
 @login_required(roles=['admin','superadmin'])
 def api_ventas_hoy():
-    hoy = date.today()
+    inicio, fin = _period_range()
     q = filtrar_por_sucursal(
         db.session.query(db.func.sum(Sale.total))
-        .filter(db.func.date(Sale.fecha_hora) == hoy), Sale,
+        .filter(db.func.date(Sale.fecha_hora) >= inicio)
+        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
     )
     total = q.scalar() or 0
     return jsonify({'ventasHoy': float(total)})
@@ -70,18 +87,20 @@ def api_ventas_hoy():
 @admin_bp.route('/api/dashboard/ordenes_hoy')
 @login_required(roles=['admin','superadmin'])
 def api_ordenes_hoy():
-    hoy = date.today()
+    inicio, fin = _period_range()
     count = filtrar_por_sucursal(
-        Sale.query.filter(db.func.date(Sale.fecha_hora) == hoy), Sale,
+        Sale.query.filter(db.func.date(Sale.fecha_hora) >= inicio)
+        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
     ).count()
     return jsonify({'ordenesHoy': count})
 
 @admin_bp.route('/api/dashboard/ticket_promedio')
 @login_required(roles=['admin','superadmin'])
 def api_ticket_promedio():
-    hoy = date.today()
+    inicio, fin = _period_range()
     ventas = filtrar_por_sucursal(
-        Sale.query.filter(db.func.date(Sale.fecha_hora) == hoy), Sale,
+        Sale.query.filter(db.func.date(Sale.fecha_hora) >= inicio)
+        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
     ).all()
     if not ventas:
         return jsonify({'ticketPromedio': 0})
@@ -91,13 +110,14 @@ def api_ticket_promedio():
 @admin_bp.route('/api/dashboard/top_productos')
 @login_required(roles=['admin','superadmin'])
 def api_top_productos():
-    hoy = date.today()
+    inicio, fin = _period_range()
     results = db.session.query(
         Producto.nombre,
         db.func.sum(SaleItem.cantidad).label('cantidad')
     ).join(SaleItem, SaleItem.producto_id == Producto.id) \
      .join(Sale, SaleItem.sale_id == Sale.id) \
-     .filter(db.func.date(Sale.fecha_hora) == hoy) \
+     .filter(db.func.date(Sale.fecha_hora) >= inicio) \
+     .filter(db.func.date(Sale.fecha_hora) <= fin) \
      .filter(Sale.sucursal_id == g.sucursal_id if getattr(g, 'sucursal_id', None) else True) \
      .group_by(Producto.id) \
      .order_by(db.desc('cantidad')) \
@@ -166,11 +186,12 @@ def api_alertas_stock():
 @admin_bp.route('/api/dashboard/propinas_hoy')
 @login_required(roles=['admin','superadmin'])
 def api_propinas_hoy():
-    """Total de propinas del día."""
-    hoy = date.today()
+    """Total de propinas del período."""
+    inicio, fin = _period_range()
     q = filtrar_por_sucursal(
         db.session.query(func.sum(Orden.propina)).filter(
-            func.date(Orden.fecha_pago) == hoy,
+            func.date(Orden.fecha_pago) >= inicio,
+            func.date(Orden.fecha_pago) <= fin,
             Orden.propina > 0
         ), Orden
     )
@@ -510,10 +531,16 @@ def corte_caja():
         flash('Corte de caja generado.', 'success')
         return redirect(url_for('admin.corte_caja'))
 
-    cortes = CorteCaja.query.options(
+    page = request.args.get('page', 1, type=int)
+    per_page = 15
+    cortes_q = CorteCaja.query.options(
         joinedload(CorteCaja.usuario),
-    ).order_by(CorteCaja.fecha.desc()).all()
-    return render_template('admin/corte_caja.html', resumen=resumen, cortes=cortes)
+    ).order_by(CorteCaja.fecha.desc())
+    if suc_id is not None:
+        cortes_q = cortes_q.filter(CorteCaja.sucursal_id == suc_id)
+    pagination = cortes_q.paginate(page=page, per_page=per_page, error_out=False)
+    return render_template('admin/corte_caja.html', resumen=resumen,
+                           cortes=pagination.items, pagination=pagination)
 
 
 @admin_bp.route('/corte-caja/<int:corte_id>/imprimir', methods=['POST'])

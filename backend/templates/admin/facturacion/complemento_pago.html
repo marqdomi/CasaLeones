@@ -1,19 +1,23 @@
-{% extends 'base.html' %}
-{% block title %}Complemento de Pago — Factura #{{ factura.id }}{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">Complemento de Pago <small class="text-muted">(CFDI tipo P)</small></h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Complemento de Pago{% endblock %}
 
-  <div class="card mb-4">
-    <div class="card-body">
-      <h5 class="card-title">Factura Origen #{{ factura.id }}</h5>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Complemento de Pago', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Facturación','url':url_for('facturacion.lista_facturas')}, {'label':'Factura #' ~ factura.id, 'url':url_for('facturacion.detalle_factura', factura_id=factura.id)}]) %}
+  <span class="cl-badge cl-badge--info" style="font-size:0.8rem;">CFDI tipo P</span>
+{% endcall %}
+
+<div style="max-width:600px;">
+  <div class="cl-card mb-4">
+    <div class="cl-card__header"><strong>Factura Origen #{{ factura.id }}</strong></div>
+    <div class="cl-card__body">
       <p class="mb-1"><strong>UUID:</strong> {{ factura.uuid_cfdi or '—' }}</p>
       <p class="mb-1"><strong>RFC Receptor:</strong> {{ factura.rfc_receptor }}</p>
       <p class="mb-1"><strong>Razón Social:</strong> {{ factura.razon_social or '—' }}</p>
       <p class="mb-1"><strong>Total Factura:</strong> ${{ '%.2f'|format(factura.total) }}</p>
       <p class="mb-0"><strong>Método de Pago:</strong>
-        <span class="badge bg-info">{{ factura.metodo_pago_cfdi or 'PPD' }}</span>
-        <small class="text-muted">(Pago en Parcialidades o Diferido)</small>
+        <span class="cl-badge cl-badge--info">{{ factura.metodo_pago_cfdi or 'PPD' }}</span>
+        <small style="color:var(--cl-text-muted);">(Pago en Parcialidades o Diferido)</small>
       </p>
     </div>
   </div>
@@ -22,30 +26,32 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <div class="mb-3">
-      <label class="form-label">Monto del pago recibido</label>
-      <div class="input-group">
-        <span class="input-group-text">$</span>
-        <input type="number" name="monto" class="form-control" step="0.01" min="0.01"
+      <label class="cl-form-label">Monto del pago recibido</label>
+      <div class="d-flex align-items-center gap-2">
+        <span style="color:var(--cl-text-muted);font-weight:600;">$</span>
+        <input type="number" name="monto" class="cl-form-input" step="0.01" min="0.01"
                max="{{ factura.total }}" required placeholder="0.00">
       </div>
-      <div class="form-text">Máximo: ${{ '%.2f'|format(factura.total) }}</div>
+      <small style="color:var(--cl-text-muted);">Máximo: ${{ '%.2f'|format(factura.total) }}</small>
     </div>
 
     <div class="mb-3">
-      <label class="form-label">Forma de pago real</label>
-      <select name="forma_pago" class="form-select" required>
+      <label class="cl-form-label">Forma de pago real</label>
+      <select name="forma_pago" class="cl-form-input" required>
         {% for clave, nombre in formas_pago.items() %}
         <option value="{{ clave }}">{{ clave }} — {{ nombre }}</option>
         {% endfor %}
       </select>
-      <div class="form-text">Seleccione cómo se recibió el pago.</div>
+      <small style="color:var(--cl-text-muted);">Seleccione cómo se recibió el pago.</small>
     </div>
 
-    <button type="submit" class="btn btn-primary"
-            onclick="return confirm('¿Registrar complemento de pago por este monto?');">
-      <i class="fas fa-file-invoice-dollar me-1"></i> Generar Complemento de Pago
-    </button>
-    <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="btn btn-secondary">Cancelar</a>
+    <div class="d-flex gap-2">
+      <button type="submit" class="cl-btn cl-btn--primary"
+              onclick="return confirm('¿Registrar complemento de pago por este monto?');">
+        <i data-lucide="receipt" class="icon-sm"></i> Generar Complemento de Pago
+      </button>
+      <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="cl-btn cl-btn--outline">Cancelar</a>
+    </div>
   </form>
 </div>
 {% endblock %}

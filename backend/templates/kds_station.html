@@ -1,0 +1,311 @@
+{# ═══════════════════════════════════════════════════════
+   KDS Station — Unified template for Taqueros/Comal/Bebidas
+   Extends: layouts/_layout_kds.html
+   Variables: station (str), cfg (dict), ordenes_data (dict)
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_kds.html' %}
+{% set kds_label = cfg.label %}
+{% set kds_color = cfg.color %}
+{% block page_title %}{{ cfg.label }}{% endblock %}
+
+{% block head %}
+{{ super() }}
+<style>
+  /* ── KDS Order Card ── */
+  .kds-card {
+    background: var(--cl-gray-800, #1f2937);
+    border-radius: var(--cl-radius-lg, 12px);
+    border: 2px solid transparent;
+    overflow: hidden;
+    transition: border-color .3s, box-shadow .3s;
+    display: flex; flex-direction: column;
+  }
+  .kds-card--green  { border-color: #12B76A; }
+  .kds-card--yellow { border-color: #F79009; }
+  .kds-card--red    { border-color: #F04438; }
+  .kds-card--urgent { border-color: #B42318; animation: kds-border-pulse 1s ease-in-out infinite; }
+  @keyframes kds-border-pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(180,35,24,.5); }
+    50%     { box-shadow: 0 0 20px 4px rgba(180,35,24,.4); }
+  }
+
+  .kds-card__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: var(--cl-space-3, 12px) var(--cl-space-4, 16px);
+    background: rgba(255,255,255,.05);
+  }
+  .kds-card__order-num {
+    font-size: clamp(28px, 4vw, 56px);
+    font-weight: var(--cl-font-bold, 700);
+    color: #fff;
+    line-height: 1;
+  }
+  .kds-card__meta {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  }
+  .kds-card__mesa {
+    font-size: clamp(14px, 2vw, 20px);
+    color: rgba(255,255,255,.7);
+    font-weight: 500;
+  }
+  .kds-card__timer {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-size: clamp(18px, 2.5vw, 28px);
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: var(--cl-radius-sm, 6px);
+    min-width: 80px;
+    text-align: center;
+    transition: background .5s, color .5s;
+  }
+  .kds-card__timer--green  { background: #12B76A; color: #fff; }
+  .kds-card__timer--yellow { background: #F79009; color: #000; }
+  .kds-card__timer--red    { background: #F04438; color: #fff; }
+  .kds-card__timer--urgent { background: #B42318; color: #fff; }
+
+  .kds-card__para-llevar {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--cl-amber-500, #f59e0b); color: #000;
+    padding: 2px 10px; border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+  }
+
+  .kds-card__body {
+    flex: 1; padding: var(--cl-space-3, 12px) var(--cl-space-4, 16px);
+  }
+  .kds-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: var(--cl-space-2, 8px) 0;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .kds-item:last-child { border-bottom: none; }
+  .kds-item__name {
+    font-size: clamp(18px, 2.5vw, 28px);
+    font-weight: 600; color: #fff;
+  }
+  .kds-item__qty {
+    font-size: clamp(16px, 2vw, 24px);
+    font-weight: 700; color: rgba(255,255,255,.6);
+    min-width: 40px; text-align: right;
+  }
+  .kds-item__notes {
+    display: block; margin-top: 4px;
+    background: rgba(247,144,9,.15); border: 1px solid rgba(247,144,9,.3);
+    border-radius: var(--cl-radius-sm, 6px);
+    padding: 4px 10px;
+    font-size: clamp(14px, 1.5vw, 20px);
+    color: #F79009; font-weight: 500;
+  }
+  .kds-item__notes::before { content: '⚠ '; }
+
+  .kds-card__footer {
+    padding: var(--cl-space-2, 8px) var(--cl-space-4, 16px) var(--cl-space-3, 12px);
+  }
+  .kds-btn-listo {
+    width: 100%; height: 72px;
+    background: #12B76A; border: none; border-radius: var(--cl-radius-md, 8px);
+    color: #fff; font-size: clamp(18px, 2vw, 24px); font-weight: 700;
+    cursor: pointer; transition: background .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .kds-btn-listo:hover { background: #0e9a57; }
+  .kds-btn-listo:active { transform: scale(.97); }
+  .kds-btn-listo--done {
+    background: var(--cl-gray-600, #4b5563); pointer-events: none;
+  }
+
+  /* Slide-in animation for new orders */
+  @keyframes kdsSlideIn {
+    from { opacity: 0; transform: translateX(60px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .kds-card--new { animation: kdsSlideIn .4s ease-out; }
+
+  /* Override grid for KDS: larger cards */
+  .cl-kds__grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+  @media (max-width: 640px) {
+    .cl-kds__grid { grid-template-columns: 1fr; }
+  }
+
+  /* Sound toggle */
+  .kds-sound-btn { position: relative; }
+  .kds-sound-btn.muted::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: 24px; height: 2px; background: #f04438;
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+</style>
+{% endblock %}
+
+{% block kds_stats %}
+<div class="cl-kds__stat">
+  <span class="cl-kds__stat-value" id="kdsPendingCount">{{ ordenes_data | length }}</span>
+  <span class="cl-kds__stat-label">Pendientes</span>
+</div>
+<div class="cl-kds__stat">
+  <span class="cl-kds__stat-value" id="kdsItemCount">{{ ordenes_data.values() | map('length') | sum }}</span>
+  <span class="cl-kds__stat-label">Items</span>
+</div>
+<div style="display:flex;gap:8px;">
+  <button class="cl-topbar__icon-btn kds-sound-btn" id="soundToggle"
+          style="color:#fff" title="Sonido de notificación" aria-label="Toggle sonido">
+    <i data-lucide="volume-2" class="icon-sm" id="soundIcon"></i>
+  </button>
+</div>
+{% endblock %}
+
+{% block kds_content %}
+{% if ordenes_data %}
+  {% for orden, detalles in ordenes_data.items() %}
+  <div class="kds-card orden-timer-card" id="kds-orden-{{ orden.id }}"
+       data-tiempo-registro="{{ orden.tiempo_registro.isoformat() }}"
+       data-orden-id="{{ orden.id }}">
+    <div class="kds-card__header">
+      <span class="kds-card__order-num">#{{ orden.id }}</span>
+      <div class="kds-card__meta">
+        <span class="kds-card__mesa">
+          {% if orden.es_para_llevar %}
+            <span class="kds-card__para-llevar">🛍 Para Llevar</span>
+          {% else %}
+            Mesa {{ orden.mesa.numero if orden.mesa else '—' }}
+          {% endif %}
+        </span>
+        <span class="kds-card__timer timer-badge" data-timer-orden="{{ orden.id }}">00:00</span>
+      </div>
+    </div>
+    <div class="kds-card__body">
+      {% for item in detalles %}
+      <div class="kds-item" id="kds-item-{{ item.id }}">
+        <div>
+          <span class="kds-item__name">{{ item.producto.nombre }}</span>
+          {% if item.notas %}
+          <span class="kds-item__notes">{{ item.notas }}</span>
+          {% endif %}
+        </div>
+        <span class="kds-item__qty">×{{ item.cantidad }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="kds-card__footer">
+      <button class="kds-btn-listo" data-orden-id="{{ orden.id }}"
+              onclick="marcarTodosListos(this, {{ orden.id }}, [{% for item in detalles %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}])">
+        <i data-lucide="check-circle" style="width:28px;height:28px;"></i>
+        LISTO
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="cl-kds__empty">
+  <i data-lucide="chef-hat"></i>
+  <p style="font-size:clamp(18px,2vw,28px);margin-top:16px;">No hay órdenes pendientes</p>
+  <p style="font-size:14px;opacity:.5;">Las nuevas órdenes aparecerán automáticamente</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"
+        integrity="sha512-11t8Q+vY9JlCrr+PveZKTYJq8n7O09Y5X/pk/aMd3vJugSvu4xOunGEUzaADqL3I8cZKE/pBwwCfXzDkRJh2sQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{{ url_for('static', filename='js/cocina_timers.js') }}?v={{ config.VERSION }}"></script>
+<script>
+(function() {
+  'use strict';
+  const STATION = '{{ station }}';
+  const FRAG_URL = {
+    taqueros: '/cocina/taquero/fragmento_ordenes',
+    comal:    '/cocina/comal/fragmento_ordenes',
+    bebidas:  '/cocina/bebidas/fragmento_ordenes'
+  }[STATION];
+  const MARK_BASE = '/cocina/' + STATION + '/marcar/';
+
+  // ── Sound ──
+  let soundEnabled = localStorage.getItem('kds_sound') !== 'off';
+  const notifSound = new Audio('data:audio/wav;base64,UklGRl9vT19teleXRlZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU' +
+    Array(300).fill('gP8A/w').join('') + '==');
+  notifSound.volume = 0.5;
+
+  const soundToggle = document.getElementById('soundToggle');
+  function updateSoundUI() {
+    soundToggle.classList.toggle('muted', !soundEnabled);
+    soundToggle.title = soundEnabled ? 'Sonido activado' : 'Sonido silenciado';
+  }
+  updateSoundUI();
+  soundToggle.addEventListener('click', () => {
+    soundEnabled = !soundEnabled;
+    localStorage.setItem('kds_sound', soundEnabled ? 'on' : 'off');
+    updateSoundUI();
+    if (soundEnabled) notifSound.play().catch(() => {});
+  });
+
+  function playNotif() {
+    if (soundEnabled) notifSound.play().catch(() => {});
+  }
+
+  // ── Socket.IO ──
+  const socket = io();
+  socket.on('connect', () => console.log(`KDS ${STATION} conectado`));
+
+  socket.on('nueva_orden_cocina', () => {
+    playNotif();
+    refreshOrders();
+  });
+
+  socket.on('item_listo_notificacion', (data) => {
+    // Remove the item visually if it belongs to this station's view
+    const itemEl = document.getElementById('kds-item-' + data.item_id);
+    if (itemEl) {
+      itemEl.style.transition = 'opacity .3s, height .3s';
+      itemEl.style.opacity = '0';
+      itemEl.style.height = '0';
+      itemEl.style.padding = '0';
+      setTimeout(() => refreshOrders(), 400);
+    } else {
+      refreshOrders();
+    }
+  });
+
+  // ── Fetch refresh (no jQuery) ──
+  function refreshOrders() {
+    fetch(FRAG_URL)
+      .then(r => r.json())
+      .then(data => {
+        const grid = document.getElementById('main-content');
+        grid.innerHTML = data.html;
+        document.getElementById('kdsPendingCount').textContent =
+          (grid.querySelectorAll('.kds-card').length) || '0';
+        document.getElementById('kdsItemCount').textContent = data.conteo_productos;
+        // Re-init Lucide icons on new DOM
+        if (window.lucide) lucide.createIcons();
+        // Re-init timers
+        if (window.initKdsTimers) window.initKdsTimers();
+      })
+      .catch(err => console.error('KDS refresh error:', err));
+  }
+
+  // ── Mark all items in an order as done ──
+  window.marcarTodosListos = async function(btn, ordenId, detalleIds) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block;">⏳</span> Procesando…';
+    try {
+      for (const did of detalleIds) {
+        await fetch(MARK_BASE + ordenId + '/' + did, { method: 'POST' });
+      }
+      btn.classList.add('kds-btn-listo--done');
+      btn.innerHTML = '✓ Completado';
+    } catch (err) {
+      console.error('Error marking items:', err);
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check-circle" style="width:28px;height:28px;"></i> LISTO';
+    }
+  };
+
+  // Auto-refresh every 30s as fallback
+  setInterval(refreshOrders, 30000);
+})();
+</script>
+{% endblock %}

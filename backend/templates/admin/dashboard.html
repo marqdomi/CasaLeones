@@ -17,6 +17,19 @@
   .stock-bar { height: 6px; border-radius: 3px; background: var(--cl-gray-200); }
   .stock-bar-fill { height: 100%; border-radius: 3px; }
   .activity-item { border-left: 3px solid var(--cl-primary); padding-left: var(--cl-space-3); }
+  /* Period selector pills */
+  .cl-period-pills { display: flex; gap: 4px; background: var(--cl-gray-100); border-radius: var(--cl-radius-md); padding: 3px; }
+  .cl-period-pill {
+    padding: 6px 14px; border-radius: var(--cl-radius-sm); border: none;
+    background: transparent; font-size: var(--cl-text-sm); font-weight: 500;
+    color: var(--cl-text-secondary); cursor: pointer; transition: all .2s;
+  }
+  .cl-period-pill:hover { color: var(--cl-text-primary); }
+  .cl-period-pill--active { background: #fff; color: var(--cl-primary); box-shadow: var(--cl-shadow-sm); font-weight: 600; }
+  /* KPI trend indicator */
+  .cl-kpi-trend { font-size: var(--cl-text-xs); font-weight: 600; display: inline-flex; align-items: center; gap: 2px; margin-left: 6px; }
+  .cl-kpi-trend--up { color: var(--cl-success); }
+  .cl-kpi-trend--down { color: var(--cl-danger); }
 </style>
 {% endblock %}
 
@@ -24,14 +37,14 @@
 {# ── Page header ── #}
 {% from 'components/_page_header.html' import page_header %}
 {% call page_header('Panel de Administración', breadcrumb=[{'label':'Admin','url':'#'}]) %}
+  <div class="cl-period-pills" id="periodSelector">
+    <button class="cl-period-pill cl-period-pill--active" data-period="today">Hoy</button>
+    <button class="cl-period-pill" data-period="yesterday">Ayer</button>
+    <button class="cl-period-pill" data-period="week">7 días</button>
+    <button class="cl-period-pill" data-period="month">30 días</button>
+  </div>
   <a href="{{ url_for('reportes.dashboard_reportes') }}" class="cl-btn cl-btn--outline cl-btn--sm">
     <i data-lucide="bar-chart-3" class="icon-sm"></i> Reportes
-  </a>
-  <a href="{{ url_for('inventario.lista_ingredientes') }}" class="cl-btn cl-btn--outline cl-btn--sm">
-    <i data-lucide="package" class="icon-sm"></i> Inventario
-  </a>
-  <a href="{{ url_for('admin.corte_caja') }}" class="cl-btn cl-btn--outline cl-btn--sm">
-    <i data-lucide="wallet" class="icon-sm"></i> Corte de Caja
   </a>
 {% endcall %}
 

@@ -27,7 +27,9 @@
   <script>
     (function(){
       var t=localStorage.getItem('theme');
-      if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
+      var dark=t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);
+      if(dark){
+        document.documentElement.setAttribute('data-bs-theme','dark');
         document.documentElement.setAttribute('data-theme','dark');
       }
     })();
@@ -181,20 +183,22 @@
     (function() {
       var btn = document.getElementById('darkModeToggle');
       var icon = document.getElementById('darkModeIcon');
-      function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
-      function update() { icon.textContent = isDark() ? '☀️' : '🌙'; }
-      update();
+      if (!btn) return;
+      function isDark() { return document.documentElement.getAttribute('data-bs-theme') === 'dark'; }
+      function apply(dark) {
+        var val = dark ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-bs-theme', val);
+        document.documentElement.setAttribute('data-theme', val);
+        icon.textContent = dark ? '☀️' : '🌙';
+      }
+      apply(isDark());
       btn.addEventListener('click', function() {
-        var next = isDark() ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('theme', next);
-        update();
+        var next = !isDark();
+        apply(next);
+        localStorage.setItem('theme', next ? 'dark' : 'light');
       });
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-        if (!localStorage.getItem('theme')) {
-          document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
-          update();
-        }
+        if (!localStorage.getItem('theme')) apply(e.matches);
       });
     })();
   </script>

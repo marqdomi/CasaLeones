@@ -1,59 +1,72 @@
-{% extends 'base.html' %}
-{% block title %}Reporte Delivery{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Delivery{% endblock %}
 {% block head %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 {% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Reporte Delivery y Canal de Venta</h2>
-  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-sm btn-secondary mb-3">← Reportes</a>
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto"><label class="form-label">Desde</label><input type="date" name="fecha_inicio" class="form-control" value="{{ fecha_inicio }}"></div>
-    <div class="col-auto"><label class="form-label">Hasta</label><input type="date" name="fecha_fin" class="form-control" value="{{ fecha_fin }}"></div>
-    <div class="col-auto align-self-end"><button type="submit" class="btn btn-primary btn-sm">Filtrar</button></div>
-    <div class="col-auto align-self-end">
-      <a href="{{ url_for('reportes.export_delivery_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="btn btn-outline-success btn-sm">Exportar CSV</a>
-    </div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_kpi_card.html' import kpi_card %}
+{% call page_header('Delivery y Canal de Venta', breadcrumb=[{'label':'Admin','url':'#'}, {'label':'Reportes','url':url_for('reportes.dashboard_reportes')}]) %}
+  <a href="{{ url_for('reportes.export_delivery_csv', fecha_inicio=fecha_inicio, fecha_fin=fecha_fin) }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="file-spreadsheet" class="icon-sm"></i> CSV
+  </a>
+{% endcall %}
 
-  <!-- KPI cards -->
-  <div class="row mb-4">
-    {% for c in canal_data %}
-    <div class="col-md-3 mb-3">
-      <div class="card h-100 border-{% if c.canal == 'local' %}primary{% elif c.canal == 'uber_eats' %}success{% elif c.canal == 'rappi' %}warning{% else %}info{% endif %}">
-        <div class="card-body text-center">
-          <h6 class="text-muted">{{ c.canal | replace('_', ' ') | title }}</h6>
-          <h3>${{ '%.2f'|format(c.total_ventas) }}</h3>
-          <small class="text-muted">{{ c.num_ordenes }} órdenes · {{ c.porcentaje }}%</small><br>
-          <small>Ticket prom: ${{ '%.2f'|format(c.ticket_promedio) }}</small>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
+{# Filter #}
+<form class="d-flex gap-3 align-items-end mb-4 flex-wrap" method="GET">
+  <div>
+    <label class="cl-form-label">Desde</label>
+    <input type="date" name="fecha_inicio" class="cl-form-input" value="{{ fecha_inicio }}">
   </div>
-
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Ventas por Canal</h5>
-    <div>
-      <button id="btnToggleDelivery" class="btn btn-outline-secondary btn-sm"><i class="fas fa-table me-1"></i>Ver Tabla</button>
-      <button id="btnExportDelivery" class="btn btn-outline-info btn-sm ms-1" title="Exportar gráfica"><i class="fas fa-download me-1"></i>PNG</button>
-    </div>
+  <div>
+    <label class="cl-form-label">Hasta</label>
+    <input type="date" name="fecha_fin" class="cl-form-input" value="{{ fecha_fin }}">
   </div>
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="search" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  <!-- Chart -->
-  <div id="chartDeliveryContainer">
-    <div class="card mb-4">
-      <div class="card-body">
-        <div style="position:relative;height:350px;"><canvas id="chartDelivery"></canvas></div>
-      </div>
-    </div>
+{# KPI cards #}
+{% set canal_colors = {'local':'primary','uber_eats':'success','rappi':'warning','didi_food':'info'} %}
+{% set canal_icons = {'local':'store','uber_eats':'bike','rappi':'package','didi_food':'truck'} %}
+<div class="row g-3 mb-4">
+  {% for c in canal_data %}
+  <div class="col-md-3">
+    {{ kpi_card(
+      title=c.canal | replace('_', ' ') | title,
+      value='$' ~ '%.2f'|format(c.total_ventas),
+      subtitle=c.num_ordenes ~ ' órdenes · ' ~ c.porcentaje ~ '%',
+      icon=canal_icons.get(c.canal, 'shopping-bag'),
+      color=canal_colors.get(c.canal, 'primary')
+    ) }}
   </div>
+  {% endfor %}
+</div>
 
-  <!-- Table (hidden) -->
-  <div id="tablaDelivery" style="display:none;">
-    <div class="table-responsive">
-      <table class="table table-striped">
+{# Toggle #}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h6 class="fw-semibold mb-0">Ventas por Canal</h6>
+  <div class="d-flex gap-2">
+    <button id="btnToggleDelivery" class="cl-btn cl-btn--outline cl-btn--sm"><i data-lucide="table" class="icon-sm"></i> Ver Tabla</button>
+    <button id="btnExportDelivery" class="cl-btn cl-btn--outline cl-btn--sm" title="Exportar gráfica"><i data-lucide="download" class="icon-sm"></i> PNG</button>
+  </div>
+</div>
+
+{# Chart #}
+<div id="chartDeliveryContainer">
+  <div class="cl-card mb-4">
+    <div class="cl-card__body"><div style="position:relative;height:350px;"><canvas id="chartDelivery"></canvas></div></div>
+  </div>
+</div>
+
+{# Table (hidden) #}
+<div id="tablaDelivery" style="display:none;">
+  <div class="cl-card">
+    <div class="cl-card__body" style="overflow-x:auto;">
+      <table class="cl-table">
         <thead><tr><th>Canal</th><th class="text-end">Órdenes</th><th class="text-end">Ventas</th><th class="text-end">Ticket Prom.</th><th class="text-end">% del Total</th></tr></thead>
         <tbody>
           {% for c in canal_data %}
@@ -69,11 +82,13 @@
       </table>
     </div>
   </div>
+</div>
 
-  {% if comision_data %}
-  <h5 class="mt-4 mb-3">Comisiones por Plataforma</h5>
-  <div class="table-responsive">
-    <table class="table table-striped">
+{% if comision_data %}
+<h6 class="fw-semibold mt-4 mb-3">Comisiones por Plataforma</h6>
+<div class="cl-card">
+  <div class="cl-card__body" style="overflow-x:auto;">
+    <table class="cl-table">
       <thead><tr><th>Plataforma</th><th class="text-end">Órdenes</th><th class="text-end">Total Plataforma</th><th class="text-end">Comisión</th><th class="text-end">Neto</th></tr></thead>
       <tbody>
         {% for c in comision_data %}
@@ -81,16 +96,17 @@
           <td>{{ c.plataforma | replace('_', ' ') | title }}</td>
           <td class="text-end">{{ c.cantidad }}</td>
           <td class="text-end">${{ '%.2f'|format(c.total_plataforma) }}</td>
-          <td class="text-end text-danger">${{ '%.2f'|format(c.comision) }}</td>
+          <td class="text-end" style="color:var(--cl-danger)">${{ '%.2f'|format(c.comision) }}</td>
           <td class="text-end fw-bold">${{ '%.2f'|format(c.neto) }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-  {% endif %}
 </div>
+{% endif %}
 {% endblock %}
+
 {% block scripts %}
 {{ super() }}
 <script nonce="{{ csp_nonce }}">
@@ -104,11 +120,11 @@ document.addEventListener('DOMContentLoaded', function() {
     tableDiv.style.display = showTable ? 'block' : 'none';
     chartDiv.style.display = showTable ? 'none' : 'block';
     btnToggle.innerHTML = showTable
-      ? '<i class="fas fa-chart-bar me-1"></i>Ver Gráfica'
-      : '<i class="fas fa-table me-1"></i>Ver Tabla';
+      ? '<i data-lucide="bar-chart-3" class="icon-sm"></i> Ver Gráfica'
+      : '<i data-lucide="table" class="icon-sm"></i> Ver Tabla';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
   });
 
-  // Chart
   const colors = ['#A6192E','#28a745','#ffc107','#17a2b8','#6f42c1'];
   const params = new URLSearchParams(window.location.search);
   fetch('/admin/reportes/api/delivery?' + params.toString())
@@ -119,9 +135,11 @@ document.addEventListener('DOMContentLoaded', function() {
         type: 'bar',
         data: {
           labels: data.labels.map(l => l.replace('_',' ')),
-          datasets: [
-            {label:'Ventas ($)', data: data.totales, backgroundColor: colors.slice(0, data.labels.length)},
-          ]
+          datasets: [{
+            label: 'Ventas ($)',
+            data: data.totales,
+            backgroundColor: colors.slice(0, data.labels.length),
+          }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
