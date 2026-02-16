@@ -1,83 +1,101 @@
-{% extends 'base.html' %}
-{% block title %}Reservaciones{% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Reservaciones</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Reservaciones{% endblock %}
 
-  <form class="row g-3 mb-4" method="GET">
-    <div class="col-auto">
-      <label class="form-label">Fecha</label>
-      <input type="date" name="fecha" class="form-control" value="{{ fecha_filtro }}">
-    </div>
-    <div class="col-auto align-self-end">
-      <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
-    </div>
-    <div class="col-auto align-self-end">
-      <a href="{{ url_for('reservaciones.nueva_reservacion') }}" class="btn btn-success btn-sm">Nueva Reservación</a>
-    </div>
-  </form>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_badge.html' import status_badge %}
+{% from 'components/_empty_state.html' import empty_state %}
 
-  {% if reservaciones %}
-  <div class="table-responsive">
-    <table class="table table-striped table-hover">
-      <thead><tr><th>Hora</th><th>Contacto</th><th>Teléfono</th><th>Personas</th><th>Mesa</th><th>Estado</th><th>Notas</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for r in reservaciones %}
-        <tr class="{% if r.estado == 'cancelada' %}table-secondary{% elif r.estado == 'completada' %}table-success{% elif r.estado == 'no_show' %}table-danger{% endif %}">
-          <td>{{ r.fecha_hora.strftime('%H:%M') }}</td>
-          <td>{{ r.nombre_contacto }}</td>
-          <td>{{ r.telefono }}</td>
-          <td>{{ r.num_personas }}</td>
-          <td>{{ r.mesa.numero if r.mesa else '—' }}</td>
-          <td><span class="badge {% if r.estado == 'confirmada' %}bg-primary{% elif r.estado == 'completada' %}bg-success{% elif r.estado == 'cancelada' %}bg-secondary{% else %}bg-danger{% endif %}">{{ r.estado }}</span></td>
-          <td><small>{{ r.notas or '' }}</small></td>
-          <td>
-            {% if r.estado == 'confirmada' %}
-              <form method="POST" action="{{ url_for('reservaciones.completar_reservacion', id=r.id) }}" style="display:inline;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn btn-sm btn-success">Llegó</button>
-              </form>
-              <form method="POST" action="{{ url_for('reservaciones.cancelar_reservacion', id=r.id) }}" style="display:inline;">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button class="btn btn-sm btn-outline-danger">Cancelar</button>
-              </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% call page_header('Reservaciones', breadcrumb=[('CRM', ''), ('Reservaciones', '')]) %}
+  <a href="{{ url_for('reservaciones.nueva_reservacion') }}" class="cl-btn cl-btn--primary">
+    <i data-lucide="plus" class="icon-sm"></i> Nueva Reservación
+  </a>
+{% endcall %}
+
+{# Date filter #}
+<form class="d-flex gap-2 align-items-end mb-4" method="GET">
+  <div class="cl-form-group" style="margin-bottom:0">
+    <label class="cl-form-label" for="fecha">Fecha</label>
+    <input type="date" name="fecha" id="fecha" class="cl-form-input" value="{{ fecha_filtro }}">
   </div>
-  {% else %}
-  <p class="text-muted">No hay reservaciones para esta fecha.</p>
-  {% endif %}
+  <button type="submit" class="cl-btn cl-btn--primary cl-btn--sm">
+    <i data-lucide="filter" class="icon-sm"></i> Filtrar
+  </button>
+</form>
 
-  {# Mapa visual de mesas #}
-  <h4 class="mt-4">Estado de Mesas</h4>
-  <div id="mapa-mesas" class="row"></div>
+{% if reservaciones %}
+<div class="table-responsive">
+  <table class="cl-table cl-table--striped cl-table--hover" id="tblReservaciones">
+    <thead>
+      <tr>
+        <th>Hora</th><th>Contacto</th><th>Teléfono</th><th>Personas</th>
+        <th>Mesa</th><th>Estado</th><th>Notas</th><th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reservaciones %}
+      <tr>
+        <td>{{ r.fecha_hora.strftime('%H:%M') }}</td>
+        <td>{{ r.nombre_contacto }}</td>
+        <td>{{ r.telefono or '—' }}</td>
+        <td>{{ r.num_personas }}</td>
+        <td>{{ 'Mesa ' ~ r.mesa.numero if r.mesa else '—' }}</td>
+        <td>{{ status_badge(r.estado) }}</td>
+        <td><small>{{ r.notas or '' }}</small></td>
+        <td>
+          {% if r.estado == 'confirmada' %}
+          <div class="d-flex gap-1">
+            <form method="POST" action="{{ url_for('reservaciones.completar_reservacion', id=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="cl-btn cl-btn--sm cl-btn--success" title="Marcar llegada">
+                <i data-lucide="check" class="icon-sm"></i>
+              </button>
+            </form>
+            <form method="POST" action="{{ url_for('reservaciones.cancelar_reservacion', id=r.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="cl-btn cl-btn--sm cl-btn--ghost cl-btn--danger" title="Cancelar">
+                <i data-lucide="x" class="icon-sm"></i>
+              </button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+{% else %}
+{{ empty_state('No hay reservaciones para esta fecha', icon='calendar-off') }}
+{% endif %}
+
+{# Mapa de mesas #}
+<h5 class="mt-4 mb-3"><i data-lucide="map" class="icon-sm"></i> Estado de Mesas</h5>
+<div id="mapa-mesas" class="row g-2"></div>
 
 <script>
 document.addEventListener('DOMContentLoaded', async function() {
-    const res = await fetch('{{ url_for("reservaciones.api_mesas_estado") }}');
-    const mesas = await res.json();
-    const container = document.getElementById('mapa-mesas');
-    const colors = { disponible: 'success', ocupada: 'danger', reservada: 'warning', mantenimiento: 'secondary' };
+  const res = await fetch('{{ url_for("reservaciones.api_mesas_estado") }}');
+  const mesas = await res.json();
+  const container = document.getElementById('mapa-mesas');
+  const colors = { disponible: 'success', ocupada: 'error', reservada: 'warning', mantenimiento: 'gray' };
 
-    mesas.forEach(m => {
-        const col = document.createElement('div');
-        col.className = 'col-6 col-md-3 col-lg-2 mb-3';
-        col.innerHTML = `
-            <div class="card text-center border-${colors[m.estado] || 'light'} mesa-card" data-mesa-id="${m.id}" style="cursor:pointer;">
-                <div class="card-body py-2">
-                    <h5 class="mb-0">Mesa ${m.numero}</h5>
-                    <small class="text-muted">${m.capacidad} personas</small><br>
-                    <span class="badge bg-${colors[m.estado] || 'light'} mt-1">${m.estado}</span>
-                    ${m.zona ? '<br><small>' + m.zona + '</small>' : ''}
-                </div>
-            </div>`;
-        container.appendChild(col);
-    });
+  mesas.forEach(m => {
+    const col = document.createElement('div');
+    col.className = 'col-6 col-md-3 col-lg-2';
+    col.innerHTML = `
+      <div class="cl-card" style="text-align:center;cursor:pointer;border-left:3px solid var(--cl-${colors[m.estado] || 'gray'})">
+        <div style="padding:var(--cl-space-3)">
+          <strong>Mesa ${m.numero}</strong><br>
+          <small style="color:var(--cl-text-secondary)">${m.capacidad} pers.</small><br>
+          <span class="cl-badge cl-badge--${colors[m.estado] || 'gray'} cl-badge--pill" style="margin-top:var(--cl-space-1)">
+            ${m.estado}
+          </span>
+          ${m.zona ? '<br><small style="color:var(--cl-text-tertiary)">' + m.zona + '</small>' : ''}
+        </div>
+      </div>`;
+    container.appendChild(col);
+  });
 });
 </script>
 {% endblock %}

@@ -31,8 +31,6 @@
     striped=true,
     hoverable=true,
     responsive=true,
-    actions_header='Acciones',
-    show_actions=false,
     class_extra=''
 ) %}
 <div class="cl-table__toolbar" id="{{ id }}_toolbar">
@@ -47,7 +45,6 @@
            autocomplete="off">
   </div>
   {% endif %}
-  {{ caller.toolbar() if caller is defined and caller.toolbar is defined else '' }}
 </div>
 
 {% if responsive %}<div class="table-responsive">{% endif %}
@@ -61,7 +58,6 @@
         {% if sortable %}<i data-lucide="arrow-up-down" class="icon-xs" style="opacity:.4"></i>{% endif %}
       </th>
       {% endfor %}
-      {% if show_actions %}<th class="text-end">{{ actions_header }}</th>{% endif %}
     </tr>
   </thead>
   <tbody>
@@ -69,9 +65,6 @@
       {% for row in items %}
       <tr data-id="{{ row.id if row.id is defined else loop.index }}">
         {{ caller(row) }}
-        {% if show_actions %}
-        <td class="text-end">{{ caller.actions(row) if caller.actions is defined else '' }}</td>
-        {% endif %}
       </tr>
       {% endfor %}
     {% else %}

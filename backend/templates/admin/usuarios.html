@@ -1,38 +1,52 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container-fluid">
-  <h1 class="mt-4">Usuarios</h1>
-  <ul class="nav nav-pills mb-4">
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
-  </ul>
-  <a href="{{ url_for('admin.usuario_nuevo') }}" class="btn btn-primary mb-3">+ Nuevo Usuario</a>
-  <table class="table table-striped table-bordered">
-    <thead>
-      <tr>
-        <th>ID</th><th>Nombre</th><th>Email</th><th>Rol</th><th>Acciones</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for u in usuarios %}
-      <tr>
-        <td>{{ u.id }}</td>
-        <td>{{ u.nombre }}</td>
-        <td>{{ u.email }}</td>
-        <td>{{ u.rol }}</td>
-        <td>
-          <a href="{{ url_for('admin.usuario_editar', id=u.id) }}" class="btn btn-sm btn-outline-secondary">Editar</a>
-          <form method="POST" action="{{ url_for('admin.usuario_eliminar', id=u.id) }}" class="d-inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-sm btn-outline-danger"
-              onclick="return confirm('Eliminar usuario {{ u.nombre }}?');">Eliminar</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Usuarios{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_data_table.html' import data_table %}
+{% from 'components/_badge.html' import badge %}
+{% from 'components/_modal.html' import confirm_modal %}
+
+{% call page_header('Usuarios', breadcrumb=[('Configuración', ''), ('Usuarios', '')]) %}
+  <a href="{{ url_for('admin.usuario_nuevo') }}" class="cl-btn cl-btn--primary">
+    <i data-lucide="plus" class="icon-sm"></i> Nuevo Usuario
+  </a>
+{% endcall %}
+
+{% call(row) data_table(
+    items=usuarios,
+    columns=[
+      ('Nombre', 'nombre', true),
+      ('Email', 'email', true),
+      ('Rol', 'rol', true),
+      ('', none, false)
+    ],
+    empty_text='No hay usuarios registrados',
+    empty_icon='users',
+    search_placeholder='Buscar usuario…',
+    id='tblUsuarios'
+) %}
+  <td>{{ row.nombre }}</td>
+  <td>{{ row.email }}</td>
+  <td>{{ badge(row.rol|capitalize, 'info') }}</td>
+  <td class="text-end">
+    <a href="{{ url_for('admin.usuario_editar', id=row.id) }}" class="cl-btn cl-btn--sm cl-btn--ghost" title="Editar">
+      <i data-lucide="pencil" class="icon-sm"></i>
+    </a>
+    <button class="cl-btn cl-btn--sm cl-btn--ghost cl-btn--danger"
+            data-bs-toggle="modal" data-bs-target="#deleteModal"
+            data-action="{{ url_for('admin.usuario_eliminar', id=row.id) }}"
+            title="Eliminar">
+      <i data-lucide="trash-2" class="icon-sm"></i>
+    </button>
+  </td>
+{% endcall %}
+
+{{ confirm_modal(id='deleteModal', title='¿Eliminar usuario?', body='Esta acción no se puede deshacer.', confirm_text='Eliminar', form_action='#') }}
+
+<script>
+document.getElementById('deleteModal').addEventListener('show.bs.modal', function(e){
+  this.querySelector('form').setAttribute('action', e.relatedTarget.getAttribute('data-action'));
+});
+</script>
 {% endblock %}

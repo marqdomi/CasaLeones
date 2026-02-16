@@ -1,34 +1,33 @@
-{% extends 'base.html' %}
-{% block title %}{{ 'Editar' if ingrediente else 'Nuevo' }} Ingrediente{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">{{ 'Editar' if ingrediente else 'Nuevo' }} Ingrediente</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}{{ 'Editar' if ingrediente else 'Nuevo' }} Ingrediente{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group %}
+
+{{ page_header(
+    'Editar Ingrediente: ' ~ ingrediente.nombre if ingrediente else 'Nuevo Ingrediente',
+    breadcrumb=[('Inventario', ''), ('Ingredientes', url_for('inventario.lista_ingredientes')), (('Editar' if ingrediente else 'Nuevo'), '')]
+) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label class="form-label">Nombre</label>
-      <input type="text" name="nombre" class="form-control" required value="{{ ingrediente.nombre if ingrediente else '' }}">
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Unidad (kg, litro, pieza, gramo)</label>
-      <input type="text" name="unidad" class="form-control" required value="{{ ingrediente.unidad if ingrediente else '' }}">
-    </div>
+
+    {{ form_group('nombre', 'Nombre', value=ingrediente.nombre if ingrediente else '', required=true, icon='flask-conical') }}
+    {{ form_group('unidad', 'Unidad', value=ingrediente.unidad if ingrediente else '', required=true, placeholder='kg, litro, pieza, gramo') }}
     {% if not ingrediente %}
-    <div class="mb-3">
-      <label class="form-label">Stock Inicial</label>
-      <input type="number" step="0.01" name="stock_actual" class="form-control" value="0">
-    </div>
+    {{ form_group('stock_actual', 'Stock Inicial', type='number', value='0', step='0.01') }}
     {% endif %}
-    <div class="mb-3">
-      <label class="form-label">Stock Mínimo (alerta)</label>
-      <input type="number" step="0.01" name="stock_minimo" class="form-control" value="{{ ingrediente.stock_minimo if ingrediente else '0' }}">
+    {{ form_group('stock_minimo', 'Stock Mínimo (alerta)', type='number', value=ingrediente.stock_minimo if ingrediente else '0', step='0.01') }}
+    {{ form_group('costo_unitario', 'Costo Unitario ($)', type='number', value=ingrediente.costo_unitario if ingrediente else '0', step='0.01', icon='dollar-sign') }}
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Guardar
+      </button>
+      <a href="{{ url_for('inventario.lista_ingredientes') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Costo Unitario ($)</label>
-      <input type="number" step="0.01" name="costo_unitario" class="form-control" value="{{ ingrediente.costo_unitario if ingrediente else '0' }}">
-    </div>
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>
 {% endblock %}

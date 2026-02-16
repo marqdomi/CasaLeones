@@ -1,30 +1,45 @@
-{% extends 'base.html' %}
-{% block title %}Clientes{% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h2 class="mt-4">Clientes</h2>
-  <a href="{{ url_for('clientes.cliente_nuevo') }}" class="btn btn-primary btn-sm mb-3">Nuevo Cliente</a>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Clientes{% endblock %}
 
-  <div class="table-responsive">
-    <table class="table table-striped table-hover">
-      <thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th><th>RFC</th><th>Visitas</th><th>Total Gastado</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for c in clientes %}
-        <tr>
-          <td>{{ c.nombre }}</td>
-          <td>{{ c.telefono }}</td>
-          <td>{{ c.email }}</td>
-          <td>{{ c.rfc or '' }}</td>
-          <td>{{ c.visitas }}</td>
-          <td>${{ '%.2f'|format(c.total_gastado or 0) }}</td>
-          <td>
-            <a href="{{ url_for('clientes.perfil_cliente', id=c.id) }}" class="btn btn-sm btn-outline-info">Perfil</a>
-            <a href="{{ url_for('clientes.cliente_editar', id=c.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_data_table.html' import data_table %}
+
+{% call page_header('Clientes', breadcrumb=[('CRM', ''), ('Clientes', '')]) %}
+  <a href="{{ url_for('clientes.cliente_nuevo') }}" class="cl-btn cl-btn--primary">
+    <i data-lucide="plus" class="icon-sm"></i> Nuevo Cliente
+  </a>
+{% endcall %}
+
+{% call(row) data_table(
+    items=clientes,
+    columns=[
+      ('Nombre', 'nombre', true),
+      ('Teléfono', none, false),
+      ('Email', none, false),
+      ('RFC', none, false),
+      ('Visitas', 'visitas', true),
+      ('Total Gastado', 'total_gastado', true),
+      ('', none, false)
+    ],
+    empty_text='No hay clientes registrados',
+    empty_icon='users',
+    search_placeholder='Buscar cliente…',
+    id='tblClientes'
+) %}
+  <td>{{ row.nombre }}</td>
+  <td>{{ row.telefono or '—' }}</td>
+  <td>{{ row.email or '—' }}</td>
+  <td>{{ row.rfc or '—' }}</td>
+  <td>{{ row.visitas }}</td>
+  <td>${{ '%.2f'|format(row.total_gastado or 0) }}</td>
+  <td class="text-end">
+    <a href="{{ url_for('clientes.perfil_cliente', id=row.id) }}" class="cl-btn cl-btn--sm cl-btn--ghost" title="Perfil">
+      <i data-lucide="eye" class="icon-sm"></i>
+    </a>
+    <a href="{{ url_for('clientes.cliente_editar', id=row.id) }}" class="cl-btn cl-btn--sm cl-btn--ghost" title="Editar">
+      <i data-lucide="pencil" class="icon-sm"></i>
+    </a>
+  </td>
+{% endcall %}
 {% endblock %}

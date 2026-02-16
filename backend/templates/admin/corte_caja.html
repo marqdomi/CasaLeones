@@ -1,137 +1,148 @@
-{% extends 'base.html' %}
-{% block content %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Corte de Caja{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_kpi_card.html' import kpi_card %}
 {% set existing_cortes = cortes | selectattr('fecha', 'equalto', resumen.fecha) | list %}
-<div class="container-fluid">
-  <h1 class="mt-4">Corte de Caja
-    <a href="{{ url_for('admin.export_corte_pdf') }}" class="btn btn-outline-danger btn-sm ms-2">
-      <i class="fas fa-file-pdf me-1"></i>Exportar PDF
-    </a>
-  </h1>
-  <ul class="nav nav-pills mb-4">
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
-    <li class="nav-item"><a class="nav-link active" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
-  </ul>
 
-  {# --- Resumen del día --- #}
-  <div class="card mb-4">
-    <div class="card-header bg-primary text-white"><h5 class="mb-0">Resumen del Día — {{ resumen.fecha }}</h5></div>
-    <div class="card-body">
-      <div class="row text-center mb-3">
-        <div class="col-md-3">
-          <h6 class="text-muted">Total Ingresos</h6>
-          <h4>${{ '%.2f'|format(resumen.total_ingresos) }}</h4>
-        </div>
-        <div class="col-md-3">
-          <h6 class="text-muted">Órdenes</h6>
-          <h4>{{ resumen.num_ordenes }}</h4>
-        </div>
-        <div class="col-md-3">
-          <h6 class="text-muted">Ticket Promedio</h6>
-          <h4>${{ '%.2f'|format(resumen.ticket_promedio) }}</h4>
-        </div>
-        <div class="col-md-3">
-          <h6 class="text-muted">Propinas</h6>
-          <h4 class="text-success">${{ '%.2f'|format(resumen.propinas_total) }}</h4>
-        </div>
-      </div>
-      <hr>
-      <h6>Desglose por Método de Pago</h6>
-      <div class="row mb-3">
-        <div class="col-md-4">
-          <div class="card border-success">
-            <div class="card-body text-center">
-              <small class="text-muted">Efectivo esperado</small>
-              <h5 class="text-success">${{ '%.2f'|format(resumen.efectivo_esperado) }}</h5>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="card border-info">
-            <div class="card-body text-center">
-              <small class="text-muted">Tarjeta</small>
-              <h5 class="text-info">${{ '%.2f'|format(resumen.tarjeta_total) }}</h5>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="card border-warning">
-            <div class="card-body text-center">
-              <small class="text-muted">Transferencia</small>
-              <h5 class="text-warning">${{ '%.2f'|format(resumen.transferencia_total) }}</h5>
-            </div>
-          </div>
-        </div>
-      </div>
-      <hr>
+{# ── Page header ── #}
+{% call page_header('Corte de Caja', breadcrumb=[{'label':'Admin','url':url_for('admin.dashboard')},{'label':'Corte de Caja','url':'#'}]) %}
+  <a href="{{ url_for('admin.export_corte_pdf') }}" class="cl-btn cl-btn--outline cl-btn--sm" style="border-color:var(--cl-danger); color:var(--cl-danger);">
+    <i data-lucide="file-text" class="icon-sm"></i> Exportar PDF
+  </a>
+{% endcall %}
 
-      {# --- Formulario conciliación --- #}
-      <form method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <h6>Conciliación de Efectivo</h6>
-        <div class="row align-items-end mb-3">
-          <div class="col-md-4">
-            <label for="efectivo_contado" class="form-label">Efectivo contado en caja ($)</label>
-            <input type="number" step="0.01" min="0" name="efectivo_contado" id="efectivo_contado"
-                   class="form-control" placeholder="0.00" required
-                   oninput="calcularDiferencia()">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">Diferencia</label>
-            <input type="text" id="diferencia_display" class="form-control" readonly>
-          </div>
-        </div>
-        <div class="mb-3">
-          <label for="notas" class="form-label">Notas / Observaciones</label>
-          <textarea name="notas" id="notas" class="form-control" rows="2"
-                    placeholder="Ej: Faltante por cambio no registrado..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-success"
-          {% if existing_cortes | length %}disabled title="Ya existe corte para hoy"{% endif %}>
-          Generar Corte de Caja
-        </button>
-      </form>
-    </div>
+{# ── Resumen del Día ── #}
+<div class="cl-card mb-4">
+  <div class="cl-card__header">
+    <i data-lucide="calendar" class="icon-sm me-1"></i>
+    <strong>Resumen del Día — {{ resumen.fecha }}</strong>
   </div>
+  <div class="cl-card__body">
+    {# KPI row #}
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        {{ kpi_card('Total Ingresos', '$' ~ '%.2f'|format(resumen.total_ingresos), icon='dollar-sign', color='primary') }}
+      </div>
+      <div class="col-6 col-md-3">
+        {{ kpi_card('Órdenes', resumen.num_ordenes, icon='receipt', color='success') }}
+      </div>
+      <div class="col-6 col-md-3">
+        {{ kpi_card('Ticket Promedio', '$' ~ '%.2f'|format(resumen.ticket_promedio), icon='ticket', color='warning') }}
+      </div>
+      <div class="col-6 col-md-3">
+        {{ kpi_card('Propinas', '$' ~ '%.2f'|format(resumen.propinas_total), icon='coins', color='accent') }}
+      </div>
+    </div>
 
-  {# --- Historial --- #}
-  <h2>Historial de Cortes</h2>
-  <div class="table-responsive">
-    <table class="table table-striped table-bordered">
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Total</th>
-          <th># Órdenes</th>
-          <th>Efectivo Esperado</th>
-          <th>Efectivo Contado</th>
-          <th>Diferencia</th>
-          <th>Tarjeta</th>
-          <th>Transfer.</th>
-          <th>Realizado por</th>
-          <th>Notas</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in cortes %}
-        <tr>
-          <td>{{ c.fecha }}</td>
-          <td>${{ '%.2f'|format(c.total_ingresos) }}</td>
-          <td>{{ c.num_ordenes }}</td>
-          <td>${{ '%.2f'|format(c.efectivo_esperado or 0) }}</td>
-          <td>${{ '%.2f'|format(c.efectivo_contado or 0) }}</td>
-          <td class="{% if (c.diferencia or 0) < 0 %}text-danger fw-bold{% elif (c.diferencia or 0) > 0 %}text-success{% endif %}">
-            ${{ '%.2f'|format(c.diferencia or 0) }}
-          </td>
-          <td>${{ '%.2f'|format(c.tarjeta_total or 0) }}</td>
-          <td>${{ '%.2f'|format(c.transferencia_total or 0) }}</td>
-          <td>{{ c.usuario.nombre if c.usuario else 'N/A' }}</td>
-          <td>{{ c.notas or '' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {# Desglose por método de pago #}
+    <h6 class="fw-semibold mb-3">
+      <i data-lucide="credit-card" class="icon-sm me-1"></i>
+      Desglose por Método de Pago
+    </h6>
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="cl-card" style="border-left:4px solid var(--cl-success);">
+          <div class="cl-card__body text-center">
+            <small class="text-muted">Efectivo esperado</small>
+            <h5 class="mb-0" style="color:var(--cl-success);">${{ '%.2f'|format(resumen.efectivo_esperado) }}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="cl-card" style="border-left:4px solid var(--cl-info, #0dcaf0);">
+          <div class="cl-card__body text-center">
+            <small class="text-muted">Tarjeta</small>
+            <h5 class="mb-0" style="color:var(--cl-info, #0dcaf0);">${{ '%.2f'|format(resumen.tarjeta_total) }}</h5>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="cl-card" style="border-left:4px solid var(--cl-warning);">
+          <div class="cl-card__body text-center">
+            <small class="text-muted">Transferencia</small>
+            <h5 class="mb-0" style="color:var(--cl-warning);">${{ '%.2f'|format(resumen.transferencia_total) }}</h5>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Formulario de conciliación #}
+    <h6 class="fw-semibold mb-3">
+      <i data-lucide="calculator" class="icon-sm me-1"></i>
+      Conciliación de Efectivo
+    </h6>
+    <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="row align-items-end mb-3 g-3">
+        <div class="col-md-4">
+          <label for="efectivo_contado" class="cl-form-label">Efectivo contado en caja ($)</label>
+          <input type="number" step="0.01" min="0" name="efectivo_contado" id="efectivo_contado"
+                 class="cl-form-input" placeholder="0.00" required
+                 oninput="calcularDiferencia()">
+        </div>
+        <div class="col-md-4">
+          <label class="cl-form-label">Diferencia</label>
+          <input type="text" id="diferencia_display" class="cl-form-input" readonly>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label for="notas" class="cl-form-label">Notas / Observaciones</label>
+        <textarea name="notas" id="notas" class="cl-form-input" rows="2"
+                  placeholder="Ej: Faltante por cambio no registrado..."></textarea>
+      </div>
+      <button type="submit" class="cl-btn cl-btn--success"
+        {% if existing_cortes | length %}disabled title="Ya existe corte para hoy"{% endif %}>
+        <i data-lucide="check-circle" class="icon-sm"></i> Generar Corte de Caja
+      </button>
+    </form>
+  </div>
+</div>
+
+{# ── Historial de Cortes ── #}
+<div class="cl-card">
+  <div class="cl-card__header">
+    <i data-lucide="history" class="icon-sm me-1"></i>
+    <strong>Historial de Cortes</strong>
+  </div>
+  <div class="cl-card__body p-0">
+    <div class="table-responsive">
+      <table class="cl-table cl-table--striped cl-table--hover">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Total</th>
+            <th># Órdenes</th>
+            <th>Efectivo Esperado</th>
+            <th>Efectivo Contado</th>
+            <th>Diferencia</th>
+            <th>Tarjeta</th>
+            <th>Transfer.</th>
+            <th>Realizado por</th>
+            <th>Notas</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in cortes %}
+          <tr>
+            <td>{{ c.fecha }}</td>
+            <td>${{ '%.2f'|format(c.total_ingresos) }}</td>
+            <td>{{ c.num_ordenes }}</td>
+            <td>${{ '%.2f'|format(c.efectivo_esperado or 0) }}</td>
+            <td>${{ '%.2f'|format(c.efectivo_contado or 0) }}</td>
+            <td class="{% if (c.diferencia or 0) < 0 %}text-danger fw-bold{% elif (c.diferencia or 0) > 0 %}text-success{% endif %}">
+              ${{ '%.2f'|format(c.diferencia or 0) }}
+            </td>
+            <td>${{ '%.2f'|format(c.tarjeta_total or 0) }}</td>
+            <td>${{ '%.2f'|format(c.transferencia_total or 0) }}</td>
+            <td>{{ c.usuario.nombre if c.usuario else 'N/A' }}</td>
+            <td>{{ c.notas or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -142,7 +153,7 @@ function calcularDiferencia() {
     const diff = contado - esperado;
     const el = document.getElementById('diferencia_display');
     el.value = '$' + diff.toFixed(2);
-    el.className = 'form-control ' + (diff < 0 ? 'text-danger fw-bold' : diff > 0 ? 'text-success' : '');
+    el.className = 'cl-form-input ' + (diff < 0 ? 'text-danger fw-bold' : diff > 0 ? 'text-success' : '');
 }
 </script>
 {% endblock %}

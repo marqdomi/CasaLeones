@@ -1,84 +1,95 @@
-{% extends 'base.html' %}
-{% block title %}{{ 'Editar' if cliente else 'Nuevo' }} Cliente{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">{{ 'Editar' if cliente else 'Nuevo' }} Cliente</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}{{ 'Editar' if cliente else 'Nuevo' }} Cliente{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group, form_textarea %}
+
+{{ page_header(
+    'Editar Cliente: ' ~ cliente.nombre if cliente else 'Nuevo Cliente',
+    breadcrumb=[('CRM', ''), ('Clientes', url_for('clientes.lista_clientes')), (('Editar' if cliente else 'Nuevo'), '')]
+) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST" id="clienteForm">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label class="form-label">Nombre *</label>
-      <input type="text" name="nombre" class="form-control" required value="{{ cliente.nombre if cliente else '' }}">
-    </div>
+
+    {{ form_group('nombre', 'Nombre', value=cliente.nombre if cliente else '', required=true, icon='user') }}
     <div class="row">
-      <div class="col-md-6 mb-3">
-        <label class="form-label">Teléfono</label>
-        <input type="text" name="telefono" class="form-control" value="{{ cliente.telefono if cliente else '' }}">
+      <div class="col-md-6">
+        {{ form_group('telefono', 'Teléfono', value=cliente.telefono if cliente else '', icon='phone') }}
       </div>
-      <div class="col-md-6 mb-3">
-        <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-control" value="{{ cliente.email if cliente else '' }}">
+      <div class="col-md-6">
+        {{ form_group('email', 'Email', type='email', value=cliente.email if cliente else '', icon='mail') }}
       </div>
     </div>
-    <hr>
-    <h6>Datos Fiscales (para facturación)</h6>
+
+    <hr class="my-4">
+    <h6 class="mb-3" style="color:var(--cl-text-secondary)">
+      <i data-lucide="file-text" class="icon-sm"></i> Datos Fiscales
+    </h6>
+
     <div class="row">
-      <div class="col-md-6 mb-3">
-        <label class="form-label">RFC</label>
-        <input type="text" name="rfc" id="rfc_input" class="form-control" maxlength="13"
-               data-rfc-validate
-               value="{{ cliente.rfc if cliente else '' }}"
-               placeholder="Ej: XAXX010101000">
-        <small class="form-text text-muted">13 chars persona física, 12 persona moral</small>
+      <div class="col-md-6">
+        <div class="cl-form-group">
+          <label class="cl-form-label" for="rfc_input">RFC</label>
+          <input type="text" class="cl-form-input" id="rfc_input" name="rfc" maxlength="13"
+                 data-rfc-validate
+                 value="{{ cliente.rfc if cliente else '' }}"
+                 placeholder="Ej: XAXX010101000">
+          <small class="cl-form-hint">13 chars persona física, 12 persona moral</small>
+        </div>
       </div>
-      <div class="col-md-6 mb-3">
-        <label class="form-label">Régimen Fiscal</label>
-        <select name="regimen_fiscal" id="regimen_select" class="form-select">
-          <option value="">— Seleccionar —</option>
-          {% for code, desc in regimenes.items() %}
-          <option value="{{ code }}" {% if cliente and cliente.regimen_fiscal == code %}selected{% endif %}>
-            {{ code }} — {{ desc }}
-          </option>
-          {% endfor %}
-        </select>
+      <div class="col-md-6">
+        <div class="cl-form-group">
+          <label class="cl-form-label" for="regimen_select">Régimen Fiscal</label>
+          <select class="cl-form-input cl-form-select" id="regimen_select" name="regimen_fiscal">
+            <option value="">— Seleccionar —</option>
+            {% for code, desc in regimenes.items() %}
+            <option value="{{ code }}" {% if cliente and cliente.regimen_fiscal == code %}selected{% endif %}>
+              {{ code }} — {{ desc }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
     </div>
+
     <div class="row">
-      <div class="col-md-6 mb-3">
-        <label class="form-label">Uso CFDI</label>
-        <select name="uso_cfdi" id="uso_cfdi_select" class="form-select">
-          {% for code, desc in usos_cfdi.items() %}
-          <option value="{{ code }}" {% if cliente and cliente.uso_cfdi == code %}selected{% endif %}>
-            {{ code }} — {{ desc }}
-          </option>
-          {% endfor %}
-        </select>
+      <div class="col-md-6">
+        <div class="cl-form-group">
+          <label class="cl-form-label" for="uso_cfdi_select">Uso CFDI</label>
+          <select class="cl-form-input cl-form-select" id="uso_cfdi_select" name="uso_cfdi">
+            {% for code, desc in usos_cfdi.items() %}
+            <option value="{{ code }}" {% if cliente and cliente.uso_cfdi == code %}selected{% endif %}>
+              {{ code }} — {{ desc }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-      <div class="col-md-6 mb-3">
-        <label class="form-label">CP Domicilio Fiscal</label>
-        <input type="text" name="domicilio_fiscal" class="form-control" maxlength="5"
-               value="{{ cliente.domicilio_fiscal if cliente else '' }}" pattern="\d{5}" placeholder="00000">
+      <div class="col-md-6">
+        {{ form_group('domicilio_fiscal', 'CP Domicilio Fiscal', value=cliente.domicilio_fiscal if cliente else '', pattern='\\d{5}', placeholder='00000') }}
       </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Razón Social</label>
-      <input type="text" name="razon_social" class="form-control" value="{{ cliente.razon_social if cliente else '' }}">
+
+    {{ form_group('razon_social', 'Razón Social', value=cliente.razon_social if cliente else '') }}
+    {{ form_textarea('notas', 'Notas', value=cliente.notas if cliente else '', rows=2) }}
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Guardar
+      </button>
+      <a href="{{ url_for('clientes.lista_clientes') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Notas</label>
-      <textarea name="notas" class="form-control" rows="2">{{ cliente.notas if cliente else '' }}</textarea>
-    </div>
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('clientes.lista_clientes') }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>
 
 <script nonce="{{ csp_nonce }}">
-/* RFC auto-uppercase + dynamic catalog reload */
 (function() {
   const rfcInput = document.getElementById('rfc_input');
   const regimenSelect = document.getElementById('regimen_select');
   const usoCfdiSelect = document.getElementById('uso_cfdi_select');
-
   if (!rfcInput) return;
 
   rfcInput.addEventListener('input', function() {

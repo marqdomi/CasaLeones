@@ -1,34 +1,35 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container-fluid">
-  <h1 class="mt-4">{{ mesa and 'Editar Mesa #' ~ mesa.numero or 'Nueva Mesa' }}</h1>
-  <ul class="nav nav-pills mb-4">
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
-    <li class="nav-item"><a class="nav-link active" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
-  </ul>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}{{ 'Editar' if mesa else 'Nueva' }} Mesa{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group %}
+
+{{ page_header(
+    'Editar Mesa #' ~ mesa.numero if mesa else 'Nueva Mesa',
+    breadcrumb=[('Catálogo', ''), ('Mesas', url_for('admin.lista_mesas')), (('Editar' if mesa else 'Nueva'), '')]
+) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="row">
-      <div class="col-md-4 mb-3">
-        <label for="numero" class="form-label">Número de Mesa *</label>
-        <input type="text" class="form-control" id="numero" name="numero"
-               value="{{ mesa.numero if mesa else '' }}" required>
+      <div class="col-md-4">
+        {{ form_group('numero', 'Número de Mesa', value=mesa.numero if mesa else '', required=true, icon='hash') }}
       </div>
-      <div class="col-md-4 mb-3">
-        <label for="capacidad" class="form-label">Capacidad (personas)</label>
-        <input type="number" class="form-control" id="capacidad" name="capacidad" min="1"
-               value="{{ mesa.capacidad if mesa else '4' }}">
+      <div class="col-md-4">
+        {{ form_group('capacidad', 'Capacidad (personas)', type='number', value=mesa.capacidad if mesa else '4', min='1') }}
       </div>
-      <div class="col-md-4 mb-3">
-        <label for="zona" class="form-label">Zona</label>
-        <input type="text" class="form-control" id="zona" name="zona" placeholder="terraza, interior, barra..."
-               value="{{ mesa.zona if mesa else '' }}">
+      <div class="col-md-4">
+        {{ form_group('zona', 'Zona', value=mesa.zona if mesa else '', placeholder='terraza, interior, barra…') }}
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('admin.lista_mesas') }}" class="btn btn-secondary">Cancelar</a>
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Guardar
+      </button>
+      <a href="{{ url_for('admin.lista_mesas') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
+    </div>
   </form>
 </div>
 {% endblock %}

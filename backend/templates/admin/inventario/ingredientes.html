@@ -1,41 +1,71 @@
-{% extends 'base.html' %}
-{% block title %}Inventario — Ingredientes{% endblock %}
-{% block content %}
-<div class="container-fluid">
-  <h1 class="mt-4">Inventario de Ingredientes</h1>
-  <div class="d-flex gap-2 mb-3">
-    <a href="{{ url_for('inventario.ingrediente_nuevo') }}" class="btn btn-primary btn-sm">Nuevo Ingrediente</a>
-    <a href="{{ url_for('inventario.entrada_stock') }}" class="btn btn-success btn-sm">Entrada de Stock</a>
-    <a href="{{ url_for('inventario.registrar_merma') }}" class="btn btn-warning btn-sm">Registrar Merma</a>
-    <a href="{{ url_for('inventario.lista_recetas') }}" class="btn btn-info btn-sm">Recetas</a>
-    <a href="{{ url_for('inventario.historial_movimientos') }}" class="btn btn-secondary btn-sm">Movimientos</a>
-  </div>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Ingredientes{% endblock %}
 
-  {% if alertas %}
-  <div class="alert alert-danger">
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_data_table.html' import data_table %}
+{% from 'components/_badge.html' import badge %}
+
+{% call page_header('Ingredientes', breadcrumb=[('Inventario', ''), ('Ingredientes', '')]) %}
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="{{ url_for('inventario.ingrediente_nuevo') }}" class="cl-btn cl-btn--primary cl-btn--sm">
+      <i data-lucide="plus" class="icon-sm"></i> Nuevo
+    </a>
+    <a href="{{ url_for('inventario.entrada_stock') }}" class="cl-btn cl-btn--success cl-btn--sm">
+      <i data-lucide="package-plus" class="icon-sm"></i> Entrada Stock
+    </a>
+    <a href="{{ url_for('inventario.registrar_merma') }}" class="cl-btn cl-btn--warning cl-btn--sm">
+      <i data-lucide="alert-triangle" class="icon-sm"></i> Merma
+    </a>
+    <a href="{{ url_for('inventario.lista_recetas') }}" class="cl-btn cl-btn--ghost cl-btn--sm">
+      <i data-lucide="book-open" class="icon-sm"></i> Recetas
+    </a>
+    <a href="{{ url_for('inventario.historial_movimientos') }}" class="cl-btn cl-btn--ghost cl-btn--sm">
+      <i data-lucide="history" class="icon-sm"></i> Movimientos
+    </a>
+  </div>
+{% endcall %}
+
+{% if alertas %}
+<div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+  <i data-lucide="alert-circle" class="icon-sm flex-shrink-0 mt-1"></i>
+  <div>
     <strong>Alertas de stock bajo:</strong>
-    {% for a in alertas %}
-      <span class="badge bg-danger me-1">{{ a.nombre }}: {{ '%.2f'|format(a.stock_actual) }} {{ a.unidad }}</span>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <div class="table-responsive">
-    <table class="table table-striped table-hover">
-      <thead><tr><th>Ingrediente</th><th>Unidad</th><th>Stock Actual</th><th>Stock Mínimo</th><th>Costo Unit.</th><th>Acciones</th></tr></thead>
-      <tbody>
-        {% for i in ingredientes %}
-        <tr class="{% if i.stock_actual <= i.stock_minimo %}table-danger{% endif %}">
-          <td>{{ i.nombre }}</td>
-          <td>{{ i.unidad }}</td>
-          <td>{{ '%.2f'|format(i.stock_actual) }}</td>
-          <td>{{ '%.2f'|format(i.stock_minimo) }}</td>
-          <td>${{ '%.2f'|format(i.costo_unitario) }}</td>
-          <td><a href="{{ url_for('inventario.ingrediente_editar', id=i.id) }}" class="btn btn-sm btn-outline-primary">Editar</a></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="mt-1">
+      {% for a in alertas %}
+      {{ badge(a.nombre ~ ': ' ~ '%.2f'|format(a.stock_actual) ~ ' ' ~ a.unidad, 'error') }}
+      {% endfor %}
+    </div>
   </div>
 </div>
+{% endif %}
+
+{% call(row) data_table(
+    items=ingredientes,
+    columns=[
+      ('Ingrediente', 'nombre', true),
+      ('Unidad', 'unidad', false),
+      ('Stock Actual', 'stock_actual', true),
+      ('Stock Mínimo', 'stock_minimo', true),
+      ('Costo Unit.', 'costo_unitario', true),
+      ('', none, false)
+    ],
+    empty_text='No hay ingredientes registrados',
+    empty_icon='flask-conical',
+    search_placeholder='Buscar ingrediente…',
+    id='tblIngredientes'
+) %}
+  <td>{{ row.nombre }}</td>
+  <td>{{ row.unidad }}</td>
+  <td class="{% if row.stock_actual <= row.stock_minimo %}text-danger fw-bold{% endif %}">
+    {{ '%.2f'|format(row.stock_actual) }}
+  </td>
+  <td>{{ '%.2f'|format(row.stock_minimo) }}</td>
+  <td>${{ '%.2f'|format(row.costo_unitario) }}</td>
+  <td class="text-end">
+    <a href="{{ url_for('inventario.ingrediente_editar', id=row.id) }}" class="cl-btn cl-btn--sm cl-btn--ghost" title="Editar">
+      <i data-lucide="pencil" class="icon-sm"></i>
+    </a>
+  </td>
+{% endcall %}
 {% endblock %}

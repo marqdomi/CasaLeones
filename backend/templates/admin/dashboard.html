@@ -1,173 +1,175 @@
-{% extends 'base.html' %}
-
-{% block title %}Dashboard Admin{% endblock %}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block head %}
+{{ super() }}
 <style>
-  .kpi-card { border-radius: 10px; transition: transform 0.2s; }
-  .kpi-card:hover { transform: translateY(-2px); }
-  .kpi-icon { font-size: 1.5rem; }
-  .kpi-value { font-size: 1.8rem; font-weight: 700; }
-  .kpi-label { font-size: 0.85rem; opacity: 0.85; }
-  .activity-item { border-left: 3px solid var(--color-primary); padding-left: 0.75rem; }
+  .cl-dashboard-kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--cl-space-4); }
+  @media (max-width: 768px) { .cl-dashboard-kpi { grid-template-columns: repeat(2, 1fr); } }
+  .cl-kpi-card .cl-kpi-card__value .skeleton {
+    display: inline-block; height: 1.6rem; border-radius: var(--cl-radius-sm);
+    background: linear-gradient(90deg, rgba(255,255,255,.15) 25%, rgba(255,255,255,.3) 50%, rgba(255,255,255,.15) 75%);
+    background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  }
+  .cl-kpi-card .cl-kpi-card__value .skeleton-sm { height: 0.9rem; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
   .stock-alert-item { font-size: 0.9rem; }
-  .stock-bar { height: 6px; border-radius: 3px; background: #e0e0e0; }
+  .stock-bar { height: 6px; border-radius: 3px; background: var(--cl-gray-200); }
   .stock-bar-fill { height: 100%; border-radius: 3px; }
+  .activity-item { border-left: 3px solid var(--cl-primary); padding-left: var(--cl-space-3); }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="container mt-4">
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="mb-0">Panel de Administración</h1>
-    <div class="d-flex gap-2">
-      <a href="{{ url_for('reportes.dashboard_reportes') }}" class="btn btn-outline-primary btn-sm" aria-label="Reportes"><span aria-hidden="true">📊</span> Reportes</a>
-      <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-outline-primary btn-sm" aria-label="Inventario"><span aria-hidden="true">📦</span> Inventario</a>
-      <a href="{{ url_for('admin.corte_caja') }}" class="btn btn-outline-primary btn-sm" aria-label="Corte de Caja"><span aria-hidden="true">💰</span> Corte de Caja</a>
+{% block admin_content %}
+{# ── Page header ── #}
+{% from 'components/_page_header.html' import page_header %}
+{% call page_header('Panel de Administración', breadcrumb=[{'label':'Admin','url':'#'}]) %}
+  <a href="{{ url_for('reportes.dashboard_reportes') }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="bar-chart-3" class="icon-sm"></i> Reportes
+  </a>
+  <a href="{{ url_for('inventario.lista_ingredientes') }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="package" class="icon-sm"></i> Inventario
+  </a>
+  <a href="{{ url_for('admin.corte_caja') }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="wallet" class="icon-sm"></i> Corte de Caja
+  </a>
+{% endcall %}
+
+{# ── ROW 1: KPI Cards (8 widgets) ── #}
+<div class="cl-dashboard-kpi mb-4">
+  {# Ventas Hoy #}
+  <div class="cl-kpi-card cl-kpi-card--primary">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="dollar-sign" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Ventas Hoy</span>
+    </div>
+    <div class="cl-kpi-card__value" id="ventasHoy">
+      <span class="skeleton" style="width:60%"></span>
     </div>
   </div>
-
-  <ul class="nav nav-pills mb-4">
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
-  </ul>
-
-  <!-- ROW 1: KPI Cards (8 widgets) -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card text-white bg-primary h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">💵</span> Ventas Hoy</div>
-          <div class="kpi-value" id="ventasHoy">
-            <div class="skeleton skeleton-text" style="width:60%"></div>
-          </div>
-        </div>
-      </div>
+  {# Órdenes Hoy #}
+  <div class="cl-kpi-card cl-kpi-card--success">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="receipt" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Órdenes Hoy</span>
     </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card text-white bg-success h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">🧾</span> Órdenes Hoy</div>
-          <div class="kpi-value" id="ordenesHoy">
-            <div class="skeleton skeleton-text" style="width:40%"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card text-white bg-warning h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">🎫</span> Ticket Promedio</div>
-          <div class="kpi-value" id="ticketPromedio">
-            <div class="skeleton skeleton-text" style="width:50%"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card text-white h-100" style="background-color: var(--color-accent);">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">💰</span> Propinas Hoy</div>
-          <div class="kpi-value" id="propinasHoy">
-            <div class="skeleton skeleton-text" style="width:45%"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">🪑</span> Mesas Activas</div>
-          <div class="kpi-value" id="mesasActivas">
-            <div class="skeleton skeleton-text" style="width:60%"></div>
-          </div>
-          <small class="text-muted" id="mesasReservadas"></small>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">👨‍🍳</span> Órdenes en Cocina</div>
-          <div class="kpi-value" id="ordenesCocina">
-            <div class="skeleton skeleton-text" style="width:40%"></div>
-          </div>
-          <small class="text-muted" id="timerCocina"></small>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">⚠️</span> Alertas Stock</div>
-          <div class="kpi-value" id="alertasStockCount">
-            <div class="skeleton skeleton-text" style="width:30%"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="card kpi-card h-100">
-        <div class="card-body">
-          <div class="kpi-label"><span class="kpi-icon">📋</span> Último Corte</div>
-          <div id="ultimoCorteInfo">
-            <div class="skeleton skeleton-text" style="width:70%"></div>
-            <div class="skeleton skeleton-text-sm" style="width:50%"></div>
-          </div>
-        </div>
-      </div>
+    <div class="cl-kpi-card__value" id="ordenesHoy">
+      <span class="skeleton" style="width:40%"></span>
     </div>
   </div>
-
-  <!-- ROW 2: Charts + Activity -->
-  <div class="row g-4 mb-4">
-    <!-- Ventas 7 días -->
-    <div class="col-lg-8">
-      <div class="card h-100">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <strong>Ventas — Últimos 7 días</strong>
-          <span class="badge bg-secondary" id="refreshTimer">Auto-refresh: 30s</span>
-        </div>
-        <div class="card-body">
-          <canvas id="chart7Dias" height="220"></canvas>
-        </div>
-      </div>
+  {# Ticket Promedio #}
+  <div class="cl-kpi-card cl-kpi-card--warning">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="ticket" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Ticket Promedio</span>
     </div>
-    <!-- Top Productos -->
-    <div class="col-lg-4">
-      <div class="card h-100">
-        <div class="card-header"><strong>Top 5 Productos Hoy</strong></div>
-        <div class="card-body">
-          <canvas id="chartTopProductos" height="220"></canvas>
-        </div>
+    <div class="cl-kpi-card__value" id="ticketPromedio">
+      <span class="skeleton" style="width:50%"></span>
+    </div>
+  </div>
+  {# Propinas Hoy #}
+  <div class="cl-kpi-card cl-kpi-card--accent">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="coins" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Propinas Hoy</span>
+    </div>
+    <div class="cl-kpi-card__value" id="propinasHoy">
+      <span class="skeleton" style="width:45%"></span>
+    </div>
+  </div>
+  {# Mesas Activas #}
+  <div class="cl-kpi-card">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="armchair" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Mesas Activas</span>
+    </div>
+    <div class="cl-kpi-card__value" id="mesasActivas">
+      <span class="skeleton" style="width:60%"></span>
+    </div>
+    <small class="text-muted" id="mesasReservadas"></small>
+  </div>
+  {# Órdenes en Cocina #}
+  <div class="cl-kpi-card">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="chef-hat" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Órdenes en Cocina</span>
+    </div>
+    <div class="cl-kpi-card__value" id="ordenesCocina">
+      <span class="skeleton" style="width:40%"></span>
+    </div>
+    <small class="text-muted" id="timerCocina"></small>
+  </div>
+  {# Alertas Stock #}
+  <div class="cl-kpi-card">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="alert-triangle" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Alertas Stock</span>
+    </div>
+    <div class="cl-kpi-card__value" id="alertasStockCount">
+      <span class="skeleton" style="width:30%"></span>
+    </div>
+  </div>
+  {# Último Corte #}
+  <div class="cl-kpi-card">
+    <div class="cl-kpi-card__header">
+      <span class="cl-kpi-card__icon"><i data-lucide="clipboard-list" class="icon-lg"></i></span>
+      <span class="cl-kpi-card__title">Último Corte</span>
+    </div>
+    <div id="ultimoCorteInfo">
+      <span class="skeleton" style="width:70%"></span>
+      <span class="skeleton skeleton-sm" style="width:50%"></span>
+    </div>
+  </div>
+</div>
+
+{# ── ROW 2: Charts ── #}
+<div class="row g-4 mb-4">
+  <div class="col-lg-8">
+    <div class="cl-card h-100">
+      <div class="cl-card__header d-flex justify-content-between align-items-center">
+        <strong>Ventas — Últimos 7 días</strong>
+        <span class="cl-badge cl-badge--gray" id="refreshTimer">Auto-refresh: 30s</span>
+      </div>
+      <div class="cl-card__body">
+        <canvas id="chart7Dias" height="220"></canvas>
       </div>
     </div>
   </div>
+  <div class="col-lg-4">
+    <div class="cl-card h-100">
+      <div class="cl-card__header"><strong>Top 5 Productos Hoy</strong></div>
+      <div class="cl-card__body">
+        <canvas id="chartTopProductos" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
 
-  <!-- ROW 3: Alertas Stock + Actividad Reciente -->
-  <div class="row g-4 mb-4">
-    <!-- Stock Alerts -->
-    <div class="col-lg-5">
-      <div class="card h-100">
-        <div class="card-header"><strong>Alertas de Inventario</strong></div>
-        <div class="card-body" id="stockAlertsList">
-          <div class="text-center text-muted py-3">
-            <div class="skeleton skeleton-card"></div>
-          </div>
+{# ── ROW 3: Alertas Stock + Actividad Reciente ── #}
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="cl-card h-100">
+      <div class="cl-card__header">
+        <i data-lucide="package-x" class="icon-sm me-1"></i>
+        <strong>Alertas de Inventario</strong>
+      </div>
+      <div class="cl-card__body" id="stockAlertsList">
+        <div class="text-center text-muted py-3">
+          <span class="skeleton" style="width:80%; height:3rem; display:inline-block; border-radius:var(--cl-radius-sm);"></span>
         </div>
       </div>
     </div>
-    <!-- Activity Feed -->
-    <div class="col-lg-7">
-      <div class="card h-100">
-        <div class="card-header"><strong>Actividad Reciente</strong></div>
-        <div class="card-body" id="activityFeed" style="max-height:320px; overflow-y:auto;">
-          <div class="skeleton skeleton-text mb-2"></div>
-          <div class="skeleton skeleton-text mb-2"></div>
-          <div class="skeleton skeleton-text mb-2"></div>
-        </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="cl-card h-100">
+      <div class="cl-card__header">
+        <i data-lucide="activity" class="icon-sm me-1"></i>
+        <strong>Actividad Reciente</strong>
+      </div>
+      <div class="cl-card__body" id="activityFeed" style="max-height:320px; overflow-y:auto;">
+        <span class="skeleton mb-2" style="width:100%; height:1rem; display:block; border-radius:var(--cl-radius-sm);"></span>
+        <span class="skeleton mb-2" style="width:90%; height:1rem; display:block; border-radius:var(--cl-radius-sm);"></span>
+        <span class="skeleton mb-2" style="width:95%; height:1rem; display:block; border-radius:var(--cl-radius-sm);"></span>
       </div>
     </div>
   </div>
@@ -175,6 +177,7 @@
 {% endblock %}
 
 {% block scripts %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="{{ url_for('static', filename='js/admin-dashboard.js') }}?v={{ config.VERSION }}"></script>
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/admin-dashboard.js') }}?v={{ config.VERSION }}"></script>
 {% endblock %}

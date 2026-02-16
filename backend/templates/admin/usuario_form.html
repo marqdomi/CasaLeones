@@ -1,42 +1,42 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="container-fluid">
-  <h1 class="mt-4">{{ usuario and 'Editar Usuario: ' ~ usuario.nombre or 'Nuevo Usuario' }}</h1>
-  <ul class="nav nav-pills mb-4">
-    <li class="nav-item"><a class="nav-link active" href="{{ url_for('admin.lista_usuarios') }}">Usuarios</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_productos') }}">Productos</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.lista_mesas') }}">Mesas</a></li>
-    <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.corte_caja') }}">Corte de Caja</a></li>
-  </ul>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}{{ 'Editar' if usuario else 'Nuevo' }} Usuario{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group, form_select %}
+
+{{ page_header(
+    'Editar Usuario: ' ~ usuario.nombre if usuario else 'Nuevo Usuario',
+    breadcrumb=[('Configuración', ''), ('Usuarios', url_for('admin.lista_usuarios')), (('Editar' if usuario else 'Nuevo'), '')]
+) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label for="nombre" class="form-label">Nombre</label>
-      <input type="text" class="form-control" id="nombre" name="nombre"
-             value="{{ usuario.nombre if usuario else '' }}" required>
+
+    {{ form_group('nombre', 'Nombre', value=usuario.nombre if usuario else '', required=true, icon='user') }}
+    {{ form_group('email', 'Email', type='email', value=usuario.email if usuario else '', required=true, icon='mail') }}
+
+    {% set roles = [
+      {'id': 'mesero', 'nombre': 'Mesero'},
+      {'id': 'taquero', 'nombre': 'Taquero'},
+      {'id': 'comal', 'nombre': 'Comal'},
+      {'id': 'bebidas', 'nombre': 'Bebidas'},
+      {'id': 'admin', 'nombre': 'Admin'},
+      {'id': 'superadmin', 'nombre': 'Superadmin'}
+    ] %}
+    {{ form_select('rol', 'Rol', options=roles, value=usuario.rol if usuario else '', required=true) }}
+
+    {{ form_group('password', 'Contraseña' ~ (' (dejar vacío para no cambiar)' if usuario else ''),
+                  type='password', required=not usuario, icon='lock',
+                  hint='Mín. 8 caracteres, mayúscula, minúscula y número') }}
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Guardar
+      </button>
+      <a href="{{ url_for('admin.lista_usuarios') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
     </div>
-    <div class="mb-3">
-      <label for="email" class="form-label">Email</label>
-      <input type="email" class="form-control" id="email" name="email"
-             value="{{ usuario.email if usuario else '' }}" required>
-    </div>
-    <div class="mb-3">
-      <label for="rol" class="form-label">Rol</label>
-      <select class="form-select" id="rol" name="rol" required>
-        {% for r in ['mesero','taquero','comal','bebidas','admin','superadmin'] %}
-        <option value="{{ r }}" {% if usuario and usuario.rol == r %}selected{% endif %}>
-          {{ r|capitalize }}
-        </option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="mb-3">
-      <label for="password" class="form-label">Contraseña{% if usuario %} (dejar vacío para no cambiar){% endif %}</label>
-      <input type="password" class="form-control" id="password" name="password"
-             {% if not usuario %}required{% endif %}>
-    </div>
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('admin.lista_usuarios') }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>
 {% endblock %}

@@ -1,52 +1,56 @@
-{% extends 'base.html' %}
-{% block title %}Nueva Reservación{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">Nueva Reservación</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Nueva Reservación{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group, form_textarea %}
+
+{{ page_header('Nueva Reservación', breadcrumb=[('CRM', ''), ('Reservaciones', url_for('reservaciones.lista_reservaciones')), ('Nueva', '')]) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label class="form-label">Nombre de contacto *</label>
-      <input type="text" name="nombre_contacto" class="form-control" required>
-    </div>
-    <div class="mb-3">
-      <label class="form-label">Teléfono</label>
-      <input type="text" name="telefono" class="form-control">
-    </div>
+
+    {{ form_group('nombre_contacto', 'Nombre de contacto', required=true, icon='user') }}
+    {{ form_group('telefono', 'Teléfono', icon='phone') }}
+
     <div class="row">
-      <div class="col-md-8 mb-3">
-        <label class="form-label">Fecha y Hora *</label>
-        <input type="datetime-local" name="fecha_hora" class="form-control" required>
+      <div class="col-md-8">
+        {{ form_group('fecha_hora', 'Fecha y Hora', type='datetime-local', required=true, icon='calendar') }}
       </div>
-      <div class="col-md-4 mb-3">
-        <label class="form-label"># Personas</label>
-        <input type="number" name="num_personas" class="form-control" value="2" min="1">
+      <div class="col-md-4">
+        {{ form_group('num_personas', '# Personas', type='number', value='2', min='1') }}
       </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Mesa (opcional)</label>
-      <select name="mesa_id" class="form-select">
+
+    <div class="cl-form-group">
+      <label class="cl-form-label" for="field_mesa_id">Mesa (opcional)</label>
+      <select class="cl-form-input cl-form-select" id="field_mesa_id" name="mesa_id">
         <option value="">— Sin asignar —</option>
         {% for m in mesas %}
         <option value="{{ m.id }}">Mesa {{ m.numero }} ({{ m.capacidad }} pers.) — {{ m.estado }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Cliente registrado (opcional)</label>
-      <select name="cliente_id" class="form-select">
+
+    <div class="cl-form-group">
+      <label class="cl-form-label" for="field_cliente_id">Cliente registrado (opcional)</label>
+      <select class="cl-form-input cl-form-select" id="field_cliente_id" name="cliente_id">
         <option value="">— Sin vincular —</option>
         {% for c in clientes %}
         <option value="{{ c.id }}">{{ c.nombre }}{% if c.telefono %} ({{ c.telefono }}){% endif %}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Notas</label>
-      <textarea name="notas" class="form-control" rows="2"></textarea>
+
+    {{ form_textarea('notas', 'Notas', rows=2) }}
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Crear Reservación
+      </button>
+      <a href="{{ url_for('reservaciones.lista_reservaciones') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
     </div>
-    <button type="submit" class="btn btn-success">Crear Reservación</button>
-    <a href="{{ url_for('reservaciones.lista_reservaciones') }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>
 {% endblock %}

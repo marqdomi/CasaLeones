@@ -1,29 +1,35 @@
-{% extends 'base.html' %}
-{% block title %}Registrar Merma{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">Registrar Merma</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Registrar Merma{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group %}
+
+{{ page_header('Registrar Merma', breadcrumb=[('Inventario', ''), ('Ingredientes', url_for('inventario.lista_ingredientes')), ('Merma', '')]) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label class="form-label">Ingrediente</label>
-      <select name="ingrediente_id" class="form-select" required>
-        <option value="">— Seleccionar —</option>
+
+    <div class="cl-form-group">
+      <label class="cl-form-label" for="field_ingrediente_id">Ingrediente <span class="text-danger">*</span></label>
+      <select class="cl-form-input cl-form-select" id="field_ingrediente_id" name="ingrediente_id" required>
+        <option value="">Seleccionar ingrediente…</option>
         {% for i in ingredientes %}
         <option value="{{ i.id }}">{{ i.nombre }} ({{ i.unidad }}) — Stock: {{ '%.2f'|format(i.stock_actual) }}</option>
         {% endfor %}
       </select>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Cantidad perdida</label>
-      <input type="number" step="0.01" name="cantidad" class="form-control" required min="0.01">
+
+    {{ form_group('cantidad', 'Cantidad perdida', type='number', required=true, step='0.01', min='0.01') }}
+    {{ form_group('motivo', 'Motivo', required=true, placeholder='Caducidad, derrame, etc.') }}
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--warning">
+        <i data-lucide="alert-triangle" class="icon-sm"></i> Registrar Merma
+      </button>
+      <a href="{{ url_for('inventario.lista_ingredientes') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Motivo</label>
-      <input type="text" name="motivo" class="form-control" placeholder="Caducidad, derrame, etc.">
-    </div>
-    <button type="submit" class="btn btn-warning">Registrar Merma</button>
-    <a href="{{ url_for('inventario.lista_ingredientes') }}" class="btn btn-secondary">Cancelar</a>
   </form>
 </div>
 {% endblock %}

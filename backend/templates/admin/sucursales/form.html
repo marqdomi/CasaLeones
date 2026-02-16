@@ -1,34 +1,39 @@
-{% extends 'base.html' %}
-{% block title %}{{ 'Editar' if sucursal else 'Nueva' }} Sucursal{% endblock %}
-{% block content %}
-<div class="container" style="max-width:600px;">
-  <h2 class="mt-4">{{ 'Editar' if sucursal else 'Nueva' }} Sucursal</h2>
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}{{ 'Editar' if sucursal else 'Nueva' }} Sucursal{% endblock %}
+
+{% block admin_content %}
+{% from 'components/_page_header.html' import page_header %}
+{% from 'components/_form_group.html' import form_group %}
+
+{{ page_header(
+    'Editar Sucursal: ' ~ sucursal.nombre if sucursal else 'Nueva Sucursal',
+    breadcrumb=[('Configuración', ''), ('Sucursales', url_for('sucursales.lista_sucursales')), (('Editar' if sucursal else 'Nueva'), '')]
+) }}
+
+<div class="cl-card" style="max-width:640px;">
   <form method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label for="nombre" class="form-label">Nombre *</label>
-      <input type="text" class="form-control" id="nombre" name="nombre"
-             value="{{ sucursal.nombre if sucursal else '' }}" required>
-    </div>
-    <div class="mb-3">
-      <label for="direccion" class="form-label">Dirección</label>
-      <input type="text" class="form-control" id="direccion" name="direccion"
-             value="{{ sucursal.direccion if sucursal else '' }}">
-    </div>
-    <div class="mb-3">
-      <label for="telefono" class="form-label">Teléfono</label>
-      <input type="text" class="form-control" id="telefono" name="telefono"
-             value="{{ sucursal.telefono if sucursal else '' }}">
-    </div>
+
+    {{ form_group('nombre', 'Nombre', value=sucursal.nombre if sucursal else '', required=true, icon='building') }}
+    {{ form_group('direccion', 'Dirección', value=sucursal.direccion if sucursal else '', icon='map-pin') }}
+    {{ form_group('telefono', 'Teléfono', value=sucursal.telefono if sucursal else '', icon='phone') }}
+
     {% if sucursal %}
-    <div class="form-check mb-3">
-      <input type="checkbox" class="form-check-input" id="activa" name="activa"
-             {{ 'checked' if sucursal.activa else '' }}>
-      <label class="form-check-label" for="activa">Activa</label>
+    <div class="cl-form-group">
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" id="activa" name="activa"
+               {{ 'checked' if sucursal.activa else '' }}>
+        <label class="form-check-label" for="activa">Sucursal activa</label>
+      </div>
     </div>
     {% endif %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
-    <a href="{{ url_for('sucursales.lista_sucursales') }}" class="btn btn-secondary">Cancelar</a>
+
+    <div class="d-flex gap-2 mt-4">
+      <button type="submit" class="cl-btn cl-btn--primary">
+        <i data-lucide="save" class="icon-sm"></i> Guardar
+      </button>
+      <a href="{{ url_for('sucursales.lista_sucursales') }}" class="cl-btn cl-btn--ghost">Cancelar</a>
+    </div>
   </form>
 </div>
 {% endblock %}
