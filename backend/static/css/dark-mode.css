@@ -138,42 +138,7 @@
   color: var(--cl-gray-100);
 }
 
-/*====================================
-  Accessibility — Focus Visible
-====================================*/
-*:focus-visible {
-  outline: 3px solid var(--cl-red-500);
-  outline-offset: 2px;
-}
-.btn:focus-visible,
-.form-control:focus-visible,
-.form-select:focus-visible,
-.nav-link:focus-visible,
-.cl-btn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(166,25,46,0.4);
-}
-
-/*====================================
-  Skip to Content Link
-====================================*/
-.skip-to-content {
-  position: absolute;
-  top: -100px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--cl-red-500);
-  color: #fff;
-  padding: 0.5rem 1.5rem;
-  border-radius: 0 0 8px 8px;
-  z-index: 9999;
-  text-decoration: none;
-  font-weight: bold;
-  transition: top 0.2s;
-}
-.skip-to-content:focus {
-  top: 0;
-  outline: none;
-}
+/* Skip-to-content styles moved to tokens.css */
 
 /*====================================
   Auto-detect system dark mode

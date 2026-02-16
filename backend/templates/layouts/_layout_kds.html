@@ -23,7 +23,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/cocina_timers.css') }}?v={{ config.VERSION }}">
 <style>
   /* KDS full-screen overrides */
-  body { overflow: hidden; }
+  body { overflow: hidden; overflow-y: auto; }
   .cl-kds { display: flex; flex-direction: column; height: 100vh; background: var(--cl-bg-primary); }
   .cl-kds__topbar {
     display: flex; align-items: center; justify-content: space-between;
@@ -41,6 +41,7 @@
     animation: kds-pulse 2s ease-in-out infinite;
   }
   @keyframes kds-pulse { 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
+  @media (prefers-reduced-motion: reduce) { .cl-kds__station-dot { animation: none; } }
   .cl-kds__stats { display: flex; gap: var(--cl-space-5); align-items: center; }
   .cl-kds__stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
   .cl-kds__stat-value { font-size: var(--cl-text-xl); font-weight: var(--cl-font-bold); }
@@ -63,6 +64,7 @@
 {% endblock %}
 
 {% block body_layout %}
+  <a href="#main-content" class="skip-to-content">Saltar al contenido</a>
   <div class="cl-kds">
     {# ── KDS Topbar ── #}
     <header class="cl-kds__topbar">
@@ -73,11 +75,11 @@
 
       <div class="cl-kds__stats">
         {% block kds_stats %}
-        <div class="cl-kds__stat">
+        <div class="cl-kds__stat" role="status" aria-label="Órdenes pendientes">
           <span class="cl-kds__stat-value" id="kdsPendingCount">—</span>
           <span class="cl-kds__stat-label">Pendientes</span>
         </div>
-        <div class="cl-kds__stat">
+        <div class="cl-kds__stat" role="status" aria-label="Tiempo promedio">
           <span class="cl-kds__stat-value" id="kdsAvgTime">—</span>
           <span class="cl-kds__stat-label">Tiempo prom.</span>
         </div>
@@ -104,13 +106,13 @@
     </header>
 
     {# ── Order cards grid ── #}
-    <div class="cl-kds__grid" id="main-content">
+    <main class="cl-kds__grid" id="main-content" aria-live="polite" aria-label="Órdenes pendientes">
       {% block kds_content %}
       <div class="cl-kds__empty">
         <i data-lucide="chef-hat"></i>
         <p>No hay órdenes pendientes</p>
       </div>
       {% endblock %}
-    </div>
+    </main>
   </div>
 {% endblock body_layout %}

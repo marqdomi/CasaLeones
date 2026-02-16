@@ -11,7 +11,7 @@
 {% macro render_flashes() %}
 {% with messages = get_flashed_messages(with_categories=true) %}
 {% if messages %}
-<div class="cl-toast-container" role="region" aria-label="Notificaciones" id="toastContainer">
+<div class="cl-toast-container" role="region" aria-label="Notificaciones" aria-live="polite" id="toastContainer">
   {% for category, message in messages %}
   {% set variant = 'error' if category in ('danger', 'error') else category %}
   {% set icons = {'success': 'check-circle', 'error': 'x-circle', 'warning': 'alert-triangle', 'info': 'info'} %}
@@ -27,7 +27,13 @@
 <script>
 (function(){
   document.querySelectorAll('.cl-toast').forEach(function(t){
-    setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 4000);
+    var timer;
+    function startTimer(){ timer = setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 5000); }
+    t.addEventListener('mouseenter', function(){ clearTimeout(timer); });
+    t.addEventListener('focusin', function(){ clearTimeout(timer); });
+    t.addEventListener('mouseleave', startTimer);
+    t.addEventListener('focusout', startTimer);
+    startTimer();
   });
 })();
 </script>

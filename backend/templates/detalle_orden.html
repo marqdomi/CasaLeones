@@ -49,7 +49,7 @@
   </div>
 
   {# ═══════════════════════ RIGHT — Cart Panel (40%) ═══════════════════════ #}
-  <div class="split-panel__cart" id="cartPanel">
+  <div class="split-panel__cart" id="cartPanel" role="region" aria-label="Carrito de orden" aria-live="polite">
     {# Cart header #}
     <div class="cart-header">
       <div>
@@ -83,7 +83,7 @@
     </div>
 
     {# Cart totals #}
-    <div class="cart-totals" id="cartTotals" style="display: none;">
+    <div class="cart-totals" id="cartTotals" style="display: none;" role="status" aria-label="Totales del carrito">
       <div class="cart-totals__row">
         <span>Subtotal</span>
         <span id="cartSubtotal">$0.00</span>
@@ -499,6 +499,14 @@ document.addEventListener('keydown', function(e) {
     searchInput.value = '';
     searchInput.dispatchEvent(new Event('input'));
     searchInput.blur();
+  }
+});
+
+// Keyboard activation for product tiles (Enter / Space)
+document.getElementById('productGrid').addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('cl-product-tile')) {
+    e.preventDefault();
+    e.target.click();
   }
 });
 

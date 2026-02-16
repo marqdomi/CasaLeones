@@ -189,6 +189,39 @@
 /* ═══════════════════════════════════════════════════
    Base Typography
    ═══════════════════════════════════════════════════ */
+
+/* ── Global Focus Visible ── */
+*:focus-visible {
+  outline: 3px solid var(--cl-red-500);
+  outline-offset: 2px;
+}
+
+/* ── Forced colors (high-contrast mode) ── */
+@media (forced-colors: active) {
+  *:focus-visible { outline-color: Highlight; }
+  .cl-form-input:focus { outline: 2px solid Highlight; }
+}
+
+/* ── Skip-to-content link ── */
+.skip-to-content {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--cl-red-500);
+  color: #fff;
+  padding: 0.5rem 1.5rem;
+  border-radius: 0 0 8px 8px;
+  z-index: 9999;
+  text-decoration: none;
+  font-weight: bold;
+  transition: top 0.2s;
+}
+.skip-to-content:focus {
+  top: 0;
+  outline: none;
+}
+
 body {
   font-family: var(--cl-font-sans);
   color: var(--cl-text-primary);
@@ -243,8 +276,9 @@ small, .text-sm { font-size: var(--cl-text-sm); }
   line-height: var(--cl-leading-tight);
 }
 .cl-btn:focus-visible {
-  outline: 3px solid var(--cl-info-500);
+  outline: 3px solid var(--cl-red-500);
   outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(166,25,46,0.25);
 }
 
 .cl-btn--primary {
@@ -656,7 +690,7 @@ small, .text-sm { font-size: var(--cl-text-sm); }
   min-height: 40px;
 }
 .cl-form-input:focus {
-  outline: none;
+  outline: 3px solid transparent;
   border-color: var(--cl-red-500);
   box-shadow: 0 0 0 3px var(--cl-red-100);
 }
@@ -1310,4 +1344,247 @@ small, .text-sm { font-size: var(--cl-text-sm); }
 /* Desktop: collapsed sidebar adjustments */
 .cl-main--expanded {
   margin-left: var(--cl-sidebar-collapsed);
+}
+
+/* ═══════════════════════════════════════════════════
+   Reduced Motion — WCAG 2.3.3
+   Disable animations and transitions for users who prefer reduced motion
+   ═══════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .cl-skeleton { animation: none; background: var(--cl-gray-200); }
+  .cl-toast { animation: none; }
+}
+
+/* ═══════════════════════════════════════════════════
+   Print CSS — Reportes, Corte de Caja & Tickets
+   ═══════════════════════════════════════════════════ */
+@media print {
+  /* ── Force light colours ── */
+  :root,
+  [data-bs-theme="dark"],
+  [data-theme="dark"] {
+    --cl-bg-primary: #ffffff;
+    --cl-bg-secondary: #f9fafb;
+    --cl-text-primary: #111827;
+    --cl-text-secondary: #4b5563;
+    --cl-text-tertiary: #6b7280;
+    --cl-border-color: #e5e7eb;
+    color-scheme: light;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+    font-size: 11pt;
+    line-height: 1.4;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Hide chrome ── */
+  .cl-sidebar,
+  .cl-sidebar-backdrop,
+  .cl-topbar,
+  .cl-topbar--ops,
+  .cl-ops-bottom-tabs,
+  nav.navbar.custom-navbar,
+  .skip-to-content,
+  .cl-toast-container,
+  #toast-container,
+  #darkModeToggle,
+  #sidebarToggle,
+  #sidebarOpen,
+  .pago-success-overlay,
+  .pago-confirm,
+  .cl-page-header__actions,        /* export/CSV/PDF buttons */
+  form:not(.print-keep),            /* filters, search forms */
+  canvas,                            /* Chart.js canvases */
+  .chart-container-sm,
+  .chart-container-md,
+  .chart-container-xl,
+  [id^="btnToggle"],
+  [id^="btnExport"],
+  .btn-group,
+  .pagination,
+  footer {
+    display: none !important;
+  }
+
+  /* ── Layout reset ── */
+  .cl-main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+  .cl-main--expanded {
+    margin-left: 0 !important;
+  }
+  .cl-main__content,
+  .cl-ops-main,
+  main#main-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* ── Page header ── */
+  .cl-page-header {
+    padding: 0 0 8pt 0 !important;
+    border-bottom: 1pt solid #ccc;
+    margin-bottom: 12pt;
+  }
+  .cl-page-header__breadcrumb {
+    display: none !important;
+  }
+  .cl-page-header__title {
+    font-size: 16pt;
+    color: #111 !important;
+  }
+
+  /* ── Cards: remove shadow, keep borders ── */
+  .cl-card {
+    box-shadow: none !important;
+    border: 1pt solid #ddd !important;
+    break-inside: avoid;
+    margin-bottom: 10pt;
+  }
+  .cl-card__header {
+    background: #f3f4f6 !important;
+    color: #111 !important;
+    border-bottom: 1pt solid #ddd;
+    padding: 6pt 10pt !important;
+  }
+  .cl-card__body {
+    padding: 8pt 10pt !important;
+  }
+
+  /* ── KPI cards ── */
+  .cl-dashboard-kpi {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140pt, 1fr)) !important;
+    gap: 8pt !important;
+    margin-bottom: 12pt;
+  }
+  .cl-kpi-card {
+    box-shadow: none !important;
+    border: 1pt solid #ddd !important;
+    padding: 6pt 10pt !important;
+    break-inside: avoid;
+  }
+  .cl-kpi-card__icon {
+    display: none;
+  }
+  .cl-kpi-card__value {
+    font-size: 14pt;
+    color: #111 !important;
+  }
+  .cl-kpi-card__label {
+    font-size: 8pt;
+    color: #555 !important;
+  }
+
+  /* ── Tables ── */
+  .cl-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  .cl-table th,
+  .cl-table td {
+    border: 0.5pt solid #ccc !important;
+    padding: 4pt 6pt !important;
+    color: #111 !important;
+    background: transparent !important;
+  }
+  .cl-table thead th {
+    background: #f3f4f6 !important;
+    font-weight: 600;
+  }
+  .cl-table tr {
+    break-inside: avoid;
+  }
+
+  /* ── Badges: keep background ── */
+  .cl-badge {
+    border: 0.5pt solid #999 !important;
+    font-size: 7pt;
+  }
+
+  /* ── Buttons (any remaining) ── */
+  .cl-btn {
+    display: none !important;
+  }
+
+  /* ── Links ── */
+  a, a:visited {
+    color: #111 !important;
+    text-decoration: none !important;
+  }
+
+  /* ── Page breaks ── */
+  h1, h2, h3, h4, h5, h6 {
+    break-after: avoid;
+  }
+  .cl-card, .cl-table, .cl-kpi-card {
+    break-inside: avoid;
+  }
+
+  /* ═══ Pago / Ticket specific ═══ */
+  .pago-layout {
+    display: block !important;
+    width: 100%;
+  }
+  .pago-summary {
+    width: 100% !important;
+    max-width: 280pt;    /* ~80mm thermal */
+    margin: 0 auto;
+    padding: 0 !important;
+  }
+  .pago-panel {
+    display: none !important;  /* hide payment controls */
+  }
+  .pago-summary__header {
+    text-align: center;
+    border-bottom: 1pt dashed #333;
+    padding-bottom: 6pt;
+    margin-bottom: 8pt;
+  }
+  .pago-summary__header .cl-btn {
+    display: none !important; /* hide back button */
+  }
+  .pago-items {
+    border-bottom: 1pt dashed #333;
+    padding-bottom: 6pt;
+    margin-bottom: 6pt;
+  }
+  .pago-totals {
+    border-top: 1pt dashed #333;
+    padding-top: 6pt;
+  }
+  .pago-totals__total {
+    font-weight: 700;
+    font-size: 13pt;
+    border-top: 1pt solid #111;
+    padding-top: 4pt;
+  }
+
+  /* ═══ Corte de Caja — keep conciliation form hidden ═══ */
+  .corte-form,
+  form[action*="corte"] {
+    display: none !important;
+  }
+
+  /* ═══ Reportes: force tables visible, hide chart containers ═══ */
+  [id^="charts"] {
+    display: none !important;
+  }
+  [id^="tabla"] {
+    display: block !important;
+  }
 }

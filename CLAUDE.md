@@ -254,3 +254,4 @@ Flask + PostgreSQL + Socket.IO + Redis + Gunicorn. Backend: `backend/`, Frontend
 - **Sprint 8 ✅** Core CRUD (data_table, form_group, sidebar admin, migrate Users/Products/Mesas/etc CRUD)
 - **Sprint 9 ✅** Operations Redesign (7/7 items: split-panel detalle_orden, product tiles + search, cart panel sticky, mesa grid color-coded, meseros cards + urgency, pago full-page multi-payment, historial CSV)
 - **Sprint 10 ✅** KDS, Polish & Dark Mode (8/8 items: KDS conveyor+urgency+sound, dashboard period selector, dark mode data-bs-theme nativo, reportes 9/9 migrados, facturación 6/6 migrada, corte de caja paginación)
+- **Sprint 11 ✅** Accessibility, Animation & QA (8/8 items: WCAG audit, focus management, aria-live, keyboard nav, prefers-reduced-motion, print CSS, performance audit, cross-browser/tablet)

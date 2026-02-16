@@ -87,6 +87,7 @@
 
 {# ── Override body_layout: sidebar + topbar + main ── #}
 {% block body_layout %}
+  <a href="#main-content" class="skip-to-content">Saltar al contenido</a>
   {# ── Sidebar ── #}
   <aside class="cl-sidebar" id="adminSidebar" aria-label="Menú de administración">
     {# Brand #}
@@ -108,6 +109,7 @@
           {% set is_active = request.endpoint == item.endpoint %}
           {% set has_children = item.children is defined and item.children %}
           {% set child_active = false %}
+          {% set current_attr = 'page' if is_active else false %}
           {% if has_children %}
             {% for child in item.children %}
               {% if request.endpoint == child.endpoint %}{% set child_active = true %}{% endif %}
@@ -118,6 +120,7 @@
           {# Collapsible sub-menu #}
           <div class="cl-sidebar__item-group">
             <a class="cl-sidebar__link{% if is_active or child_active %} active{% endif %}"
+               {% if is_active or child_active %}aria-current="page"{% endif %}
                href="#sidebar_sub_{{ loop.index0 }}_{{ loop.parent.loop.index0 if loop.parent is defined else 0 }}"
                data-bs-toggle="collapse"
                aria-expanded="{{ 'true' if child_active else 'false' }}"
@@ -138,7 +141,8 @@
           {% else %}
           {# Regular link #}
           <a class="cl-sidebar__link{% if is_active %} active{% endif %}"
-             href="{{ url_for(item.endpoint) }}">
+             href="{{ url_for(item.endpoint) }}"
+             {% if is_active %}aria-current="page"{% endif %}>
             <i data-lucide="{{ item.icon }}" class="icon-sm"></i>
             <span class="cl-sidebar__label">{{ item.label }}</span>
           </a>
@@ -202,11 +206,11 @@
     </header>
 
     {# Page content #}
-    <div class="cl-main__content" id="main-content">
+    <main class="cl-main__content" id="main-content">
       {# Flash messages #}
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-      <div class="cl-toast-container" role="region" aria-label="Notificaciones">
+      <div class="cl-toast-container" role="region" aria-label="Notificaciones" aria-live="polite">
         {% for category, message in messages %}
         {% set variant = 'error' if category in ('danger', 'error') else category %}
         <div class="cl-toast cl-toast--{{ variant }}" role="alert" aria-atomic="true">
@@ -222,7 +226,7 @@
       {% endwith %}
 
       {% block admin_content %}{% endblock %}
-    </div>
+    </main>
   </div>
 
   {# ── Sidebar JS ── #}
@@ -251,15 +255,30 @@
     openBtn.addEventListener('click', function(){
       sidebar.classList.add('open');
       backdrop.classList.add('active');
+      // Focus first link in sidebar
+      var firstLink = sidebar.querySelector('.cl-sidebar__link');
+      if(firstLink) firstLink.focus();
     });
-    backdrop.addEventListener('click', function(){
+    function closeSidebar(){
       sidebar.classList.remove('open');
       backdrop.classList.remove('active');
+      openBtn.focus(); // return focus to trigger
+    }
+    backdrop.addEventListener('click', closeSidebar);
+    // Close sidebar on Escape
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
     });
 
-    // Auto-dismiss toasts
+    // Auto-dismiss toasts (pause on hover/focus for a11y)
     document.querySelectorAll('.cl-toast').forEach(function(t){
-      setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 4000);
+      var timer;
+      function startTimer(){ timer = setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 5000); }
+      t.addEventListener('mouseenter', function(){ clearTimeout(timer); });
+      t.addEventListener('focusin', function(){ clearTimeout(timer); });
+      t.addEventListener('mouseleave', startTimer);
+      t.addEventListener('focusout', startTimer);
+      startTimer();
     });
   })();
   </script>

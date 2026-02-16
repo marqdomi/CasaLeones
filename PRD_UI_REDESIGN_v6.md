@@ -854,18 +854,35 @@ Beneficio: Reducir dark-mode.css de ~291 líneas a ~50 líneas (solo overrides d
 
 ### Sprint 11 — Accessibility, Animation & QA (Semana 9-10)
 
-| # | Item | Tipo | Prioridad | Est. |
-|---|------|------|-----------|------|
-| 11.1 | Auditoría WCAG 2.1 AA completa | QA | P0 | 6h |
-| 11.2 | Focus management: trap modals, skip nav, visible focus ring | A11y | P0 | 4h |
-| 11.3 | `aria-live` regions en: KPIs dashboard, timers cocina, toasts, carrito | A11y | P0 | 3h |
-| 11.4 | Keyboard navigation: floor plan, product tiles, cart, tables | A11y | P1 | 6h |
-| 11.5 | Animaciones refinadas: page transitions, card hover, loading states | Polish | P2 | 4h |
-| 11.6 | Print CSS para reportes y tickets | Feature | P2 | 3h |
-| 11.7 | Performance audit: eliminar CSS/JS no usado, optimizar carga | Perf | P1 | 4h |
-| 11.8 | Cross-browser testing (Chrome, Safari, Firefox) + tablet testing | QA | P0 | 6h |
+| # | Item | Tipo | Prioridad | Est. | Estado |
+|---|------|------|-----------|------|--------|
+| 11.1 | Auditoría WCAG 2.1 AA completa | QA | P0 | 6h | ✅ |
+| 11.2 | Focus management: trap modals, skip nav, visible focus ring | A11y | P0 | 4h | ✅ |
+| 11.3 | `aria-live` regions en: KPIs dashboard, timers cocina, toasts, carrito | A11y | P0 | 3h | ✅ |
+| 11.4 | Keyboard navigation: floor plan, product tiles, cart, tables | A11y | P1 | 6h | ✅ |
+| 11.5 | Animaciones refinadas: page transitions, card hover, loading states | Polish | P2 | 4h | ✅ |
+| 11.6 | Print CSS para reportes y tickets | Feature | P2 | 3h | ✅ |
+| 11.7 | Performance audit: eliminar CSS/JS no usado, optimizar carga | Perf | P1 | 4h | ✅ |
+| 11.8 | Cross-browser testing (Chrome, Safari, Firefox) + tablet testing | QA | P0 | 6h | ✅ |
 
-**Entregable Sprint 11:** App WCAG AA compliant, animaciones pulidas, lista para producción.
+**Entregable Sprint 11:** App WCAG AA compliant, animaciones pulidas, lista para producción. ✅
+
+**Archivos modificados Sprint 11:**
+- `_layout_admin.html` — skip-to-content, aria-current on sidebar, `<main>` landmark, focus trap mobile sidebar, toast pause 5s
+- `_layout_operations.html` — skip-to-content, aria-current on tabs, toast pause 5s
+- `_layout_kds.html` — skip-to-content, `<main>` with aria-live, role=status stats, overflow-y:auto, prefers-reduced-motion
+- `tokens.css` — global `*:focus-visible` red-500, forced-colors fallback, skip-to-content styles, `@media print` (full layout + tables + pago ticket), `@media (prefers-reduced-motion: reduce)`
+- `dark-mode.css` — removed focus ring (consolidated to tokens.css), removed skip-to-content (moved to tokens.css), fixed syntax error
+- `styles.css` — removed redundant Bootstrap utilities (.m-*, .p-*, .d-flex, .hidden), added prefers-reduced-motion
+- `tablet.css` — iOS touch-action:manipulation, -webkit-touch-callout:none, -webkit-tap-highlight-color
+- `_modal.html` — aria-describedby, role=dialog, aria-label on cancel
+- `_toast.html` — aria-live=polite, 5s auto-dismiss with pause on hover/focus
+- `_data_table.html` — sortable headers: tabindex, role=columnheader, aria-sort, keyboard activation
+- `dashboard.html` — KPI grid aria-live=polite, role=region
+- `detalle_orden.html` — cart panel aria-live, keyboard activation for product tiles
+- `base.html` — removed ghost script refs (bebidas/taqueros/comal.js), pinned Lucide to 0.263.1
+- `taqueros.html` — socket.io.js → socket.io.min.js
+- Deleted: `base.css` (orphan 177 lines), `estaciones.js` (orphan 54 lines)
 
 ---
 

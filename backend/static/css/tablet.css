@@ -11,6 +11,15 @@
   min-height: 44px;
 }
 
+/* ─── iOS Safari touch improvements ── */
+.btn, .cl-btn, .nav-link, .cl-topbar__tab,
+.cl-ops-bottom-tab, .cl-product-tile,
+.cl-sidebar__link {
+  touch-action: manipulation;           /* disable double-tap zoom */
+  -webkit-touch-callout: none;          /* no callout on long-press */
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ─── Tablet breakpoint (768-1024px) ── */
 @media (min-width: 768px) and (max-width: 1024px) {
 

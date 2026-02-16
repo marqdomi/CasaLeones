@@ -53,7 +53,7 @@
   <thead>
     <tr>
       {% for label, field, sortable in columns %}
-      <th{% if sortable %} class="cl-table__sortable" data-sort="{{ field }}"{% endif %}>
+      <th{% if sortable %} class="cl-table__sortable" data-sort="{{ field }}" tabindex="0" role="columnheader" aria-sort="none"{% endif %}>
         {{ label }}
         {% if sortable %}<i data-lucide="arrow-up-down" class="icon-xs" style="opacity:.4"></i>{% endif %}
       </th>
@@ -81,7 +81,7 @@
 </table>
 {% if responsive %}</div>{% endif %}
 
-{# Client-side search filtering #}
+{# Client-side search filtering + keyboard sort #}
 <script>
 (function(){
   const input = document.querySelector('[data-table-search="{{ id }}"]');
@@ -92,6 +92,12 @@
     const q = this.value.toLowerCase();
     table.querySelectorAll('tbody tr').forEach(function(tr){
       tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+  // Keyboard activation for sortable headers (Enter / Space)
+  table.querySelectorAll('.cl-table__sortable').forEach(function(th){
+    th.addEventListener('keydown', function(e){
+      if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); th.click(); }
     });
   });
 })();

@@ -27,7 +27,7 @@
     form_action='',
     method='POST'
 ) %}
-<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="{{ id }}Label" aria-hidden="true">
+<div class="modal fade" id="{{ id }}" tabindex="-1" aria-labelledby="{{ id }}Label" aria-describedby="{{ id }}Body" aria-hidden="true" role="dialog">
   <div class="modal-dialog modal-dialog-centered modal-sm">
     <div class="modal-content cl-confirm-modal">
       <div class="modal-body text-center py-4">
@@ -35,10 +35,10 @@
           <i data-lucide="{{ icon }}" style="width:48px;height:48px;color:var(--cl-{{ 'red-500' if confirm_variant == 'danger' else 'gold-500' }})"></i>
         </div>
         <h5 class="mb-2" id="{{ id }}Label">{{ title }}</h5>
-        <p class="text-sm" style="color:var(--cl-text-secondary)">{{ body }}</p>
+        <p class="text-sm" id="{{ id }}Body" style="color:var(--cl-text-secondary)">{{ body }}</p>
       </div>
       <div class="modal-footer justify-content-center border-0 pt-0 pb-4 gap-2">
-        <button type="button" class="cl-btn cl-btn--ghost" data-bs-dismiss="modal">
+        <button type="button" class="cl-btn cl-btn--ghost" data-bs-dismiss="modal" aria-label="{{ cancel_text }}">
           {{ cancel_text }}
         </button>
         {% if form_action %}

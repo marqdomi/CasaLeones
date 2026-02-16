@@ -17,6 +17,7 @@
 {% block title %}{% block page_title %}Operaciones{% endblock %} — CasaLeones{% endblock %}
 
 {% block body_layout %}
+  <a href="#main-content" class="skip-to-content">Saltar al contenido</a>
   {# ── Top Navigation Bar ── #}
   <nav class="cl-topbar cl-topbar--ops" role="navigation" aria-label="Navegación operaciones">
     <div class="cl-topbar__left">
@@ -27,17 +28,20 @@
       {# Tab navigation #}
       <div class="cl-topbar__tabs d-none d-md-flex">
         <a href="{{ url_for('meseros.view_meseros') }}"
-           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'meseros' %} active{% endif %}">
+           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'meseros' %} active{% endif %}"
+           {% if active_op_tab is defined and active_op_tab == 'meseros' %}aria-current="page"{% endif %}>
           <i data-lucide="clipboard-list" class="icon-sm"></i>
           <span>Meseros</span>
         </a>
         <a href="{{ url_for('meseros.mapa_mesas') }}"
-           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'mapa' %} active{% endif %}">
+           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'mapa' %} active{% endif %}"
+           {% if active_op_tab is defined and active_op_tab == 'mapa' %}aria-current="page"{% endif %}>
           <i data-lucide="map" class="icon-sm"></i>
           <span>Mapa</span>
         </a>
         <a href="{{ url_for('meseros.historial_dia') }}"
-           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'historial' %} active{% endif %}">
+           class="cl-topbar__tab{% if active_op_tab is defined and active_op_tab == 'historial' %} active{% endif %}"
+           {% if active_op_tab is defined and active_op_tab == 'historial' %}aria-current="page"{% endif %}>
           <i data-lucide="history" class="icon-sm"></i>
           <span>Historial</span>
         </a>
@@ -89,17 +93,20 @@
   {# ── Mobile bottom tabs ── #}
   <nav class="cl-ops-bottom-tabs d-md-none" aria-label="Navegación rápida">
     <a href="{{ url_for('meseros.view_meseros') }}"
-       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'meseros' %} active{% endif %}">
+       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'meseros' %} active{% endif %}"
+       {% if active_op_tab is defined and active_op_tab == 'meseros' %}aria-current="page"{% endif %}>
       <i data-lucide="clipboard-list" class="icon-sm"></i>
       <span>Meseros</span>
     </a>
     <a href="{{ url_for('meseros.mapa_mesas') }}"
-       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'mapa' %} active{% endif %}">
+       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'mapa' %} active{% endif %}"
+       {% if active_op_tab is defined and active_op_tab == 'mapa' %}aria-current="page"{% endif %}>
       <i data-lucide="map" class="icon-sm"></i>
       <span>Mapa</span>
     </a>
     <a href="{{ url_for('meseros.historial_dia') }}"
-       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'historial' %} active{% endif %}">
+       class="cl-ops-bottom-tab{% if active_op_tab is defined and active_op_tab == 'historial' %} active{% endif %}"
+       {% if active_op_tab is defined and active_op_tab == 'historial' %}aria-current="page"{% endif %}>
       <i data-lucide="history" class="icon-sm"></i>
       <span>Historial</span>
     </a>
@@ -110,7 +117,7 @@
     {# Flash messages #}
     {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-    <div class="cl-toast-container" role="region" aria-label="Notificaciones">
+    <div class="cl-toast-container" role="region" aria-label="Notificaciones" aria-live="polite">
       {% for category, message in messages %}
       {% set variant = 'error' if category in ('danger', 'error') else category %}
       <div class="cl-toast cl-toast--{{ variant }}" role="alert" aria-atomic="true">
@@ -128,11 +135,17 @@
     {% block ops_content %}{% endblock %}
   </main>
 
-  {# Auto-dismiss toasts #}
+  {# Auto-dismiss toasts (pause on hover/focus for a11y) #}
   <script>
   (function(){
     document.querySelectorAll('.cl-toast').forEach(function(t){
-      setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 4000);
+      var timer;
+      function startTimer(){ timer = setTimeout(function(){ t.style.opacity='0'; setTimeout(function(){ t.remove(); }, 300); }, 5000); }
+      t.addEventListener('mouseenter', function(){ clearTimeout(timer); });
+      t.addEventListener('focusin', function(){ clearTimeout(timer); });
+      t.addEventListener('mouseleave', startTimer);
+      t.addEventListener('focusout', startTimer);
+      startTimer();
     });
   })();
   </script>

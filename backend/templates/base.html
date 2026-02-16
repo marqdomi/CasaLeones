@@ -128,19 +128,10 @@
   {% endblock body_layout %}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js?v={{ config.VERSION }}"></script>
   <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', function(){ if(window.lucide) lucide.createIcons(); });</script>
   {% block scripts %}
     <script src="/socket.io/socket.io.js"></script>
-    {% if request.endpoint == 'meseros.view_meseros' %}
-      <script src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.dashboard_bebidas_view' %}
-      <script src="{{ url_for('static', filename='js/bebidas.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.dashboard_taquero_view' %}
-      <script src="{{ url_for('static', filename='js/taqueros.js') }}?v={{ config.VERSION }}"></script>
-    {% elif request.endpoint == 'cocina.dashboard_comal_view' %}
-      <script src="{{ url_for('static', filename='js/comal.js') }}?v={{ config.VERSION }}"></script>
-    {% endif %}
   {% endblock %}
   <script nonce="{{ csp_nonce }}">
     // CSRF token for Fetch (always available, no jQuery needed)
