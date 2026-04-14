@@ -158,10 +158,10 @@ def create_app():
             sucursal = Sucursal.query.first()
             brand_name = sucursal.nombre if sucursal else 'KaiRest'
             brand_logo = getattr(sucursal, 'logo_url', None) or _url_for(
-                'static', filename='img/kairest-logo.svg')
+                'static', filename='img/kainetResto.png')
         except Exception:
             brand_name = 'KaiRest'
-            brand_logo = _url_for('static', filename='img/kairest-logo.svg')
+            brand_logo = _url_for('static', filename='img/kainetResto.png')
         return dict(
             brand_name=brand_name,
             brand_logo=brand_logo,

@@ -4,7 +4,7 @@ from backend.models.models import Orden, OrdenDetalle, Producto, Estacion, Usuar
 from backend.utils import login_required, verificar_orden_completa
 from backend.extensions import db, socketio
 from flask_login import current_user
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from backend.models.models import utc_now
 from text_unidecode import unidecode
 import re
@@ -294,7 +294,7 @@ def station_view(slug):
     detalles = _query_pending_detalles(estacion.nombre)
     ordenes_data = _group_by_orden(detalles)
     return render_template('kds_station.html',
-                           ordenes_data=ordenes_data, now_utc=utc_now(),
+                           ordenes_data=ordenes_data, now_utc=datetime.now(timezone.utc).replace(tzinfo=None),
                            station=cfg['slug'], station_slug=cfg['slug'], cfg=cfg)
 
 
@@ -309,7 +309,7 @@ def station_fragment(slug):
     ordenes_data = _group_by_orden(detalles)
     total = sum(d.cantidad for d in detalles)
     html = render_template('cocina/_kds_cards_fragment.html',
-                           ordenes_data=ordenes_data, now_utc=utc_now())
+                           ordenes_data=ordenes_data, now_utc=datetime.now(timezone.utc).replace(tzinfo=None))
     return jsonify({'html': html, 'conteo_productos': total})
 
 

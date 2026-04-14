@@ -2,9 +2,11 @@
 {% block page_title %}Iniciar Sesión{% endblock %}
 
 {% block auth_content %}
-<img src="{{ url_for('static', filename='img/kairest-logo.svg') }}" alt="Logo KaiRest" class="cl-auth__logo">
-<h1 class="cl-auth__title">Bienvenido</h1>
-<p class="cl-auth__subtitle">Inicia sesión para continuar</p>
+<div class="cl-auth__brand">
+  <img src="{{ url_for('static', filename='img/kainetResto.png') }}" alt="KaiResto" class="cl-auth__logo">
+  <h1 class="cl-auth__title">Bienvenido</h1>
+  <p class="cl-auth__subtitle">Inicia sesión para continuar</p>
+</div>
 
 {# ── Flash messages ── #}
 {% with messages = get_flashed_messages(with_categories=true) %}

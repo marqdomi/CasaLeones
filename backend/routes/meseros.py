@@ -12,7 +12,7 @@ from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def view_meseros():
 
     template = 'admin/ordenes_activas.html' if is_admin else 'meseros.html'
     return render_template(template, ordenes_mesero=ordenes_mesero,
-                           ordenes_pagadas=ordenes_pagadas, now_utc=utc_now())
+                           ordenes_pagadas=ordenes_pagadas, now_utc=datetime.now(timezone.utc).replace(tzinfo=None))
 
 
 # =====================================================================
