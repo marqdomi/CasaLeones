@@ -155,15 +155,28 @@ Usage:
   .cl-auth__input-icon {
     position: absolute;
     left: 14px;
-    bottom: 13px;
+    bottom: 11px;
     color: var(--cl-text-tertiary);
     pointer-events: none;
+  }
+
+  /* Override cl-form-input inside auth to make room for the icon */
+  .cl-auth__input-group .cl-form-input {
+    padding-left: 44px;
+    height: 46px;
+    background: var(--cl-surface-4, #1A1C28);
+    border-color: var(--cl-border-color, rgba(255,255,255,0.1));
+  }
+
+  .cl-auth__input-group .cl-form-input:focus {
+    border-color: rgba(196, 30, 58, 0.6);
+    box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.15);
   }
 
   .cl-auth__pw-toggle {
     position: absolute;
     right: 8px;
-    bottom: 8px;
+    bottom: 5px;
     background: none;
     border: none;
     padding: 5px;
