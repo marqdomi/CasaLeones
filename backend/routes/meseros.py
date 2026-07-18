@@ -320,7 +320,7 @@ def agregar_productos_a_orden(orden_id):
             if not prod:
                 continue
             cantidad = int(p_data['cantidad'])
-            notas = (p_data.get('notas') or '').strip()
+            notas = sanitizar_texto(p_data.get('notas') or '', 300)
 
             # Validación de stock (Sprint 2 — 3.2)
             if current_app.config.get('INVENTARIO_VALIDAR_STOCK'):
@@ -628,9 +628,23 @@ def registrar_pago(orden_id):
 
     # Recalcular totales
     orden.calcular_totales()
+    saldo_antes = orden.saldo_pendiente()
+
+    # Tarjeta/transferencia: no existe "cambio" — un cargo mayor al saldo sería
+    # un sobre-cobro real al cliente, se rechaza en vez de perderse en silencio.
+    if metodo != 'efectivo' and monto > saldo_antes:
+        return jsonify(success=False,
+                       message=f"Monto excede el saldo pendiente (${float(saldo_antes):.2f}).",
+                       saldo_pendiente=float(saldo_antes)), 400
+
+    # Efectivo: `monto` es lo que entregó el cliente. A la cuenta solo se aplica
+    # hasta el saldo (Pago.monto alimenta el corte de caja y debe cuadrar con la
+    # venta); el excedente es cambio, descontando la propina que se queda.
+    monto_aplicado = min(monto, saldo_antes) if metodo == 'efectivo' else monto
+    cambio_pago = max(monto - saldo_antes - propina, Decimal('0')) if metodo == 'efectivo' else Decimal('0')
 
     pago = Pago(
-        metodo=metodo, monto=monto,
+        metodo=metodo, monto=monto_aplicado,
         referencia=referencia, registrado_por=session.get('user_id'),
     )
     orden.pagos.append(pago)  # Use relationship so in-memory collection stays in sync
@@ -641,8 +655,8 @@ def registrar_pago(orden_id):
 
     # Si ya se cubrió el total, cerrar la orden
     if saldo <= 0:
-        cambio = abs(saldo) if metodo == 'efectivo' else Decimal('0')
-        orden.monto_recibido = total_pagado
+        cambio = cambio_pago
+        orden.monto_recibido = total_pagado + cambio_pago + (propina if metodo == 'efectivo' else Decimal('0'))
         orden.cambio = cambio
         orden.fecha_pago = utc_now()
         orden.estado = OrdenEstado.PAGADA

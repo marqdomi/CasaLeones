@@ -311,6 +311,9 @@ def usuario_editar(id):
                 estaciones = Estacion.query.order_by(Estacion.nombre).all()
                 return render_template('admin/usuario_form.html', usuario=u, estaciones=estaciones)
             u.set_password(new_pw)
+        from backend.services.audit import registrar_auditoria
+        registrar_auditoria('editar', 'Usuario', u.id,
+                            f'Usuario editado: {u.email}, rol={u.rol}' + (', password cambiado' if new_pw else ''))
         db.session.commit()
         flash('Usuario actualizado', 'success')
         return redirect(url_for('admin.lista_usuarios'))
@@ -332,6 +335,8 @@ def usuario_eliminar(id):
     if ordenes_count:
         flash(f'No se puede eliminar: tiene {ordenes_count} orden(es) activa(s).', 'danger')
         return redirect(url_for('admin.lista_usuarios'))
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('eliminar', 'Usuario', u.id, f'Usuario eliminado: {u.email} (rol={u.rol})')
     db.session.delete(u)
     db.session.commit()
     flash('Usuario eliminado', 'success')
@@ -649,6 +654,8 @@ def toggle_modo():
     current = ConfiguracionSistema.get('modo_sistema', 'basico')
     nuevo = 'basico' if current == 'avanzado' else 'avanzado'
     ConfiguracionSistema.set('modo_sistema', nuevo)
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('editar', 'ConfiguracionSistema', None, f'Modo sistema: {current} → {nuevo}')
     db.session.commit()
     flash(f'Modo cambiado a {nuevo}.', 'success')
     return redirect(request.referrer or url_for('admin.dashboard'))

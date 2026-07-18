@@ -216,14 +216,15 @@ def create_app():
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
         # Content Security Policy
+        # Vendors servidos localmente desde static/vendor — sin hosts CDN en CSP
         csp = (
             f"default-src 'self'; "
-            f"script-src 'self' 'nonce-{nonce}' cdn.jsdelivr.net cdnjs.cloudflare.com unpkg.com; "
-            f"style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com unpkg.com fonts.googleapis.com; "
+            f"script-src 'self' 'nonce-{nonce}'; "
+            f"style-src 'self' 'unsafe-inline'; "
             f"img-src 'self' data:; "
             f"media-src 'self' data:; "
-            f"connect-src 'self' ws: wss: cdn.jsdelivr.net cdnjs.cloudflare.com unpkg.com; "
-            f"font-src 'self' cdn.jsdelivr.net fonts.gstatic.com; "
+            f"connect-src 'self' ws: wss:; "
+            f"font-src 'self'; "
             f"frame-ancestors 'none'; "
             f"base-uri 'self'; "
             f"form-action 'self';"

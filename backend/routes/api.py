@@ -14,7 +14,13 @@ def listar_ordenes():
     estacion = request.args.get('estacion')
     estado = request.args.get('estado')
     if estacion:
-        ordenes = obtener_ordenes_por_estacion(estacion)
+        # El query param es el nombre de la estación; obtener_ordenes_por_estacion
+        # espera el objeto Estacion (usa .id) — resolver antes.
+        from backend.models.models import Estacion
+        est_obj = Estacion.query.filter(Estacion.nombre.ilike(estacion)).first()
+        if not est_obj:
+            return jsonify({'error': f'Estación "{estacion}" no encontrada'}), 404
+        ordenes = obtener_ordenes_por_estacion(est_obj)
         result = []
         for oid, detalles in ordenes.items():
             result.append({

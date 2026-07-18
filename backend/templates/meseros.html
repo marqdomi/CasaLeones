@@ -432,8 +432,8 @@
 </div>{# end padding wrapper #}
 
 {# ═══════════ Scripts ═══════════ #}
-<script nonce="{{ csp_nonce }}" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script nonce="{{ csp_nonce }}" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/jquery.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/socket.io.min.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/meseros.js') }}?v={{ config.VERSION }}"></script>
 <script nonce="{{ csp_nonce }}">
 (function() {

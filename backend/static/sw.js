@@ -7,15 +7,19 @@
  * - Push notifications scaffolding
  */
 
-const CACHE_NAME = 'casaleones-v3';
+const CACHE_NAME = 'casaleones-v4';
 const STATIC_ASSETS = [
   '/static/css/styles.css',
   '/static/js/meseros.js',
 
   '/static/img/logoCasaLeones.svg',
   '/static/manifest.json',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js',
+  '/static/vendor/bootstrap.min.css',
+  '/static/vendor/bootstrap.bundle.min.js',
+  '/static/vendor/jquery.min.js',
+  '/static/vendor/socket.io.min.js',
+  '/static/vendor/lucide.min.js',
+  '/static/vendor/chart.umd.min.js',
 ];
 
 // Install — pre-cache static assets

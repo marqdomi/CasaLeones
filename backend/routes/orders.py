@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session, g, current_app
 from backend.utils import login_required, verificar_orden_completa, verificar_stock_disponible, verificar_propiedad_orden
+from backend.services.sanitizer import sanitizar_texto
 from backend.models.models import Orden, OrdenDetalle, Producto, Mesa, OrdenEstado
 from backend.extensions import db, socketio
 
@@ -63,7 +64,7 @@ def add_product_to_order(orden_id):
         return jsonify({'error': 'Body JSON con producto_id requerido.'}), 400
     producto_id = data.get('producto_id')
     cantidad = data.get('cantidad', 1)
-    notas = data.get('notas', '').strip()
+    notas = sanitizar_texto(data.get('notas', '') or '', 300)
     producto = db.get_or_404(Producto, producto_id)
     orden = db.get_or_404(Orden, orden_id)
 
@@ -169,7 +170,7 @@ def update_order_detail(orden_id, detalle_id):
                     return jsonify({'error': 'Stock insuficiente', 'faltantes': faltantes}), 409
         detalle.cantidad = nueva_cantidad
     if 'notas' in data:
-        detalle.notas = data['notas']
+        detalle.notas = sanitizar_texto(data['notas'] or '', 300)
     db.session.commit()
     socketio.emit('order_detail_updated', {
         'orden_id': orden_id,

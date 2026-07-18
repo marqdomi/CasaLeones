@@ -115,11 +115,15 @@ def _group_by_orden(detalles):
 def _marcar_listo(orden_id, detalle_id):
     """Mark a single OrdenDetalle as 'listo', set fecha_listo, handle en_preparacion transition."""
     detalle = db.get_or_404(OrdenDetalle, detalle_id)
+    if detalle.orden_id != orden_id:
+        return jsonify({'error': 'El item no pertenece a esa orden'}), 400
+    orden = db.session.get(Orden, orden_id)
+    if orden and orden.estado in (OrdenEstado.CANCELADA, OrdenEstado.PAGADA, OrdenEstado.FINALIZADA):
+        return jsonify({'error': f'Orden {orden.estado}, no se puede modificar'}), 409
     if detalle.estado == OrdenEstado.LISTO:
         return jsonify({'message': 'Ya estaba marcado como listo'}), 200
     detalle.estado = OrdenEstado.LISTO
     detalle.fecha_listo = utc_now()
-    orden = db.session.get(Orden, orden_id)
 
     # Transition to en_preparacion on first item marked listo
     if orden and orden.estado == OrdenEstado.ENVIADO:
@@ -321,6 +325,9 @@ def station_marcar(slug, orden_id, detalle_id):
     """Mark a single item as done in any station."""
     estacion = _get_estacion_or_404(slug)
     _require_station_access(estacion)
+    detalle = db.session.get(OrdenDetalle, detalle_id)
+    if detalle and detalle.producto and detalle.producto.estacion_id != estacion.id:
+        return jsonify({'error': 'El item pertenece a otra estación'}), 403
     return _marcar_listo(orden_id, detalle_id)
 
 
@@ -338,6 +345,8 @@ def station_batch_listo(slug):
         return jsonify({'error': 'Se requiere orden_id y detalle_ids'}), 400
 
     orden = db.get_or_404(Orden, orden_id)
+    if orden.estado in (OrdenEstado.CANCELADA, OrdenEstado.PAGADA, OrdenEstado.FINALIZADA):
+        return jsonify({'error': f'Orden {orden.estado}, no se puede modificar'}), 409
     # Transition to en_preparacion on first item if still enviado
     if orden.estado == OrdenEstado.ENVIADO:
         orden.estado = OrdenEstado.EN_PREPARACION
@@ -351,7 +360,11 @@ def station_batch_listo(slug):
     now = utc_now()
     for did in detalle_ids:
         detalle = db.session.get(OrdenDetalle, did)
-        if detalle and detalle.estado != OrdenEstado.LISTO:
+        # Scope: solo items de esta orden y de la estación del slug — un request
+        # manipulado no puede marcar items de otras órdenes/estaciones.
+        if (detalle and detalle.orden_id == orden.id
+                and detalle.estado != OrdenEstado.LISTO
+                and detalle.producto and detalle.producto.estacion_id == estacion.id):
             detalle.estado = OrdenEstado.LISTO
             detalle.fecha_listo = now
             marked.append(detalle)

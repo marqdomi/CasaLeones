@@ -61,6 +61,6 @@
 
 <!-- Inject CSRF token for JS -->
 <script nonce="{{ csp_nonce }}">window.__csrfToken = "{{ csrf_token() }}";</script>
-<script nonce="{{ csp_nonce }}" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/socket.io.min.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/mapa_mesas.js') }}?v={{ config.VERSION }}"></script>
 {% endblock %}

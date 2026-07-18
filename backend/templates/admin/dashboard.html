@@ -175,6 +175,6 @@
 
 {% block scripts %}
 {{ super() }}
-<script nonce="{{ csp_nonce }}" src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
 <script nonce="{{ csp_nonce }}" src="{{ url_for('static', filename='js/admin-dashboard.js') }}?v={{ config.VERSION }}"></script>
 {% endblock %}
