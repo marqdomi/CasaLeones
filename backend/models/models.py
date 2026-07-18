@@ -561,18 +561,38 @@ class DeliveryOrden(db.Model):
 
 # -------------------- HELPER: descontar inventario al pagar --------------------
 
-def descontar_inventario_por_orden(orden, usuario_id):
-    """Descuenta stock de ingredientes según receta estándar de cada producto vendido."""
+def _cantidades_por_ingrediente(orden):
+    """Agrega las cantidades de receta de toda la orden por ingrediente_id."""
+    requerido = {}
     for detalle in orden.detalles:
+        if not detalle.producto:
+            continue
         for receta in detalle.producto.receta_items:
-            cantidad_total = receta.cantidad_por_unidad * detalle.cantidad
-            receta.ingrediente.stock_actual -= cantidad_total
-            mov = MovimientoInventario(
-                ingrediente_id=receta.ingrediente_id,
-                tipo='salida_venta',
-                cantidad=cantidad_total,
-                orden_id=orden.id,
-                usuario_id=usuario_id,
-                motivo=f'Venta orden #{orden.id}',
-            )
-            db.session.add(mov)
+            cantidad = receta.cantidad_por_unidad * detalle.cantidad
+            requerido[receta.ingrediente_id] = requerido.get(receta.ingrediente_id, 0) + cantidad
+    return requerido
+
+
+def descontar_inventario_por_orden(orden, usuario_id):
+    """Descuenta stock de ingredientes según receta estándar de cada producto vendido.
+
+    Bloquea cada fila de Ingrediente (SELECT ... FOR UPDATE) antes de restar para
+    evitar "lost update" cuando dos órdenes concurrentes descuentan el mismo insumo.
+    Los locks se toman en orden ascendente de ingrediente_id — mismo orden en
+    todas las transacciones — para que dos pagos concurrentes con ingredientes
+    compartidos no puedan deadlockear.
+    """
+    requerido = _cantidades_por_ingrediente(orden)
+    for ingrediente_id in sorted(requerido):
+        cantidad_total = requerido[ingrediente_id]
+        ingrediente = db.session.get(Ingrediente, ingrediente_id, with_for_update=True)
+        ingrediente.stock_actual -= cantidad_total
+        mov = MovimientoInventario(
+            ingrediente_id=ingrediente_id,
+            tipo='salida_venta',
+            cantidad=cantidad_total,
+            orden_id=orden.id,
+            usuario_id=usuario_id,
+            motivo=f'Venta orden #{orden.id}',
+        )
+        db.session.add(mov)

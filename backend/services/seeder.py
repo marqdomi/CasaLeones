@@ -40,9 +40,23 @@ def get_template_list():
     return result
 
 
-def seed_from_template(template_key):
+def seed_from_template(template_key, custom_estaciones=None, origen_map=None):
     """Seed categories, stations, and products from a named template.
     Idempotent — skips existing records.
+
+    A template defines a fixed set of "estaciones" (e.g. Parrilla/Comal/Barra)
+    and assigns each product to one of them. A small kitchen may run fewer
+    real stations than the template's default granularity, so this accepts:
+
+        custom_estaciones: list of station names to actually create, replacing
+            tpl['estaciones']. If None, the template's own list is used
+            unchanged (identical to the pre-existing behavior).
+        origen_map: dict {template_estacion_name: custom_estacion_name} routing
+            each template station to one of `custom_estaciones`. If None but
+            custom_estaciones is given, each template station maps to
+            custom_estaciones[min(i, len(custom_estaciones) - 1)] in order —
+            i.e. extra template stations collapse into the last custom one.
+
     Returns the number of products created.
     """
     templates = _load_templates()
@@ -58,19 +72,37 @@ def seed_from_template(template_key):
     db.session.commit()
     categorias = {c.nombre: c for c in Categoria.query.all()}
 
-    # ── Estaciones ──
-    for est_nombre in tpl['estaciones']:
+    # ── Estaciones: las del template, o las que el negocio realmente va a operar ──
+    estaciones_finales = custom_estaciones or tpl['estaciones']
+    for est_nombre in estaciones_finales:
         if not Estacion.query.filter_by(nombre=est_nombre).first():
             db.session.add(Estacion(nombre=est_nombre))
     db.session.commit()
-    estaciones = {e.nombre: e for e in Estacion.query.all()}
+    estaciones = {e.nombre.lower(): e for e in Estacion.query.all()}
+
+    # ── Mapeo: estación-del-template → estación-real-del-negocio ──
+    if origen_map:
+        mapa = {k.lower(): v for k, v in origen_map.items()}
+    elif custom_estaciones:
+        mapa = {
+            orig.lower(): custom_estaciones[min(i, len(custom_estaciones) - 1)]
+            for i, orig in enumerate(tpl['estaciones'])
+        }
+    else:
+        mapa = {orig.lower(): orig for orig in tpl['estaciones']}
 
     # ── Productos ──
+    # Un producto sin estación jamás aparece en ningún KDS y deja su orden
+    # incobrable (verificar_orden_completa exige todos los detalles listos),
+    # así que ante cualquier mapeo fallido caemos a la primera estación real.
+    est_fallback = estaciones.get(estaciones_finales[0].lower()) if estaciones_finales else None
     created = 0
     for prod in tpl['productos']:
         if not Producto.query.filter_by(nombre=prod['nombre']).first():
             cat = categorias.get(prod['categoria'])
-            est = estaciones.get(prod.get('estacion'))
+            orig_est = (prod.get('estacion') or '').lower()
+            est_nombre_final = mapa.get(orig_est, prod.get('estacion'))
+            est = estaciones.get((est_nombre_final or '').lower()) or est_fallback
             producto = Producto(
                 nombre=prod['nombre'],
                 precio=prod['precio'],

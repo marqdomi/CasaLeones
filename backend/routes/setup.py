@@ -176,6 +176,15 @@ def paso3():
                     db.session.flush()
                     estaciones_map[est_name.lower()] = new_est
 
+            # Un producto sin estación deja su orden incobrable (nunca aparece
+            # en ningún KDS) — garantizar al menos una estación de fallback.
+            if not estaciones_map:
+                default_est = Estacion(nombre='Cocina')
+                db.session.add(default_est)
+                db.session.flush()
+                estaciones_map['cocina'] = default_est
+            est_fallback = next(iter(estaciones_map.values()))
+
             created = 0
             for i, nombre in enumerate(nombres):
                 nombre = sanitizar_texto(nombre, 150)
@@ -196,7 +205,7 @@ def paso3():
                     db.session.add(cat)
                     db.session.flush()
 
-                estacion = estaciones_map.get(est_nombre.lower().strip()) if est_nombre else None
+                estacion = (estaciones_map.get(est_nombre.lower().strip()) if est_nombre else None) or est_fallback
 
                 if not Producto.query.filter_by(nombre=nombre).first():
                     prod = Producto(
@@ -213,8 +222,34 @@ def paso3():
             db.session.commit()
             flash(f'{created} productos agregados.', 'success')
         else:
-            # Template-based seeding (taqueria, restaurante, cafeteria)
-            created = seed_from_template(opcion)
+            # Template-based seeding (taqueria, restaurante, cafeteria) — the
+            # kitchen may run fewer real stations than the template's default
+            # granularity, so pick up the optional custom station config.
+            custom_estaciones = [
+                n for n in (sanitizar_texto(n, 50) for n in request.form.getlist('estacion_nombre[]'))
+                if n
+            ]
+            destino_idx_raw = request.form.getlist('estacion_destino[]')
+            origen_map = None
+            if custom_estaciones and destino_idx_raw:
+                tpl_meta = next((t for t in get_template_list() if t['key'] == opcion), None)
+                if tpl_meta:
+                    origen_map = {}
+                    for i, orig_nombre in enumerate(tpl_meta['estaciones']):
+                        if i >= len(destino_idx_raw):
+                            continue
+                        try:
+                            idx = int(destino_idx_raw[i])
+                        except (ValueError, TypeError):
+                            continue
+                        if 0 <= idx < len(custom_estaciones):
+                            origen_map[orig_nombre] = custom_estaciones[idx]
+
+            created = seed_from_template(
+                opcion,
+                custom_estaciones=custom_estaciones or None,
+                origen_map=origen_map,
+            )
             flash(f'Menu cargado: {created} productos agregados.', 'success')
 
         return redirect(url_for('setup.paso4'))
@@ -223,7 +258,9 @@ def paso3():
     categorias = [c.nombre for c in Categoria.query.order_by(Categoria.nombre).all()]
     estaciones = [e.nombre for e in Estacion.query.order_by(Estacion.nombre).all()]
     templates = get_template_list()
-    return render_template('setup/paso3.html', paso=3, categorias=categorias, estaciones=estaciones, templates=templates)
+    templates_estaciones = {t['key']: t['estaciones'] for t in templates}
+    return render_template('setup/paso3.html', paso=3, categorias=categorias, estaciones=estaciones,
+                           templates=templates, templates_estaciones=templates_estaciones)
 
 
 # ── Paso 4: Mesas ──

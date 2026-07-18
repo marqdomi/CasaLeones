@@ -1,7 +1,7 @@
 import logging
 import json
 from decimal import Decimal
-from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, g, current_app
+from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, g, current_app, abort
 from backend.models.models import (
     Mesa, Orden, Producto, OrdenDetalle, Sale, SaleItem, Usuario, Pago, IVA_RATE,
     descontar_inventario_por_orden, Cliente, MovimientoInventario, OrdenEstado, utc_now,
@@ -22,22 +22,27 @@ ESTADOS_MODIFICABLES = [OrdenEstado.PENDIENTE, OrdenEstado.ENVIADO, OrdenEstado.
 
 
 def _revertir_inventario_orden(orden, usuario_id):
-    """Reverse inventory deductions for a cancelled order that already had inventory deducted."""
-    for detalle in orden.detalles:
-        if not detalle.producto or not detalle.producto.receta_items:
-            continue
-        for receta in detalle.producto.receta_items:
-            cantidad_total = receta.cantidad_por_unidad * detalle.cantidad
-            receta.ingrediente.stock_actual += cantidad_total
-            mov = MovimientoInventario(
-                ingrediente_id=receta.ingrediente_id,
-                tipo='ajuste',
-                cantidad=cantidad_total,
-                orden_id=orden.id,
-                usuario_id=usuario_id,
-                motivo=f'Reversión cancelación orden #{orden.id}',
-            )
-            db.session.add(mov)
+    """Reverse inventory deductions for a cancelled order that already had inventory deducted.
+
+    Bloquea cada fila de Ingrediente (FOR UPDATE) antes de sumar, en el mismo
+    orden ascendente por id que descontar_inventario_por_orden, para evitar
+    lost-updates y deadlocks concurrentes.
+    """
+    from backend.models.models import Ingrediente, _cantidades_por_ingrediente
+    requerido = _cantidades_por_ingrediente(orden)
+    for ingrediente_id in sorted(requerido):
+        cantidad_total = requerido[ingrediente_id]
+        ingrediente = db.session.get(Ingrediente, ingrediente_id, with_for_update=True)
+        ingrediente.stock_actual += cantidad_total
+        mov = MovimientoInventario(
+            ingrediente_id=ingrediente_id,
+            tipo='ajuste',
+            cantidad=cantidad_total,
+            orden_id=orden.id,
+            usuario_id=usuario_id,
+            motivo=f'Reversión cancelación orden #{orden.id}',
+        )
+        db.session.add(mov)
 
 
 # =====================================================================
@@ -193,23 +198,38 @@ def seleccionar_mesa():
     if request.method == 'POST':
         mesa_id = request.form.get('mesa_id')
         if mesa_id:
+            try:
+                mesa_id_int = int(mesa_id)
+            except (ValueError, TypeError):
+                flash('Mesa inválida.', 'danger')
+                return redirect(url_for('meseros.seleccionar_mesa'))
+            # Lock the Mesa row so two meseros can't both pass the "no active
+            # order" check and create two active orders for the same table —
+            # the second request blocks here until the first one commits.
+            mesa = db.session.get(Mesa, mesa_id_int, with_for_update=True)
+            if not mesa:
+                db.session.rollback()
+                flash('Mesa no encontrada.', 'danger')
+                return redirect(url_for('meseros.seleccionar_mesa'))
+
             orden_existente = Orden.query.filter(
-                Orden.mesa_id == int(mesa_id),
+                Orden.mesa_id == mesa_id_int,
                 Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
             ).first()
             if orden_existente:
+                db.session.rollback()  # release lock, nothing created
                 flash(f'Mesa ya tiene orden activa (ID: {orden_existente.id}).', 'warning')
                 return redirect(url_for('meseros.detalle_orden', orden_id=orden_existente.id))
 
             nueva_orden = Orden(
-                mesero_id=session.get('user_id'), mesa_id=int(mesa_id),
+                mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
                 es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
                 sucursal_id=g.sucursal_id,
             )
             db.session.add(nueva_orden)
             db.session.commit()
             # Auto-ocupar mesa (Sprint 2 — 3.3)
-            actualizar_estado_mesa(int(mesa_id), 'ocupada')
+            actualizar_estado_mesa(mesa_id_int, 'ocupada')
             db.session.commit()
             flash(f'Orden creada para Mesa {nueva_orden.mesa.numero}.', 'success')
             return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
@@ -389,6 +409,7 @@ def enviar_orden_a_cocina(orden_id):
 
 @meseros_bp.route('/entregar_item/<int:orden_id>/<int:detalle_id>', methods=['POST'])
 @login_required(roles=['mesero', 'admin', 'superadmin'])
+@verificar_propiedad_orden
 def entregar_item(orden_id, detalle_id):
     detalle = OrdenDetalle.query.filter_by(id=detalle_id, orden_id=orden_id).first_or_404()
     if detalle.estado == 'entregado':
@@ -412,23 +433,42 @@ def entregar_item(orden_id, detalle_id):
 
 @meseros_bp.route('/ordenes/<int:orden_id>/cancelar', methods=['POST'])
 @login_required(roles=['mesero', 'admin', 'superadmin'])
+@verificar_propiedad_orden
 def cancelar_orden(orden_id):
-    orden = db.get_or_404(Orden, orden_id, options=[
-        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
-        joinedload(Orden.pagos),
-    ])
+    # Lock the order row so a concurrent payment (registrar_pago/cobrar_orden_post,
+    # which also lock via with_for_update) can't be silently overwritten by this
+    # cancellation — whoever gets the lock first wins, and we re-check state
+    # against the just-locked row instead of a stale pre-lock read.
+    # NOTE: no joinedload here — FOR UPDATE + OUTER JOIN is rejected by
+    # PostgreSQL ("FOR UPDATE cannot be applied to the nullable side of an
+    # outer join"); relationships are lazy-loaded after the lock instead.
+    orden = db.session.get(Orden, orden_id, with_for_update=True)
+    if not orden:
+        abort(404)
+    orden.detalles  # trigger lazy load (post-lock, consistent snapshot)
+    orden.pagos
+
     if orden.estado in [OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]:
+        db.session.rollback()  # release lock, no changes made
         flash('No se puede cancelar.', 'warning')
         return redirect(url_for('meseros.view_meseros'))
 
-    # Reverse inventory if it was already deducted (order went through payment flow)
-    if orden.estado == OrdenEstado.PAGADA or orden.pagos:
+    # Reverse inventory only if it was actually deducted. Inventory is deducted
+    # exclusively when the order closes fully paid (saldo <= 0), so a partial
+    # payment alone means nothing to reverse — checking for the salida_venta
+    # movement is the ground truth and avoids inflating stock with phantom stock.
+    hubo_descuento = MovimientoInventario.query.filter_by(
+        orden_id=orden.id, tipo='salida_venta',
+    ).count() > 0
+    if hubo_descuento:
         try:
             _revertir_inventario_orden(orden, session.get('user_id'))
         except Exception:
             logger.exception('Error revirtiendo inventario orden %s', orden_id)
 
     orden.estado = OrdenEstado.CANCELADA
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('cancelar', 'Orden', orden_id, f'Orden #{orden_id} cancelada.')
     db.session.commit()
     # Liberar mesa si no quedan órdenes activas (Sprint 2 — 3.3)
     actualizar_estado_mesa(orden.mesa_id)
@@ -443,6 +483,7 @@ def cancelar_orden(orden_id):
 # =====================================================================
 @meseros_bp.route('/ordenes/<int:orden_id>/descuento', methods=['POST'])
 @login_required(roles=['mesero', 'admin', 'superadmin'])
+@verificar_propiedad_orden
 def aplicar_descuento(orden_id):
     """Aplica descuento; requiere credenciales de admin/superadmin para autorizar."""
     orden = db.get_or_404(Orden, orden_id)
@@ -478,6 +519,10 @@ def aplicar_descuento(orden_id):
     orden.descuento_motivo = motivo
     orden.descuento_autorizado_por = autorizador.id
     orden.calcular_totales()
+
+    from backend.services.audit import registrar_auditoria
+    registrar_auditoria('descuento', 'Orden', orden_id,
+                        f'Descuento {tipo}={float(valor)} autorizado por={autorizador.id}. Motivo: {motivo}')
     db.session.commit()
 
     logger.info('Descuento aplicado orden=%s tipo=%s valor=%s por=%s',
@@ -555,7 +600,9 @@ def registrar_pago(orden_id):
     if orden.estado not in ('completada', 'lista_para_entregar'):
         return jsonify(success=False, message=f"Orden no lista para cobro ({orden.estado})."), 400
 
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify(success=False, message="Datos faltantes."), 400
     metodo = data.get('metodo', 'efectivo')
     if metodo not in ('efectivo', 'tarjeta', 'transferencia'):
         return jsonify(success=False, message="Método inválido."), 400
@@ -767,6 +814,7 @@ def cobrar_orden_post(orden_id):
 # =====================================================================
 @meseros_bp.route('/ordenes/<int:orden_id>/imprimir/comanda', methods=['POST'])
 @login_required(roles=['mesero', 'admin', 'superadmin'])
+@verificar_propiedad_orden
 def imprimir_comanda_endpoint(orden_id):
     """Imprime comanda de cocina. Fallback: retorna texto para window.print()."""
     from backend.services.printer import imprimir_comanda, generar_texto_comanda, PRINTER_TYPE
@@ -788,6 +836,7 @@ def imprimir_comanda_endpoint(orden_id):
 
 @meseros_bp.route('/ordenes/<int:orden_id>/imprimir/ticket', methods=['POST'])
 @login_required(roles=['mesero', 'admin', 'superadmin'])
+@verificar_propiedad_orden
 def imprimir_ticket_endpoint(orden_id):
     """Imprime ticket de cuenta. Fallback: retorna texto para window.print()."""
     from backend.services.printer import imprimir_ticket_cuenta, generar_texto_ticket, PRINTER_TYPE

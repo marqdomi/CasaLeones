@@ -128,7 +128,9 @@ def verificar_orden_completa(orden_id):
     try:
         if detalles and all(d.estado == OrdenEstado.LISTO for d in detalles):
             orden = db.session.get(Orden, orden_id)
-            if orden.estado not in [OrdenEstado.FINALIZADA, OrdenEstado.PAGADA, OrdenEstado.LISTA_PARA_ENTREGAR]:
+            # CANCELADA incluida: un KDS con pantalla stale que marca el último
+            # item no debe resucitar una orden ya cancelada.
+            if orden.estado not in [OrdenEstado.FINALIZADA, OrdenEstado.PAGADA, OrdenEstado.LISTA_PARA_ENTREGAR, OrdenEstado.CANCELADA]:
                 orden.estado = OrdenEstado.LISTA_PARA_ENTREGAR
                 db.session.commit()
                 socketio.emit('orden_completa_lista', {

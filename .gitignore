@@ -5,4 +5,7 @@ __pycache__/
 *.sqlite3
 *.db
 .env
-backups/*.dump
+backups/*.dumpflask_session/
+.DS_Store
+cookies.txt
+pytest_results.txt

@@ -150,6 +150,28 @@ class TestSetupWizard:
             count = Producto.query.count()
             assert count > 0
 
+    def test_paso3_custom_station_count_via_route(self, client, app, db):
+        """Wizard route with the flexible station fields: 2 real stations, custom mapping."""
+        with app.app_context():
+            ConfiguracionSistema.set('nombre_negocio', 'Test')
+            db.session.add(Sucursal(nombre='Test'))
+            u = Usuario(nombre='Admin', email='a@a.com', rol='superadmin')
+            u.set_password('TestPass123!')
+            db.session.add(u)
+            db.session.commit()
+
+            response = client.post('/setup/paso/3', data={
+                'opcion_menu': 'taqueria',
+                'estacion_nombre[]': ['Cocina', 'Bebidas'],
+                # Parrilla(0)->Cocina(0), Comal(1)->Cocina(0), Barra(2)->Bebidas(1)
+                'estacion_destino[]': ['0', '0', '1'],
+            }, follow_redirects=False)
+            assert response.status_code == 302
+            assert Estacion.query.count() == 2
+            assert Estacion.query.filter_by(nombre='Barra').first() is None
+            valid_ids = {e.id for e in Estacion.query.all()}
+            assert all(p.estacion_id in valid_ids for p in Producto.query.all())
+
     def test_paso4_renders(self, client, app, db):
         with app.app_context():
             # Create prerequisite: superadmin + at least 1 product
@@ -297,3 +319,43 @@ class TestSeeder:
             created = seed_mesas(5)
             assert created == 2  # Only 2 new (4, 5)
             assert Mesa.query.count() == 5
+
+    def test_seed_from_template_single_station(self, app, db):
+        """One real kitchen station: every product from the template lands there."""
+        with app.app_context():
+            from backend.services.seeder import seed_from_template
+            created = seed_from_template('taqueria', custom_estaciones=['Cocina'])
+            assert created > 0
+            assert Estacion.query.count() == 1
+            cocina = Estacion.query.filter_by(nombre='Cocina').first()
+            assert cocina is not None
+            productos = Producto.query.all()
+            assert len(productos) == created
+            assert all(p.estacion_id == cocina.id for p in productos)
+
+    def test_seed_from_template_two_stations_custom_map(self, app, db):
+        """Two real stations, explicit mapping: Parrilla+Comal -> Cocina, Barra -> Bebidas."""
+        with app.app_context():
+            from backend.services.seeder import seed_from_template
+            origen_map = {'Parrilla': 'Cocina', 'Comal': 'Cocina', 'Barra': 'Bebidas'}
+            seed_from_template('taqueria', custom_estaciones=['Cocina', 'Bebidas'], origen_map=origen_map)
+            assert Estacion.query.count() == 2
+            cocina = Estacion.query.filter_by(nombre='Cocina').first()
+            bebidas = Estacion.query.filter_by(nombre='Bebidas').first()
+            assert cocina is not None and bebidas is not None
+            # No product should be orphaned on a third, unstaffed station
+            assert all(p.estacion_id in (cocina.id, bebidas.id) for p in Producto.query.all())
+            # The original 'Barra' station itself was never created
+            assert Estacion.query.filter_by(nombre='Barra').first() is None
+
+    def test_seed_from_template_two_stations_default_map(self, app, db):
+        """Two stations, no explicit map: extra template stations collapse into the last one."""
+        with app.app_context():
+            from backend.services.seeder import seed_from_template
+            seed_from_template('taqueria', custom_estaciones=['Estacion A', 'Estacion B'])
+            assert Estacion.query.count() == 2
+            # Every product must land on one of the two real stations, never NULL/orphaned
+            productos = Producto.query.all()
+            assert len(productos) > 0
+            valid_ids = {e.id for e in Estacion.query.all()}
+            assert all(p.estacion_id in valid_ids for p in productos)

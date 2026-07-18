@@ -44,7 +44,7 @@ def login():
                 session['estacion_id'] = usuario.estacion_id
 
             if usuario.rol in ('superadmin', 'admin'):
-                return redirect(url_for('admin.crear_usuario'))
+                return redirect(url_for('admin.dashboard'))
             elif usuario.rol == 'mesero':
                 return redirect(url_for('meseros.view_meseros'))
             elif usuario.rol == 'cocina' or usuario.es_cocina:

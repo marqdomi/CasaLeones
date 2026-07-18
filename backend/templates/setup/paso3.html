@@ -49,6 +49,20 @@
       </label>
     </div>
 
+    {# ── Configuración flexible de estaciones (solo para plantillas) ── #}
+    <div id="stationsConfig" style="display:none; margin-bottom:var(--cl-space-5)">
+      <div class="cl-form-group" style="max-width:220px">
+        <label class="cl-form-label">¿Cuántas estaciones de cocina vas a operar?</label>
+        <input type="number" class="cl-form-input" id="cantidadEstaciones" min="1">
+      </div>
+      <div id="stationNamesContainer"></div>
+      <div id="stationMapContainer"></div>
+      <p style="font-size:var(--cl-text-xs);color:var(--cl-text-secondary);margin-top:var(--cl-space-2)">
+        Si eliges menos estaciones que las que trae la plantilla, decide abajo a
+        cuál de tus estaciones reales va cada grupo de productos.
+      </p>
+    </div>
+
     {# ── Manual products section (hidden by default) ── #}
     <div id="manualSection" style="display:none;">
       <p style="font-size:var(--cl-text-sm);color:var(--cl-text-secondary);margin-bottom:var(--cl-space-3)">
@@ -189,16 +203,101 @@
 {{ super() }}
 <script nonce="{{ csp_nonce }}">
 (function(){
+  var TPL_ESTACIONES = {{ templates_estaciones | tojson }};
+
   var radios = document.querySelectorAll('input[name="_tpl_radio"]');
   var hidden = document.getElementById('opcionMenu');
   var manual = document.getElementById('manualSection');
+  var stationsConfig = document.getElementById('stationsConfig');
+  var cantidadInput = document.getElementById('cantidadEstaciones');
+  var namesContainer = document.getElementById('stationNamesContainer');
+  var mapContainer = document.getElementById('stationMapContainer');
+
+  function getStationName(idx) {
+    var inp = namesContainer.querySelector('input[data-idx="' + idx + '"]');
+    var val = inp ? inp.value.trim() : '';
+    return val || ('Estación ' + (idx + 1));
+  }
+
+  function syncMapLabels() {
+    mapContainer.querySelectorAll('option').forEach(function(opt){
+      opt.textContent = getStationName(opt.dataset.idx);
+    });
+  }
+
+  function renderNames(originales, cantidad) {
+    namesContainer.innerHTML = '<p class="cl-form-label" style="margin-top:var(--cl-space-3)">Nombres de tus estaciones:</p>';
+    var row = document.createElement('div');
+    row.className = 'cl-setup__row';
+    for (var i = 0; i < cantidad; i++) {
+      var grp = document.createElement('div');
+      grp.className = 'cl-form-group';
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'cl-form-input';
+      inp.name = 'estacion_nombre[]';
+      inp.dataset.idx = String(i);
+      inp.value = originales[i] || ('Estación ' + (i + 1));
+      inp.addEventListener('input', syncMapLabels);
+      grp.appendChild(inp);
+      row.appendChild(grp);
+    }
+    namesContainer.appendChild(row);
+  }
+
+  function renderMap(originales, cantidad) {
+    mapContainer.innerHTML = '<p class="cl-form-label" style="margin-top:var(--cl-space-3)">¿A qué estación va cada grupo de productos?</p>';
+    originales.forEach(function(orig, i){
+      var grp = document.createElement('div');
+      grp.className = 'cl-form-group';
+      grp.style.marginBottom = 'var(--cl-space-2)';
+      var label = document.createElement('label');
+      label.className = 'cl-form-label';
+      label.textContent = 'Productos de "' + orig + '" van a:';
+      var select = document.createElement('select');
+      select.className = 'cl-form-input';
+      select.name = 'estacion_destino[]';
+      for (var j = 0; j < cantidad; j++) {
+        var opt = document.createElement('option');
+        opt.value = String(j);
+        opt.dataset.idx = String(j);
+        opt.textContent = getStationName(j);
+        if (j === Math.min(i, cantidad - 1)) opt.selected = true;
+        select.appendChild(opt);
+      }
+      grp.appendChild(label);
+      grp.appendChild(select);
+      mapContainer.appendChild(grp);
+    });
+  }
+
+  function renderStationsUI(tplKey) {
+    var originales = TPL_ESTACIONES[tplKey] || [];
+    if (!originales.length) {
+      stationsConfig.style.display = 'none';
+      return;
+    }
+    stationsConfig.style.display = 'block';
+    cantidadInput.max = String(originales.length);
+    var cantidad = parseInt(cantidadInput.value, 10);
+    if (!cantidad || cantidad < 1) cantidad = originales.length;
+    cantidad = Math.min(cantidad, originales.length);
+    cantidadInput.value = String(cantidad);
+    renderNames(originales, cantidad);
+    renderMap(originales, cantidad);
+  }
 
   function sync() {
     var val = document.querySelector('input[name="_tpl_radio"]:checked').value;
     hidden.value = val;
     manual.style.display = val === 'manual' ? 'block' : 'none';
+    renderStationsUI(val);
   }
   radios.forEach(function(r){ r.addEventListener('change', sync); });
+  cantidadInput.addEventListener('change', function(){
+    var val = document.querySelector('input[name="_tpl_radio"]:checked').value;
+    renderStationsUI(val);
+  });
   sync();
 
   // Add product row
