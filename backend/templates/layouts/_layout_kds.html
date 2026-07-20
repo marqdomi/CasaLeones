@@ -38,10 +38,15 @@ Usage:
 <div class="kds-body">
   {# ── KDS Header ── #}
   <header class="cl-kds-header" id="kdsHeader">
-    {# Back link #}
+    {# Back link — admin al dashboard, mesero a sus órdenes (apoya en estación y regresa) #}
     {% if current_user.is_authenticated and current_user.rol in ['admin','superadmin'] %}
     <a href="{{ url_for('admin.dashboard') }}" class="cl-icon-btn"
       style="color:var(--cl-text-tertiary);margin-right:8px;" aria-label="Panel Admin">
+      <i data-lucide="arrow-left" style="width:15px;height:15px;"></i>
+    </a>
+    {% elif current_user.is_authenticated and current_user.rol == 'mesero' %}
+    <a href="{{ url_for('meseros.view_meseros') }}" class="cl-icon-btn"
+      style="color:var(--cl-text-tertiary);margin-right:8px;" aria-label="Mis Órdenes">
       <i data-lucide="arrow-left" style="width:15px;height:15px;"></i>
     </a>
     {% endif %}

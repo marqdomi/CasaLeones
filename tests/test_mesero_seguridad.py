@@ -93,3 +93,20 @@ def test_mesa_ocupada_redirige_al_selector_sin_duplicar(client, db, mesero_user,
     from backend.models.models import Orden
     count = Orden.query.filter_by(mesa_id=sample_mesa.id).count()
     assert count == 1, f'expected exactly 1 order for the table, got {count}'
+
+
+def test_mesero_puede_ver_cualquier_estacion(client, db, mesero_user):
+    """Meseros pueden abrir el KDS de cualquier estación (ej. sirven bebidas) —
+    y los links de estación aparecen en su barra de navegación."""
+    from backend.models.models import Estacion
+    _marcar_onboarding_completo(db)
+    db.session.add(Estacion(nombre='Bebidas'))
+    db.session.commit()
+
+    login(client, mesero_user.email, 'Test1234!')
+    r = client.get('/cocina/bebidas')
+    assert r.status_code == 200, f'mesero debe poder ver la estación, got {r.status_code}'
+
+    # La barra de operaciones del mesero muestra el link a la estación
+    r2 = client.get('/meseros/')
+    assert b'/cocina/bebidas' in r2.data, 'el link a la estación debe aparecer en el panel del mesero'

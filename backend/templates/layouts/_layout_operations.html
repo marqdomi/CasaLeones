@@ -50,6 +50,14 @@ Usage:
         <i data-lucide="history" class="icon-sm"></i>
         <span>Historial</span>
       </a>
+      {# Estaciones de cocina — meseros pueden apoyar (ej. servir bebidas) #}
+      {% for est in nav_estaciones %}
+      <a href="{{ url_for('cocina.station_view', slug=est.slug) }}"
+        class="cl-topbar-tab" title="Ver pendientes de {{ est.nombre }}">
+        <i data-lucide="chef-hat" class="icon-sm"></i>
+        <span>{{ est.nombre }}</span>
+      </a>
+      {% endfor %}
     </div>
   </div>
 
@@ -128,6 +136,14 @@ Usage:
     <i data-lucide="history" class="icon-sm"></i>
     <span>Historial</span>
   </a>
+  {# Estaciones — mesero puede apoyar (ej. bebidas). En móvil, máx 2 para no saturar #}
+  {% for est in nav_estaciones[:2] %}
+  <a href="{{ url_for('cocina.station_view', slug=est.slug) }}" class="cl-ops-bottom-tab"
+    title="Pendientes de {{ est.nombre }}">
+    <i data-lucide="chef-hat" class="icon-sm"></i>
+    <span>{{ est.nombre|truncate(9, True, '·') }}</span>
+  </a>
+  {% endfor %}
 </nav>
 
 {# ── Content ── #}
