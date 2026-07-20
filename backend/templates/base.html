@@ -14,7 +14,7 @@
   <!-- PWA display mode handled via manifest.json display: standalone -->
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="KaiRest">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/kainetResto.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/icon-512.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap.min.css') }}">
   <!-- Design System v6 -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}?v={{ config.VERSION }}">
@@ -27,7 +27,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v={{ config.VERSION }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tablet.css') }}?v={{ config.VERSION }}">
 
-  <link rel="icon" href="{{ url_for('static', filename='img/kainetResto.png') }}" type="image/png">
+  <link rel="icon" href="{{ url_for('static', filename='img/icon-512.png') }}" type="image/png">
   {% block head %}{% endblock %}
   <!-- Dark mode: restore before paint -->
   <script nonce="{{ csp_nonce }}">
