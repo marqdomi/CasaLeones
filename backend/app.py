@@ -318,4 +318,6 @@ app = _get_app()
 if __name__ == "__main__":
     if app is None:
         app = create_app()
-    socketio.run(app, debug=True, use_reloader=False, host='0.0.0.0', port=5005)
+    # Solo desarrollo local — producción usa gunicorn con eventlet (Docker)
+    socketio.run(app, debug=True, use_reloader=False, host='0.0.0.0', port=5005,
+                 allow_unsafe_werkzeug=True)

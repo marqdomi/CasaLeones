@@ -53,34 +53,46 @@ if (-not $composeCmd) {
 }
 Write-Step "Docker Compose disponible"
 
-# ── Verify git ──
-try {
-    git --version 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Git not found" }
-    Write-Step "Git disponible"
-} catch {
-    Write-Color Red "  ERROR: Git no encontrado."
-    Write-Host "  Descarga Git: https://git-scm.com/download/win" -ForegroundColor Cyan
-    exit 1
-}
+# ── Locate code: in-place (ZIP/USB) or clone with git ──
+# Modo 1 (recomendado para clientes): el script corre DENTRO de la carpeta del
+# proyecto (entregada en ZIP/USB) — no se necesita Git ni acceso al repositorio.
+# Modo 2: si no hay docker-compose.yml junto al script, se clona con Git.
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Clone or update repo ──
-$installDir = Join-Path $env:USERPROFILE "kairest"
-Write-Host ""
-Write-Info "Instalando en: $installDir"
-
-if (Test-Path (Join-Path $installDir ".git")) {
-    Write-Info "Actualizando codigo existente..."
+if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
+    $installDir = $scriptDir
+    Write-Host ""
+    Write-Info "Proyecto detectado en: $installDir (instalacion en sitio, sin Git)"
     Push-Location $installDir
-    try {
-        git pull --rebase 2>&1 | Out-Null
-    } catch {
-        Write-Warn "No se pudo actualizar el codigo."
-    }
 } else {
-    Write-Info "Descargando KaiRest..."
-    git clone https://github.com/marqdomi/kairest.git $installDir 2>&1 | Select-Object -Last 2
-    Push-Location $installDir
+    try {
+        git --version 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Git not found" }
+        Write-Step "Git disponible"
+    } catch {
+        Write-Color Red "  ERROR: Git no encontrado y el script no esta dentro de la carpeta del proyecto."
+        Write-Host "  Opcion A: copia la carpeta completa del proyecto y ejecuta install.ps1 desde adentro." -ForegroundColor Yellow
+        Write-Host "  Opcion B: instala Git (https://git-scm.com/download/win) y vuelve a ejecutar." -ForegroundColor Cyan
+        exit 1
+    }
+
+    $installDir = Join-Path $env:USERPROFILE "kairest"
+    Write-Host ""
+    Write-Info "Instalando en: $installDir"
+
+    if (Test-Path (Join-Path $installDir ".git")) {
+        Write-Info "Actualizando codigo existente..."
+        Push-Location $installDir
+        try {
+            git pull --rebase 2>&1 | Out-Null
+        } catch {
+            Write-Warn "No se pudo actualizar el codigo."
+        }
+    } else {
+        Write-Info "Descargando KaiRest..."
+        git clone https://github.com/marqdomi/kairest.git $installDir 2>&1 | Select-Object -Last 2
+        Push-Location $installDir
+    }
 }
 
 # Create backups directory

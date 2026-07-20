@@ -4,7 +4,8 @@ Flask + PostgreSQL + Socket.IO + Redis + Gunicorn. Backend: `backend/`, Frontend
 
 ## Comandos
 - `docker-compose up --build` — Levanta todo (web con gunicorn, db, redis, backup)
-- `npm run start:backend` — Flask local puerto 5005
+- `DATABASE_URL=sqlite:///dev_local.db REDIS_URL= ./.venv/bin/python -m backend.app` — Flask+Socket.IO local puerto 5005 sin Docker (también via `.claude/launch.json` → `flask-local-sqlite`)
+- `npm run start:backend` — legacy: flask run puerto 5000, sin Socket.IO real ni deps garantizadas; preferir el comando anterior
 
 ## Stack
 - Backend: Flask 3.1, SQLAlchemy, Flask-SocketIO, Flask-WTF (CSRF), Flask-Limiter, Flask-Session, Flask-Caching
@@ -377,3 +378,50 @@ Auditoría de lanzamiento: 5 issues corregidos para demo con primeros clientes.
   - `Model.query.options(...).get_or_404(id)` → `db.get_or_404(Model, id, options=[...])`
   - `db.session.query(Model).with_for_update().get(id)` → `db.session.get(Model, id, with_for_update=True)`
 - Archivos: app.py, utils.py, orders.py, api.py, clientes.py, productos.py, delivery.py, sucursales.py, ventas.py, cocina.py, reservaciones.py, inventario.py, facturacion.py, admin_routes.py, meseros.py
+
+## Release Demo v6.1 (2026-07 — versión para primer cliente)
+Versión auditada (3 rondas multi-agente) y validada con simulación E2E de 58 checks
+(0 errores): wizard → orden mesa/para llevar → modificación post-envío → KDS por
+estación → entrega → cobro efectivo → cancelación. Verificación de locks contra
+PostgreSQL 16 real (no solo SQLite).
+
+### Wizard flexible de estaciones (paso 3)
+- `seed_from_template(key, custom_estaciones, origen_map)` — el negocio define cuántas
+  estaciones opera y sus nombres; las estaciones de la plantilla se mapean a las reales
+- Fallback server-side: ningún producto puede quedar con `estacion_id=None` (un producto
+  sin estación jamás aparece en KDS y deja la orden incobrable) — aplica en plantilla y manual
+- paso5: roles `cocina:<Estación>` dinámicos; login de cocina aterriza en su estación
+
+### Concurrencia / integridad (flujo dinero)
+- Locks `with_for_update`: Orden en pago Y cancelación (revalidación post-lock), Mesa en
+  `seleccionar_mesa` (no doble orden activa), Ingrediente en descuento/reversión de
+  inventario en orden determinista por id (anti lost-update y anti-deadlock)
+- ⚠️ PostgreSQL rechaza `with_for_update` + `joinedload` (FOR UPDATE en outer join) —
+  lockear primero, lazy-load después (patrón en registrar_pago/cancelar_orden)
+- Reversión de inventario solo si existe MovimientoInventario `salida_venta` de la orden
+- Cobro efectivo: `Pago.monto` = aplicado a la cuenta (corte cuadra), cambio = recibido −
+  saldo − propina; tarjeta/transferencia rechazan monto > saldo
+- IDOR cerrado: `@verificar_propiedad_orden` en cancelar/entregar/descuento/imprimir
+- KDS: scope por orden+estación en marcar/batch-listo, 409 en órdenes cerradas/canceladas,
+  `verificar_orden_completa` excluye CANCELADA
+- Auditoría: cancelación, descuento, editar/eliminar usuario, toggle modo sistema
+
+### Operación offline
+- Vendors locales en `static/vendor/` (Bootstrap 5.3, jQuery 3.7.1, Socket.IO 4.7.5,
+  Chart.js 4, chartjs-plugin-annotation, Lucide 0.460) — cero CDNs en runtime
+- CSP endurecido a 'self' únicamente; sw.js v4 pre-cachea vendors
+
+### Ciclo de vida
+- `restore.sh` — restauración de backups con respaldo de seguridad previo y confirmación
+- `update.sh` — aplica migraciones Alembic (stamp head inicial en bases create_all + upgrade);
+  usa el mismo stack compose que install.sh (build local si hay .git)
+- `install.ps1` — modo in-place: instala desde la carpeta del proyecto (ZIP/USB) sin Git
+- `docs/GUIA_INSTALACION_WINDOWS.md` — guía cliente final (Docker Desktop, wizard, tablets)
+
+### Repo
+- Des-trackeados: `.venv/`, `flask_session/`, `instance/*.db`, `cookies.txt`,
+  `pytest_results.txt`, `.DS_Store`, `__pycache__` (y agregados a .gitignore)
+- Tests: 67 passed (`test_mesero_seguridad.py` nuevo: IDOR + race de mesa; 4 tests de
+  estaciones flexibles en `test_setup.py`)
+- Fuera de alcance de esta versión (pendiente para cliente que facture): guard de doble
+  timbrado CFDI, NC acumuladas, complemento de pago vs monto cobrado
