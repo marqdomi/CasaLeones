@@ -11,7 +11,7 @@ computación — solo sigue cada paso en orden.
 | Requisito | Detalle |
 |---|---|
 | **Computadora** | Laptop o PC con Windows 10 u 11 (64 bits) |
-| **Memoria** | 8 GB de RAM o más |
+| **Memoria** | Mínimo 4 GB de RAM (funciona, pero justo) · **Recomendado 8 GB** |
 | **Espacio libre** | Al menos 10 GB en el disco |
 | **Internet** | Solo para la instalación (después el sistema funciona sin internet) |
 | **La carpeta del programa** | Te la entrega tu proveedor (en USB o descarga) |
