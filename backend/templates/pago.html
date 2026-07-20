@@ -22,7 +22,7 @@
         {% if orden.es_para_llevar %}
           <i data-lucide="package" class="icon-xs"></i> Para llevar
         {% else %}
-          <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero if orden.mesa else '' }}
+          <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero if orden.mesa else '' }}{% if orden.alias %} · {{ orden.alias }}{% endif %}
         {% endif %}
       </span>
     </div>

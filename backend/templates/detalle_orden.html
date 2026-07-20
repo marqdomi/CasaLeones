@@ -84,7 +84,7 @@
             </span>
           {% else %}
             <span class="cl-badge cl-badge--pill cart-badge--primary">
-              <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero }}
+              <i data-lucide="map-pin" class="icon-xs"></i> Mesa {{ orden.mesa.numero }}{% if orden.alias %} · {{ orden.alias }}{% endif %}
             </span>
           {% endif %}
           <span class="cl-badge cl-badge--pill cart-badge--neutral">

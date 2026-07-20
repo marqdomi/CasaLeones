@@ -110,11 +110,22 @@ def pagar_orden(orden_id):
 @api_bp.route('/ordenes/mesa/<int:mesa_id>')
 @login_required()
 def orden_activa_mesa(mesa_id):
-    """Sprint 4 — 5.1: Retorna la orden activa de una mesa (para mapa de mesas)."""
-    orden = Orden.query.filter(
+    """Mesas compartidas: retorna TODAS las cuentas activas de una mesa.
+
+    `orden_id` (primera cuenta) se conserva por compatibilidad con clientes
+    viejos; `ordenes` trae la lista completa para el selector de cuentas.
+    """
+    ordenes = Orden.query.filter(
         Orden.mesa_id == mesa_id,
-        Orden.estado.notin_(['pagada', 'finalizada', 'cancelada']),
-    ).first()
-    if orden:
-        return jsonify(orden_id=orden.id, estado=orden.estado)
-    return jsonify(orden_id=None)
+        Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+    ).order_by(Orden.tiempo_registro).all()
+    return jsonify(
+        orden_id=ordenes[0].id if ordenes else None,
+        ordenes=[{
+            'orden_id': o.id,
+            'estado': o.estado,
+            'alias': o.alias,
+            'num_personas': o.num_personas,
+            'mesero_id': o.mesero_id,
+        } for o in ordenes],
+    )

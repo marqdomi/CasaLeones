@@ -425,3 +425,20 @@ PostgreSQL 16 real (no solo SQLite).
   estaciones flexibles en `test_setup.py`)
 - Fuera de alcance de esta versión (pendiente para cliente que facture): guard de doble
   timbrado CFDI, NC acumuladas, complemento de pago vs monto cobrado
+
+## Mesas Compartidas — Multi-cuenta (v6.2)
+- Una mesa puede tener VARIAS cuentas (Orden) activas a la vez — mesas grandes
+  compartidas por grupos distintos, típico de puestos pequeños/callejeros
+- `Orden.alias` + `Orden.num_personas` (migración c010, idempotente con inspector)
+- Selector de cuentas: `GET /meseros/mesa/<id>/cuentas` (`cuentas_mesa.html`) — lista
+  cuentas activas (alias, mesero, items, total, hora) + form "nueva cuenta"
+- `seleccionar_mesa` POST: sin `forzar_nueva=1` y con cuentas activas → redirect al
+  selector; con `forzar_nueva=1` crea otra cuenta (lock de Mesa se mantiene)
+- Mesa se libera SOLA al cerrar la última cuenta (actualizar_estado_mesa ya contaba
+  órdenes activas — sin cambios); cancelar una cuenta no libera si hay otra abierta
+- Grid mesas: badge "🧾 N cuentas"; mapa: click en ocupada → selector
+- `/api/ordenes/mesa/<id>`: ahora devuelve `ordenes` (lista) + `orden_id` (compat)
+- Alias visible en: cards de mesero, detalle de orden, KDS, pago, cobrar_info
+- Ownership entre cuentas: mesero solo abre sus propias cuentas (verificar_propiedad_orden);
+  las ajenas se muestran como informativas en el selector
+- Tests: `tests/test_mesas_compartidas.py` (6) — suite total 73 passed

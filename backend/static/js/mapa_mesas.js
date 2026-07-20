@@ -205,16 +205,9 @@
       document.body.appendChild(form);
       form.submit();
     } else if (mesa.estado === 'ocupada') {
-      fetch(`/api/ordenes/mesa/${mesa.id}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.orden_id) {
-            window.location.href = `${ordenBaseUrl}${data.orden_id}/detalle_orden`;
-          } else {
-            showMapToast(`Mesa ${mesa.numero} ocupada pero sin orden activa.`, 'warning');
-          }
-        })
-        .catch(() => showMapToast('Error al buscar orden.', 'danger'));
+      // Mesas compartidas: el selector de cuentas maneja 1..N cuentas activas
+      // (y permite abrir una nueva para otro grupo en la misma mesa).
+      window.location.href = `/meseros/mesa/${mesa.id}/cuentas`;
     } else {
       showMapToast(`Mesa ${mesa.numero}: ${capitalizeFirst(mesa.estado)}`, 'info');
     }

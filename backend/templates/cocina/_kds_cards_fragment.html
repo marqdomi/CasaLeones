@@ -29,6 +29,7 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
         <i data-lucide="shopping-bag" style="width:14px;height:14px;display:inline;"></i> Para Llevar
         {% else %}
         Mesa {{ orden.mesa.numero if orden.mesa else '—' }}
+        {% if orden.alias %}· {{ orden.alias }}{% endif %}
         {% if orden.mesero %}· {{ orden.mesero.nombre.split()[0] }}{% endif %}
         {% endif %}
         · {{ items_total }} ítem{{ 's' if items_total != 1 }}

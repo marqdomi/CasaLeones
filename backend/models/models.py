@@ -244,6 +244,10 @@ class Orden(db.Model):
     estado = db.Column(db.String(50), default=OrdenEstado.PENDIENTE, index=True)
     es_para_llevar = db.Column(db.Boolean, default=False)
     canal = db.Column(db.String(30), default='local')  # local, uber_eats, rappi, didi_food
+    # Mesas compartidas (c010): varias cuentas pueden convivir en la misma mesa;
+    # alias identifica al grupo ("los de la esquina") y num_personas cuántos son.
+    alias = db.Column(db.String(50), nullable=True)
+    num_personas = db.Column(db.Integer, nullable=True)
     tiempo_registro = db.Column(db.DateTime, default=utc_now)
     fecha_pago = db.Column(db.DateTime, nullable=True, index=True)
     monto_recibido = db.Column(db.Numeric(10, 2), nullable=True)

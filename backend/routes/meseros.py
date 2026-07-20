@@ -203,53 +203,94 @@ def seleccionar_mesa():
             except (ValueError, TypeError):
                 flash('Mesa inválida.', 'danger')
                 return redirect(url_for('meseros.seleccionar_mesa'))
-            # Lock the Mesa row so two meseros can't both pass the "no active
-            # order" check and create two active orders for the same table —
-            # the second request blocks here until the first one commits.
+            # Lock the Mesa row so concurrent creates on the same table are
+            # serialized — the second request blocks until the first commits.
             mesa = db.session.get(Mesa, mesa_id_int, with_for_update=True)
             if not mesa:
                 db.session.rollback()
                 flash('Mesa no encontrada.', 'danger')
                 return redirect(url_for('meseros.seleccionar_mesa'))
 
-            orden_existente = Orden.query.filter(
+            # Mesas compartidas: una mesa puede tener varias cuentas abiertas.
+            # Si ya hay cuentas y el mesero no pidió explícitamente una nueva,
+            # se le muestra el selector de cuentas de esa mesa.
+            forzar_nueva = request.form.get('forzar_nueva') == '1'
+            cuentas_activas = Orden.query.filter(
                 Orden.mesa_id == mesa_id_int,
                 Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
-            ).first()
-            if orden_existente:
+            ).count()
+            if cuentas_activas and not forzar_nueva:
                 db.session.rollback()  # release lock, nothing created
-                flash(f'Mesa ya tiene orden activa (ID: {orden_existente.id}).', 'warning')
-                return redirect(url_for('meseros.detalle_orden', orden_id=orden_existente.id))
+                return redirect(url_for('meseros.cuentas_mesa', mesa_id=mesa_id_int))
+
+            alias = sanitizar_texto(request.form.get('alias') or '', 50) or None
+            try:
+                num_personas = int(request.form.get('num_personas') or 0) or None
+            except (ValueError, TypeError):
+                num_personas = None
 
             nueva_orden = Orden(
                 mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
                 es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
                 sucursal_id=g.sucursal_id,
+                alias=alias, num_personas=num_personas,
             )
             db.session.add(nueva_orden)
             db.session.commit()
             # Auto-ocupar mesa (Sprint 2 — 3.3)
             actualizar_estado_mesa(mesa_id_int, 'ocupada')
             db.session.commit()
-            flash(f'Orden creada para Mesa {nueva_orden.mesa.numero}.', 'success')
+            etiqueta = f' ({alias})' if alias else ''
+            flash(f'Cuenta{etiqueta} creada para Mesa {nueva_orden.mesa.numero}.', 'success')
             return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
         flash('Debes seleccionar una mesa.', 'warning')
         return redirect(url_for('meseros.seleccionar_mesa'))
 
     mesas = filtrar_por_sucursal(Mesa.query, Mesa).order_by(Mesa.numero).all()
 
-    # Sprint 9 — 9.4: enrich mesas with active order info
+    # Mesas compartidas: cada mesa puede tener VARIAS cuentas activas
     active_orders = Orden.query.filter(
         Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
-    ).all()
+    ).order_by(Orden.tiempo_registro).all()
     mesa_order_map = {}
     for o in active_orders:
         if o.mesa_id:
-            mesa_order_map[o.mesa_id] = o
+            mesa_order_map.setdefault(o.mesa_id, []).append(o)
 
     zonas = sorted(set(m.zona for m in mesas if m.zona))
     return render_template('seleccionar_mesa.html', mesas=mesas,
                            mesa_order_map=mesa_order_map, zonas=zonas)
+
+
+# =====================================================================
+# Mesas compartidas — selector de cuentas por mesa
+# =====================================================================
+@meseros_bp.route('/mesa/<int:mesa_id>/cuentas')
+@login_required(roles=['mesero', 'admin', 'superadmin'])
+def cuentas_mesa(mesa_id):
+    """Lista las cuentas activas de una mesa y permite abrir una nueva.
+
+    Una mesa grande puede compartirse entre varios grupos: cada grupo lleva su
+    propia cuenta (Orden) que se pide, cobra y cancela por separado. La mesa se
+    libera sola cuando la última cuenta se cierra (actualizar_estado_mesa).
+    """
+    mesa = db.get_or_404(Mesa, mesa_id)
+    cuentas = Orden.query.options(
+        joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
+        joinedload(Orden.mesero),
+    ).filter(
+        Orden.mesa_id == mesa_id,
+        Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+    ).order_by(Orden.tiempo_registro).all()
+
+    if not cuentas:
+        # Sin cuentas activas — nada que elegir, directo al flujo normal
+        return redirect(url_for('meseros.seleccionar_mesa'))
+
+    user_id = session.get('user_id')
+    is_admin = session.get('rol') in ('admin', 'superadmin')
+    return render_template('cuentas_mesa.html', mesa=mesa, cuentas=cuentas,
+                           user_id=user_id, is_admin=is_admin)
 
 
 # =====================================================================
@@ -564,6 +605,7 @@ def get_cobrar_orden_info(orden_id):
     return jsonify({
         "orden_id": orden.id,
         "mesa_numero": orden.mesa.numero if orden.mesa else None,
+        "alias": orden.alias,
         "es_para_llevar": orden.es_para_llevar,
         "estado_orden": orden.estado,
         "detalles": detalles_data,

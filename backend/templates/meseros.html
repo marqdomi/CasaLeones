@@ -161,7 +161,7 @@
             {% if orden.es_para_llevar %}
             <i data-lucide="package" style="width:11px;height:11px;"></i> Para llevar
             {% else %}
-            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}
+            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}{% if orden.alias %} · {{ orden.alias }}{% endif %}
             {% endif %}
           </div>
         </div>
@@ -327,7 +327,7 @@
             {% if orden.es_para_llevar %}
             <i data-lucide="package" style="width:11px;height:11px;"></i> Para llevar
             {% else %}
-            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}
+            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}{% if orden.alias %} · {{ orden.alias }}{% endif %}
             {% endif %}
           </div>
         </div>

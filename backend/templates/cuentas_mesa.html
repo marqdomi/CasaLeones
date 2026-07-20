@@ -1,0 +1,101 @@
+{# ═══════════════════════════════════════════════════════
+   Mesas compartidas — Selector de cuentas por mesa
+   Una mesa grande puede tener varias cuentas (grupos) a la vez.
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_operations.html' %}
+{% set active_op_tab = 'mapa' %}
+{% block page_title %}Mesa {{ mesa.numero }} — Cuentas{% endblock %}
+
+{% block ops_content %}
+{# ── Header ── #}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3" style="margin-bottom: var(--cl-space-4);">
+  <div>
+    <h1 style="font-size: var(--cl-text-2xl); font-weight: var(--cl-font-bold); color: var(--cl-text-primary); margin: 0;">
+      <i data-lucide="receipt" class="icon-md" style="vertical-align: -3px;"></i>
+      Mesa {{ mesa.numero }} — {{ cuentas|length }} cuenta{{ 's' if cuentas|length != 1 }}
+    </h1>
+    <p style="color: var(--cl-text-secondary); margin: var(--cl-space-1) 0 0; font-size: var(--cl-text-sm);">
+      Elige una cuenta existente o abre una nueva para otro grupo
+    </p>
+  </div>
+  <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="cl-btn cl-btn--outline cl-btn--sm">
+    <i data-lucide="arrow-left" class="icon-sm"></i> Mesas
+  </a>
+</div>
+
+{# ── Cuentas activas ── #}
+<div class="row g-3" style="margin-bottom: var(--cl-space-5);">
+  {% for c in cuentas %}
+  {% set es_mia = is_admin or c.mesero_id == user_id %}
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="cl-card" style="height: 100%; {% if not es_mia %}opacity: .75;{% endif %}">
+      <div class="cl-card__body" style="padding: var(--cl-space-4);">
+        <div class="d-flex justify-content-between align-items-start" style="margin-bottom: var(--cl-space-2);">
+          <div>
+            <strong style="font-size: var(--cl-text-lg); color: var(--cl-text-primary);">
+              {% if c.alias %}{{ c.alias }}{% else %}Cuenta #{{ c.id }}{% endif %}
+            </strong>
+            {% if c.alias %}
+            <span class="cl-badge cl-badge--pill" style="font-size: 10px; margin-left: 6px;">#{{ c.id }}</span>
+            {% endif %}
+          </div>
+          <span class="cl-badge cl-badge--pill cl-badge--{{ 'success' if c.estado in ('completada', 'lista_para_entregar') else 'warning' }}"
+                style="font-size: 11px;">{{ c.estado|replace('_', ' ') }}</span>
+        </div>
+        <div style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); display: flex; flex-direction: column; gap: 4px;">
+          <span><i data-lucide="user" class="icon-xs"></i> {{ c.mesero.nombre if c.mesero else '—' }}</span>
+          {% if c.num_personas %}
+          <span><i data-lucide="users" class="icon-xs"></i> {{ c.num_personas }} persona{{ 's' if c.num_personas != 1 }}</span>
+          {% endif %}
+          <span><i data-lucide="shopping-basket" class="icon-xs"></i>
+            {{ c.detalles|length }} item{{ 's' if c.detalles|length != 1 }}
+            {% if c.total %} · ${{ '%.2f'|format(c.total|float) }}{% endif %}
+          </span>
+          <span><i data-lucide="clock" class="icon-xs"></i> {{ c.tiempo_registro.strftime('%H:%M') }}</span>
+        </div>
+        <div style="margin-top: var(--cl-space-3);">
+          {% if es_mia %}
+          <a href="{{ url_for('meseros.detalle_orden', orden_id=c.id) }}" class="cl-btn cl-btn--primary cl-btn--sm" style="width: 100%; justify-content: center;">
+            Abrir cuenta <i data-lucide="arrow-right" class="icon-sm"></i>
+          </a>
+          {% else %}
+          <div style="text-align: center; font-size: var(--cl-text-xs); color: var(--cl-text-tertiary); padding: 6px;">
+            Atendida por {{ c.mesero.nombre if c.mesero else 'otro mesero' }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── Nueva cuenta ── #}
+<div class="cl-card" style="max-width: 480px;">
+  <div class="cl-card__body" style="padding: var(--cl-space-4);">
+    <strong style="font-size: var(--cl-text-base); color: var(--cl-text-primary); display: block; margin-bottom: var(--cl-space-3);">
+      <i data-lucide="plus-circle" class="icon-sm" style="vertical-align: -3px;"></i>
+      Nueva cuenta en Mesa {{ mesa.numero }}
+    </strong>
+    <form method="POST" action="{{ url_for('meseros.seleccionar_mesa') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="mesa_id" value="{{ mesa.id }}">
+      <input type="hidden" name="forzar_nueva" value="1">
+      <div class="d-flex gap-2" style="margin-bottom: var(--cl-space-3);">
+        <div class="cl-form-group" style="flex: 2;">
+          <label class="cl-form-label" for="aliasInput">Alias (opcional)</label>
+          <input type="text" class="cl-form-input" id="aliasInput" name="alias" maxlength="50"
+                 placeholder="Ej: los de la esquina">
+        </div>
+        <div class="cl-form-group" style="flex: 1;">
+          <label class="cl-form-label" for="personasInput">Personas</label>
+          <input type="number" class="cl-form-input" id="personasInput" name="num_personas" min="1" max="50" placeholder="2">
+        </div>
+      </div>
+      <button type="submit" class="cl-btn cl-btn--primary" style="width: 100%; justify-content: center;">
+        <i data-lucide="plus" class="icon-sm"></i> Abrir cuenta nueva
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -77,15 +77,18 @@ def test_idor_blocked_on_cancelar_entregar_descuento(client, db, mesero_user, sa
     assert orden.estado == OrdenEstado.CANCELADA
 
 
-def test_mesa_ya_ocupada_still_detected_after_lock_change(client, db, mesero_user, sample_mesa):
+def test_mesa_ocupada_redirige_al_selector_sin_duplicar(client, db, mesero_user, sample_mesa):
+    """Mesas compartidas: un segundo POST sin forzar_nueva no crea otra orden —
+    redirige al selector de cuentas de la mesa (la creación explícita de una
+    segunda cuenta se cubre en test_mesas_compartidas.py)."""
     _marcar_onboarding_completo(db)
     login(client, mesero_user.email, 'Test1234!')
     r1 = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id}, follow_redirects=True)
     assert r1.status_code == 200
 
-    r2 = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id}, follow_redirects=True)
-    assert r2.status_code == 200
-    assert 'ya tiene orden activa'.encode() in r2.data or b'ya tiene orden activa' in r2.data
+    r2 = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id}, follow_redirects=False)
+    assert r2.status_code == 302
+    assert f'/meseros/mesa/{sample_mesa.id}/cuentas' in r2.headers['Location']
 
     from backend.models.models import Orden
     count = Orden.query.filter_by(mesa_id=sample_mesa.id).count()

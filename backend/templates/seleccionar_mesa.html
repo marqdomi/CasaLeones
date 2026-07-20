@@ -49,7 +49,8 @@
 {# ── Mesa Grid ── #}
 <div class="row g-3" id="mesaGrid">
   {% for m in mesas %}
-  {% set active_order = mesa_order_map.get(m.id) %}
+  {% set cuentas = mesa_order_map.get(m.id, []) %}
+  {% set active_order = cuentas[0] if cuentas else None %}
   {% set is_available = m.estado == 'disponible' and not active_order %}
   {% set is_occupied = m.estado == 'ocupada' or active_order %}
   {% set is_reserved = m.estado == 'reservada' and not active_order %}
@@ -70,16 +71,19 @@
       </button>
     </form>
     {% elif is_occupied %}
-    {# Occupied — click goes to active order #}
-    <a href="{% if active_order %}{{ url_for('meseros.detalle_orden', orden_id=active_order.id) }}{% else %}#{% endif %}"
-       class="cl-mesa-tile cl-mesa-tile--occupied" title="Ocupada — Orden #{{ active_order.id if active_order else '?' }}">
+    {# Occupied — click opens the cuentas selector (mesas compartidas) #}
+    <a href="{{ url_for('meseros.cuentas_mesa', mesa_id=m.id) }}"
+       class="cl-mesa-tile cl-mesa-tile--occupied"
+       title="Ocupada — {{ cuentas|length }} cuenta{{ 's' if cuentas|length != 1 }} activa{{ 's' if cuentas|length != 1 }}">
       <div class="cl-mesa-tile__number">{{ m.numero }}</div>
       <div class="cl-mesa-tile__info">
         <i data-lucide="users" class="icon-xs"></i> {{ m.capacidad }}
       </div>
-      {% if active_order %}
+      {% if cuentas %}
       <div class="cl-mesa-tile__order">
-        <span class="cl-badge cl-badge--pill" style="font-size: 10px; background: rgba(255,255,255,0.2); color: white;">#{{ active_order.id }}</span>
+        <span class="cl-badge cl-badge--pill" style="font-size: 10px; background: rgba(255,255,255,0.2); color: white;">
+          {% if cuentas|length == 1 %}#{{ cuentas[0].id }}{% else %}🧾 {{ cuentas|length }} cuentas{% endif %}
+        </span>
       </div>
       {% endif %}
       <div class="cl-mesa-tile__status">Ocupada</div>
