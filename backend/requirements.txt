@@ -3,7 +3,9 @@ Flask-Login
 Flask-SQLAlchemy
 Flask-SocketIO
 Flask-Cors
-eventlet
+# eventlet worker fue eliminado de gunicorn 26 — fijar el par compatible.
+# Si se actualiza gunicorn, migrar a gevent + gevent-websocket primero.
+eventlet>=0.35
 Flask-Migrate
 python-dotenv
 Flask-WTF>=1.0.0
@@ -18,7 +20,8 @@ Flask-Caching
 redis
 bleach
 # Sprint 2 — 2.4
-gunicorn
+# ==23.0.0: última versión con worker-class eventlet (removido en 26.x)
+gunicorn==23.0.0
 # Sprint 3 — 3.1
 python-escpos>=3.0
 # Sprint 6 — 6.4

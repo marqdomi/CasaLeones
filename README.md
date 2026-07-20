@@ -230,7 +230,7 @@ docker compose exec web pytest tests/ --cov=backend --cov-report=term-missing
 | Restaurar | — | `restore.sh` | Restaura un backup de `./backups` con respaldo de seguridad del estado actual y confirmación explícita. |
 | Desinstalar | `uninstall.ps1` | `uninstall.sh` | Detiene contenedores; opción de borrar volúmenes. |
 
-`docker-compose.yml` (build local, usado por los installers) y `docker-compose.prod.yml` (imagen pre-construida GHCR, para despliegues sin git) usan gunicorn con worker eventlet (`--worker-class eventlet --workers 1`) para Socket.IO real.
+`docker-compose.yml` (build local, usado por los installers) y `docker-compose.prod.yml` (imagen pre-construida GHCR, para despliegues sin git) usan gunicorn con worker eventlet (`--worker-class eventlet --workers 1`) para Socket.IO real. ⚠️ `gunicorn` está fijado a `==23.0.0` en requirements.txt: gunicorn 26 eliminó el worker eventlet — antes de subir de versión hay que migrar a gevent + gevent-websocket.
 
 Los backups son automáticos: `pg_dump -Fc` cada hora en `./backups`, retención 7 días, más un dump extra antes de cada update/restore.
 
