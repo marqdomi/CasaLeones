@@ -247,14 +247,29 @@ def station_stats(slug):
 @cocina_bp.route('/api/estaciones')
 @login_required(roles=['mesero', 'cocina', 'admin', 'superadmin'])
 def api_estaciones():
-    """Return all stations with their slugs and colors."""
+    """Return all stations with their slugs, colors and pending item counts.
+
+    `pendientes` alimenta los badges de los tabs de estación en el panel de
+    meseros (saber si una estación necesita apoyo sin entrar a verla).
+    """
+    from sqlalchemy import func
     estaciones = Estacion.query.order_by(Estacion.nombre).all()
+    pendientes = dict(
+        db.session.query(Producto.estacion_id,
+                         func.coalesce(func.sum(OrdenDetalle.cantidad), 0))
+        .join(OrdenDetalle, OrdenDetalle.producto_id == Producto.id)
+        .join(Orden, OrdenDetalle.orden_id == Orden.id)
+        .filter(OrdenDetalle.estado == OrdenEstado.PENDIENTE,
+                Orden.estado.in_([OrdenEstado.ENVIADO, OrdenEstado.EN_PREPARACION]))
+        .group_by(Producto.estacion_id).all()
+    )
     return jsonify([{
         'id': e.id,
         'nombre': e.nombre,
         'slug': _slugify(e.nombre),
         'color': _get_station_color(e.id),
         'label': e.nombre.title(),
+        'pendientes': int(pendientes.get(e.id, 0)),
     } for e in estaciones]), 200
 
 

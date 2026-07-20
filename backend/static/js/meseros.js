@@ -164,6 +164,8 @@ $(document).ready(function() {
         });
 
         socket.on('nueva_orden_cocina', function(data) {
+            // Badges de estaciones: la carga de cocina cambió (orden de cualquiera)
+            document.dispatchEvent(new CustomEvent('kds:actividad'));
             // Solo notificar si la orden es mía — sin este guard, a cada mesero
             // le llegaría el toast de las órdenes de todos sus compañeros.
             if (esMiOrden(data.orden_id)) {
@@ -175,6 +177,7 @@ $(document).ready(function() {
 
         socket.on('item_listo_notificacion', function(data) {
             refreshCountdown = AUTO_REFRESH_SECS;
+            document.dispatchEvent(new CustomEvent('kds:actividad'));
             if (!esMiOrden(data.orden_id)) return;
             playNotif();
             showToast(`¡${data.producto_nombre} de orden #${data.orden_id} listo!`, 'success');

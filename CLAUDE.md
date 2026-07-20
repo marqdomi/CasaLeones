@@ -454,3 +454,16 @@ PostgreSQL 16 real (no solo SQLite).
 - Check de item listo en KDS = botón deshacer (icono undo-2) durante la ventana;
   fuera de ventana el server responde 409 y el UI avisa
 - Tests: `tests/test_kds_undo.py` (5). Suite total 79 passed.
+
+## UX Servicio 2 — Badges, highlight y para-llevar (v6.2)
+- `/cocina/api/estaciones` incluye `pendientes` (sum de cantidades de items
+  pendientes en órdenes enviado/en_preparacion, por estación)
+- Tabs de estación del layout de operaciones muestran badge con pendientes:
+  polling 30s + evento `kds:actividad` (disparado por meseros.js en
+  nueva_orden_cocina/item_listo) para refresh inmediato
+- KDS: items agregados a una orden ya en pantalla se resaltan 8s
+  (`.cl-kds-item--added`, resistente a refreshes vía `recentAddedItems` Map)
+- KDS: toggle "Llevar 1º" en header — reordena tarjetas priorizando para-llevar
+  (`data-para-llevar` en fragment), persistente en localStorage por estación,
+  se reaplica tras cada refresh
+- Test: conteo de pendientes por estación en test_kds_undo.py. Suite: 80 passed.

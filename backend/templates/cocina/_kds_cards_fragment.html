@@ -18,7 +18,8 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
   data-tiempo-registro="{{ orden.tiempo_registro.isoformat() }}"
   data-orden-id="{{ orden.id }}"
   data-items-total="{{ items_total }}"
-  data-items-listos="{{ items_listos }}">
+  data-items-listos="{{ items_listos }}"
+  data-para-llevar="{{ '1' if orden.es_para_llevar else '0' }}">
 
   {# Card header #}
   <div class="cl-kds-card__hdr">

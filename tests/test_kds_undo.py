@@ -120,3 +120,27 @@ class TestKdsUndo:
         login(client, coci.email, 'Test1234!')
         r = client.post(f'/cocina/barbacoa/desmarcar/{orden.id}/{d1.id}')
         assert r.status_code == 409
+
+
+class TestApiEstacionesPendientes:
+
+    def test_conteo_pendientes_por_estacion(self, client, db, mesero_user, sample_categoria):
+        """Los tabs del mesero muestran cuántos items pendientes tiene cada estación."""
+        from backend.models.models import OrdenEstado
+        est, prod, coci = _setup(db, sample_categoria)
+        orden, (d1, d2) = _orden_enviada(db, mesero_user, prod, 2)
+        # d2 con cantidad 3 para verificar que suma cantidades, no filas
+        d2.cantidad = 3
+        db.session.commit()
+
+        login(client, mesero_user.email, 'Test1234!')
+        r = client.get('/cocina/api/estaciones')
+        data = {e['nombre']: e['pendientes'] for e in r.get_json()}
+        assert data['Barbacoa'] == 4, f'1 + 3 items pendientes, got {data}'
+
+        # Marcar uno como listo lo saca del conteo
+        login(client, coci.email, 'Test1234!')
+        client.post(f'/cocina/barbacoa/marcar/{orden.id}/{d1.id}')
+        r = client.get('/cocina/api/estaciones')
+        data = {e['nombre']: e['pendientes'] for e in r.get_json()}
+        assert data['Barbacoa'] == 3, f'solo quedan los 3 de d2, got {data}'

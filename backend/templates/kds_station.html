@@ -10,6 +10,30 @@
 
 {% block head %}
 {{ super() }}
+<style>
+  /* Item agregado a una orden que ya estaba en pantalla — que cocina lo note */
+  @keyframes kdsItemAdded {
+    0%, 60% { background: rgba(245, 158, 11, 0.35); box-shadow: inset 3px 0 0 var(--cl-warning-500); }
+    100% { background: transparent; box-shadow: none; }
+  }
+  .cl-kds-item--added {
+    animation: kdsItemAdded 8s ease-out forwards;
+    border-radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cl-kds-item--added { animation: none; box-shadow: inset 3px 0 0 var(--cl-warning-500); }
+  }
+</style>
+{% endblock %}
+
+{% block kds_actions %}
+<button class="cl-icon-btn" id="kdsLlevarToggle" aria-label="Priorizar para llevar" aria-pressed="false"
+  title="Mostrar órdenes para llevar primero (el cliente espera parado)"
+  style="font-size:11px;width:auto;padding:5px 10px;gap:5px;border-radius:20px;">
+  <i data-lucide="shopping-bag" style="width:13px;height:13px;"></i>
+  <span id="kdsLlevarLabel">Llevar 1º: OFF</span>
+</button>
+{{ super() }}
 {% endblock %}
 
 {% block kds_stats_extra %}
@@ -147,11 +171,18 @@
     if (liveLabel) { liveLabel.textContent = 'Desconectado'; }
   });
 
-  // ── Track existing card IDs (for detecting new arrivals) ──
+  // ── Track existing card + item IDs (for detecting new arrivals) ──
   var knownCardIds = new Set();
+  var knownItemIds = new Set();
+  var recentAddedItems = new Map();   // detalle_id → timestamp del primer avistamiento
+  var HIGHLIGHT_MS = 8000;            // debe coincidir con la animación kdsItemAdded
   document.querySelectorAll('.cl-kds-card').forEach(function(c) {
     var oid = c.getAttribute('data-orden-id');
     if (oid) knownCardIds.add(oid);
+  });
+  document.querySelectorAll('.cl-kds-item').forEach(function(it) {
+    var did = it.getAttribute('data-detalle-id');
+    if (did) knownItemIds.add(did);
   });
 
   socket.on('nueva_orden_cocina', () => {
@@ -187,6 +218,44 @@
     updateCardProgress(data.orden_id, data.items_listos, data.items_total);
   });
 
+  // ── "Para llevar primero" — reordena tarjetas priorizando para-llevar ──
+  // Dentro de cada grupo se conserva el orden original (por antigüedad).
+  var llevarFirst = localStorage.getItem('kds_llevar_first_' + STATION_SLUG) === 'on';
+
+  function aplicarOrdenLlevar() {
+    var strip = document.getElementById('main-content');
+    if (!strip || !llevarFirst) return;
+    var cards = Array.from(strip.querySelectorAll('.cl-kds-card'));
+    if (cards.length < 2) return;
+    var llevar = cards.filter(function(c) { return c.getAttribute('data-para-llevar') === '1'; });
+    var mesas = cards.filter(function(c) { return c.getAttribute('data-para-llevar') !== '1'; });
+    llevar.concat(mesas).forEach(function(c) { strip.appendChild(c); });
+  }
+
+  function pintarToggleLlevar() {
+    var label = document.getElementById('kdsLlevarLabel');
+    var btn = document.getElementById('kdsLlevarToggle');
+    if (label) label.textContent = 'Llevar 1º: ' + (llevarFirst ? 'ON' : 'OFF');
+    if (btn) {
+      btn.setAttribute('aria-pressed', llevarFirst ? 'true' : 'false');
+      btn.style.background = llevarFirst ? 'var(--cl-warning-500)' : '';
+      btn.style.color = llevarFirst ? '#1a1a1a' : '';
+    }
+  }
+
+  var llevarBtn = document.getElementById('kdsLlevarToggle');
+  if (llevarBtn) {
+    llevarBtn.addEventListener('click', function() {
+      llevarFirst = !llevarFirst;
+      localStorage.setItem('kds_llevar_first_' + STATION_SLUG, llevarFirst ? 'on' : 'off');
+      pintarToggleLlevar();
+      if (llevarFirst) { aplicarOrdenLlevar(); }
+      else { refreshOrders(); } // re-render en orden natural del server
+    });
+  }
+  pintarToggleLlevar();
+  aplicarOrdenLlevar();
+
   // ── Refresh orders via AJAX ──
   function refreshOrders(isNewOrder) {
     fetch(FRAG_URL)
@@ -216,7 +285,35 @@
             }
           }
         });
+
+        // Resaltar items NUEVOS dentro de tarjetas que ya estaban en pantalla
+        // (el mesero agregó productos a una orden ya enviada — fácil de pasar
+        // por alto porque la tarjeta como tal no es nueva). recentAddedItems
+        // conserva el resaltado aunque otro refresh reemplace el HTML antes
+        // de que termine la animación.
+        var AHORA = Date.now();
+        var newKnownItems = new Set();
+        grid.querySelectorAll('.cl-kds-item').forEach(function(it) {
+          var did = it.getAttribute('data-detalle-id');
+          if (!did) return;
+          newKnownItems.add(did);
+          var card = it.closest('.cl-kds-card');
+          var oid = card ? card.getAttribute('data-orden-id') : null;
+          if (!knownItemIds.has(did) && oid && knownCardIds.has(oid)) {
+            recentAddedItems.set(did, AHORA);
+          }
+          var desde = recentAddedItems.get(did);
+          if (desde && (AHORA - desde) < HIGHLIGHT_MS) {
+            it.classList.add('cl-kds-item--added');
+          } else if (desde) {
+            recentAddedItems.delete(did);
+          }
+        });
         knownCardIds = newKnown;
+        knownItemIds = newKnownItems;
+
+        // Reaplicar orden "para llevar primero" si está activo
+        aplicarOrdenLlevar();
 
         // Auto-scroll to show newest card (rightmost)
         if (isNewOrder && cards.length > 0) {

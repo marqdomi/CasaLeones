@@ -56,6 +56,8 @@ Usage:
         class="cl-topbar-tab" title="Ver pendientes de {{ est.nombre }}">
         <i data-lucide="chef-hat" class="icon-sm"></i>
         <span>{{ est.nombre }}</span>
+        <span class="cl-est-badge" data-est-badge="{{ est.id }}"
+          style="display:none;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--cl-warning-500);color:#1a1a1a;font-size:10px;font-weight:800;line-height:18px;text-align:center;"></span>
       </a>
       {% endfor %}
     </div>
@@ -139,12 +141,43 @@ Usage:
   {# Estaciones — mesero puede apoyar (ej. bebidas). En móvil, máx 2 para no saturar #}
   {% for est in nav_estaciones[:2] %}
   <a href="{{ url_for('cocina.station_view', slug=est.slug) }}" class="cl-ops-bottom-tab"
-    title="Pendientes de {{ est.nombre }}">
+    title="Pendientes de {{ est.nombre }}" style="position:relative;">
     <i data-lucide="chef-hat" class="icon-sm"></i>
     <span>{{ est.nombre|truncate(9, True, '·') }}</span>
+    <span class="cl-est-badge" data-est-badge="{{ est.id }}"
+      style="display:none;position:absolute;top:2px;right:8px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--cl-warning-500);color:#1a1a1a;font-size:9px;font-weight:800;line-height:16px;text-align:center;"></span>
   </a>
   {% endfor %}
 </nav>
+
+{# ── Badges de items pendientes por estación (polling ligero) ── #}
+{% if nav_estaciones %}
+<script nonce="{{ csp_nonce }}">
+(function() {
+  function pintarBadges() {
+    fetch('/cocina/api/estaciones')
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(ests) {
+        ests.forEach(function(e) {
+          document.querySelectorAll('[data-est-badge="' + e.id + '"]').forEach(function(b) {
+            if (e.pendientes > 0) {
+              b.textContent = e.pendientes > 99 ? '99+' : e.pendientes;
+              b.style.display = 'inline-block';
+            } else {
+              b.style.display = 'none';
+            }
+          });
+        });
+      })
+      .catch(function() { /* silencioso — los badges no son críticos */ });
+  }
+  pintarBadges();
+  setInterval(pintarBadges, 30000);
+  // Si la página tiene Socket.IO (panel de meseros), refrescar al vuelo
+  document.addEventListener('kds:actividad', pintarBadges);
+})();
+</script>
+{% endif %}
 
 {# ── Content ── #}
 <main id="main-content" style="background:var(--cl-canvas);min-height:calc(100vh - var(--cl-topbar-h, 60px));">
