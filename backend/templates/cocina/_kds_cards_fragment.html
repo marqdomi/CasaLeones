@@ -73,8 +73,12 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
         </div>
         {# Check circle for individual marking #}
         {% if item.estado == 'listo' %}
-        <div class="cl-kds-check cl-kds-check--done" title="Listo">
-          <i data-lucide="check" style="width:12px;height:12px;color:#fff;"></i>
+        <div class="cl-kds-check cl-kds-check--done"
+             data-action="desmarcar-item" data-orden-id="{{ orden.id }}" data-detalle-id="{{ item.id }}"
+             title="Marcado listo — toca para deshacer" role="button" tabindex="0"
+             aria-label="Deshacer listo de {{ item.producto.nombre }}"
+             style="cursor:pointer;">
+          <i data-lucide="undo-2" style="width:12px;height:12px;color:#fff;"></i>
         </div>
         {% else %}
         <div class="cl-kds-check"

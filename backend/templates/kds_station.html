@@ -33,6 +33,7 @@
   const STATION_SLUG = '{{ station_slug }}';
   const FRAG_URL = '/cocina/' + STATION_SLUG + '/fragmento_ordenes';
   const MARK_BASE = '/cocina/' + STATION_SLUG + '/marcar/';
+  const UNMARK_BASE = '/cocina/' + STATION_SLUG + '/desmarcar/';
   const STATS_URL = '/cocina/' + STATION_SLUG + '/stats';
 
   // ── Sound (uses layout toggle via window.__kdsSound) ──
@@ -91,6 +92,14 @@
       var oId = parseInt(checkEl.getAttribute('data-orden-id'), 10);
       var dId = parseInt(checkEl.getAttribute('data-detalle-id'), 10);
       if (oId && dId) marcarItemListo(checkEl, oId, dId);
+      return;
+    }
+    // Undo — un-mark a listo item (dedazo)
+    var undoEl = e.target.closest('[data-action="desmarcar-item"]');
+    if (undoEl) {
+      var uoId = parseInt(undoEl.getAttribute('data-orden-id'), 10);
+      var udId = parseInt(undoEl.getAttribute('data-detalle-id'), 10);
+      if (uoId && udId) desmarcarItem(undoEl, uoId, udId);
       return;
     }
     // LISTO button — mark all items
@@ -161,8 +170,11 @@
       var check = itemEl.querySelector('.cl-kds-check');
       if (check) {
         check.classList.add('cl-kds-check--done');
-        check.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#fff;"></i>';
-        check.removeAttribute('data-action');
+        check.innerHTML = '<i data-lucide="undo-2" style="width:12px;height:12px;color:#fff;"></i>';
+        check.setAttribute('data-action', 'desmarcar-item');
+        check.setAttribute('data-orden-id', data.orden_id);
+        check.setAttribute('data-detalle-id', data.item_id);
+        check.setAttribute('title', 'Marcado listo — toca para deshacer');
         if (window.lucide) lucide.createIcons();
       }
       updateCardProgress(data.orden_id);
@@ -261,8 +273,10 @@
     if (window.lucide) lucide.createIcons();
     try {
       await fetch(MARK_BASE + ordenId + '/' + detalleId, { method: 'POST' });
-      checkEl.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#fff;"></i>';
-      checkEl.removeAttribute('data-action');
+      // Queda como "deshacer" durante la ventana de undo (el server la valida)
+      checkEl.innerHTML = '<i data-lucide="undo-2" style="width:12px;height:12px;color:#fff;"></i>';
+      checkEl.setAttribute('data-action', 'desmarcar-item');
+      checkEl.setAttribute('title', 'Marcado listo — toca para deshacer');
       var itemRow = checkEl.closest('.cl-kds-item');
       if (itemRow) itemRow.classList.add('cl-kds-item--done');
       if (window.lucide) lucide.createIcons();
@@ -272,6 +286,31 @@
       console.error('Error marking item:', err);
       checkEl.classList.remove('cl-kds-check--done');
       checkEl.innerHTML = '';
+    }
+  };
+
+  // ── Undo a mistakenly-marked item (server enforces the time window) ──
+  window.desmarcarItem = async function(undoEl, ordenId, detalleId) {
+    undoEl.innerHTML = '<i data-lucide="loader" style="width:12px;height:12px;color:#fff;animation:spin 1s linear infinite;"></i>';
+    if (window.lucide) lucide.createIcons();
+    try {
+      var resp = await fetch(UNMARK_BASE + ordenId + '/' + detalleId, { method: 'POST' });
+      var body = await resp.json().catch(function() { return {}; });
+      if (!resp.ok) {
+        // Fuera de ventana u otro rechazo — restaurar el check y avisar
+        undoEl.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#fff;"></i>';
+        if (window.lucide) lucide.createIcons();
+        if (typeof showToast === 'function') showToast(body.error || 'No se pudo deshacer.', 'warning');
+        else alert(body.error || 'No se pudo deshacer.');
+        return;
+      }
+      // El evento nueva_orden_cocina del server refresca el fragmento completo
+      refreshOrders();
+      refreshStats();
+    } catch (err) {
+      console.error('Error deshaciendo item:', err);
+      undoEl.innerHTML = '<i data-lucide="check" style="width:12px;height:12px;color:#fff;"></i>';
+      if (window.lucide) lucide.createIcons();
     }
   };
 

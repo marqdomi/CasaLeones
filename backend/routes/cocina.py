@@ -331,6 +331,69 @@ def station_marcar(slug, orden_id, detalle_id):
     return _marcar_listo(orden_id, detalle_id)
 
 
+# ── Undo mark-done endpoint ─────────────────────────────────────
+# Ventana para deshacer un "listo" marcado por error (dedazo en pantalla táctil)
+UNDO_LISTO_SEGUNDOS = 120
+
+
+def _dentro_de_ventana_undo(fecha_listo):
+    if not fecha_listo:
+        return False
+    ahora = utc_now().replace(tzinfo=None)
+    marcado = fecha_listo.replace(tzinfo=None) if fecha_listo.tzinfo else fecha_listo
+    return (ahora - marcado).total_seconds() <= UNDO_LISTO_SEGUNDOS
+
+
+@cocina_bp.route('/<slug>/desmarcar/<int:orden_id>/<int:detalle_id>', methods=['POST'])
+@login_required(roles=['cocina', 'mesero', 'admin', 'superadmin'])
+def station_desmarcar(slug, orden_id, detalle_id):
+    """Deshace un item marcado como listo por error, dentro de la ventana de undo.
+
+    Si la orden ya había pasado a lista_para_entregar (todos los items listos),
+    se regresa a en_preparacion para que vuelva a aparecer en el KDS y el mesero
+    no entregue de más.
+    """
+    estacion = _get_estacion_or_404(slug)
+    _require_station_access(estacion)
+
+    detalle = db.session.get(OrdenDetalle, detalle_id)
+    if not detalle or detalle.orden_id != orden_id:
+        return jsonify({'error': 'Item no encontrado en esa orden'}), 404
+    if detalle.producto and detalle.producto.estacion_id != estacion.id:
+        return jsonify({'error': 'El item pertenece a otra estación'}), 403
+    if detalle.estado != OrdenEstado.LISTO:
+        return jsonify({'error': f'El item no está en listo ({detalle.estado})'}), 409
+
+    orden = db.session.get(Orden, orden_id)
+    if not orden or orden.estado in (OrdenEstado.PAGADA, OrdenEstado.CANCELADA,
+                                     OrdenEstado.FINALIZADA, OrdenEstado.COMPLETADA):
+        estado = orden.estado if orden else '?'
+        return jsonify({'error': f'Orden {estado}, ya no se puede regresar'}), 409
+
+    if not _dentro_de_ventana_undo(detalle.fecha_listo):
+        return jsonify({'error': f'Ya pasó la ventana de {UNDO_LISTO_SEGUNDOS // 60} min para deshacer'}), 409
+
+    detalle.estado = OrdenEstado.PENDIENTE
+    detalle.fecha_listo = None
+
+    # Si la orden ya había salido del KDS por estar completa, regresarla
+    if orden.estado == OrdenEstado.LISTA_PARA_ENTREGAR:
+        orden.estado = OrdenEstado.EN_PREPARACION
+
+    db.session.commit()
+    logger.info('Item %s de orden %s regresado a pendiente (undo) por usuario %s',
+                detalle_id, orden_id, session.get('user_id'))
+
+    # Refrescar KDS (todas las vistas re-consultan con este evento) y avisar meseros
+    socketio.emit('nueva_orden_cocina', {
+        'orden_id': orden_id,
+        'mensaje': f'Item regresado a pendiente en orden #{orden_id}.',
+    })
+    _emit_item_progreso(orden_id)
+
+    return jsonify({'message': 'Item regresado a pendiente'}), 200
+
+
 # ── Batch mark-done endpoint ────────────────────────────────────
 @cocina_bp.route('/<slug>/batch-listo', methods=['POST'])
 @login_required(roles=['cocina', 'mesero', 'admin', 'superadmin'])

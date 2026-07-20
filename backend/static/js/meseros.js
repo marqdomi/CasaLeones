@@ -66,6 +66,16 @@ $(document).ready(function() {
 
     function playNotif() {
         if (soundEnabled && notifAudio) notifAudio.play().catch(function(){});
+        // Vibración en tablets/teléfonos Android (iOS la ignora sin error)
+        if (soundEnabled && navigator.vibrate) {
+            try { navigator.vibrate([200, 100, 200]); } catch(e) {}
+        }
+    }
+
+    // Una orden "es mía" si su card está en mi vista (el panel solo lista las
+    // órdenes propias para meseros; admin ve todas y por tanto oye todas).
+    function esMiOrden(ordenId) {
+        return document.getElementById('orden-card-' + ordenId) !== null;
     }
 
     // =============================================
@@ -154,15 +164,20 @@ $(document).ready(function() {
         });
 
         socket.on('nueva_orden_cocina', function(data) {
-            showToast(`Orden #${data.orden_id} enviada a cocina.`, 'info');
+            // Solo notificar si la orden es mía — sin este guard, a cada mesero
+            // le llegaría el toast de las órdenes de todos sus compañeros.
+            if (esMiOrden(data.orden_id)) {
+                showToast(`Orden #${data.orden_id} enviada a cocina.`, 'info');
+            }
             // Reset auto-refresh countdown on activity
             refreshCountdown = AUTO_REFRESH_SECS;
         });
 
         socket.on('item_listo_notificacion', function(data) {
+            refreshCountdown = AUTO_REFRESH_SECS;
+            if (!esMiOrden(data.orden_id)) return;
             playNotif();
             showToast(`¡${data.producto_nombre} de orden #${data.orden_id} listo!`, 'success');
-            refreshCountdown = AUTO_REFRESH_SECS;
             var row = $('#product-item-' + data.item_id);
             if (row.length) {
                 // Update badge in card layout
@@ -208,9 +223,10 @@ $(document).ready(function() {
         });
 
         socket.on('orden_completa_lista', function(data) {
+            refreshCountdown = AUTO_REFRESH_SECS;
+            if (!esMiOrden(data.orden_id)) return;
             playNotif();
             showToast(`¡Orden #${data.orden_id} lista en cocina! Entrega los productos.`, 'success');
-            refreshCountdown = AUTO_REFRESH_SECS;
             // Card glow + scroll to draw attention
             glowCardReady(data.orden_id);
             scrollToCard(data.orden_id);
@@ -227,6 +243,7 @@ $(document).ready(function() {
 
         socket.on('orden_actualizada_para_cobro', function(data) {
             refreshCountdown = AUTO_REFRESH_SECS;
+            if (!esMiOrden(data.orden_id)) return;
             if (data.estado_orden === 'completada') {
                 playNotif();
                 showToast(`Orden #${data.orden_id} lista para cobro.`, 'confetti');

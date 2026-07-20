@@ -442,3 +442,15 @@ PostgreSQL 16 real (no solo SQLite).
 - Ownership entre cuentas: mesero solo abre sus propias cuentas (verificar_propiedad_orden);
   las ajenas se muestran como informativas en el selector
 - Tests: `tests/test_mesas_compartidas.py` (6) — suite total 73 passed
+
+## UX Servicio — Alertas de mesero + Undo KDS (v6.2)
+- meseros.js: `playNotif()` ahora también vibra (`navigator.vibrate`); eventos
+  item_listo/orden_completa/cobro filtrados con `esMiOrden()` (card en DOM) — sin
+  el guard, a cada mesero le sonaban las órdenes de todos
+- KDS undo: `POST /cocina/<slug>/desmarcar/<orden_id>/<detalle_id>` — deshace un
+  "listo" marcado por dedazo dentro de `UNDO_LISTO_SEGUNDOS` (120s); scope por
+  estación + orden; si la orden ya estaba lista_para_entregar regresa a
+  en_preparacion y reaparece en el KDS (emite nueva_orden_cocina + item_progreso)
+- Check de item listo en KDS = botón deshacer (icono undo-2) durante la ventana;
+  fuera de ventana el server responde 409 y el UI avisa
+- Tests: `tests/test_kds_undo.py` (5). Suite total 79 passed.
