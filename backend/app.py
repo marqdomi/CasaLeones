@@ -30,6 +30,7 @@ from backend.routes.delivery import delivery_bp
 from backend.routes.sucursales import sucursales_bp
 # Sprint 6
 from backend.routes.auditoria import auditoria_bp
+from backend.routes.pagos import pagos_bp
 # Onboarding
 from backend.routes.setup import setup_bp
 
@@ -206,6 +207,31 @@ def create_app():
         decimales = parts[1]
         return Markup(f'<span class="cl-money"><span class="cl-money-symbol">$</span>{enteros}<span class="cl-money-decimal">.{decimales}</span></span>')
 
+    # Horas en la zona del negocio: las fechas se guardan en UTC, pero el personal
+    # lee su propio reloj. Sin esto, un ticket de las 13:44 se muestra como 19:44.
+    @app.template_filter('hora_local')
+    def _hora_local(dt, formato='%H:%M'):
+        from backend.services.tiempo import a_local
+        local = a_local(dt)
+        return local.strftime(formato) if local else '—'
+
+    @app.template_filter('fecha_local')
+    def _fecha_local(dt, formato='%Y-%m-%d'):
+        from backend.services.tiempo import a_local
+        local = a_local(dt)
+        return local.strftime(formato) if local else '—'
+
+    @app.template_filter('iso_utc')
+    def _iso_utc(dt):
+        from backend.services.tiempo import iso_utc
+        return iso_utc(dt) or ''
+
+    @app.template_filter('fechahora_local')
+    def _fechahora_local(dt, formato='%Y-%m-%d %H:%M'):
+        from backend.services.tiempo import a_local
+        local = a_local(dt)
+        return local.strftime(formato) if local else '—'
+
     # Security headers (Fase 4 - Item 24) + CSP (Fase 5 - Sprint 1)
     @app.after_request
     def set_security_headers(response):
@@ -263,6 +289,7 @@ def create_app():
     app.register_blueprint(sucursales_bp)
     # Sprint 6
     app.register_blueprint(auditoria_bp)
+    app.register_blueprint(pagos_bp)
     # Onboarding
     app.register_blueprint(setup_bp)
 

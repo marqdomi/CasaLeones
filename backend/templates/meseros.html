@@ -97,7 +97,7 @@
   {% if not ordenes_mesero %}
   {# ═══════════ Empty State ═══════════ #}
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:16px;text-align:center;">
-    <div style="width:80px;height:80px;border-radius:var(--cl-radius-xl);background:rgba(255,255,255,0.05);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
+    <div style="width:80px;height:80px;border-radius:var(--cl-radius-xl);background:var(--cl-overlay);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="coffee" style="width:36px;height:36px;color:var(--cl-text-tertiary);"></i>
     </div>
     <div>
@@ -152,7 +152,7 @@
       aria-label="Orden #{{ orden.id }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
 
       {# ── Card Header ── #}
-      <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:flex-start;justify-content:space-between;">
+      <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-primary);">
             #{{ orden.id }}
@@ -172,7 +172,7 @@
           {% elif urgency == 'warning' %}
           <span class="cl-timer cl-timer--warning">{{ mins }} min</span>
           {% else %}
-          <span class="cl-timer cl-timer--fresh">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+          <span class="cl-timer cl-timer--fresh">{{ orden.tiempo_registro|hora_local }}</span>
           {% endif %}
           {# Status badge #}
           {% if orden.estado == 'pendiente' %}
@@ -211,7 +211,7 @@
         {% set entregados = orden.detalles|selectattr('estado','equalto','entregado')|list|length %}
         {% set pct_done = ((listos + entregados) * 100 / total_items)|int if total_items > 0 else 0 %}
         <div class="cl-progress-row" data-orden-id="{{ orden.id }}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:10px;color:var(--cl-text-tertiary);">
-          <div style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+          <div style="flex:1;height:4px;background:var(--cl-overlay-strong);border-radius:2px;overflow:hidden;">
             <div class="cl-progress-fill" style="height:100%;border-radius:2px;transition:width 0.4s ease;width:{{ pct_done }}%;
               background:{% if entregados == total_items %}var(--cl-success-500){% elif pct_done > 0 %}var(--cl-warning-500){% else %}transparent{% endif %};">
             </div>
@@ -257,13 +257,13 @@
                   Entregar
                 </button>
                 {% elif detalle.estado == 'entregado' %}
-                <span style="font-size:10px;color:var(--cl-success-500);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
+                <span style="font-size:10px;color:var(--cl-success-text);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
                 {% endif %}
               </span>
             </div>
             {# Item notes #}
             {% if detalle.notas %}
-            <div style="margin-left:14px;font-size:11px;color:var(--cl-warning-500);display:flex;align-items:center;gap:4px;">
+            <div style="margin-left:14px;font-size:11px;color:var(--cl-warning-text);display:flex;align-items:center;gap:4px;">
               <i data-lucide="message-circle" style="width:10px;height:10px;flex-shrink:0;"></i>
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ detalle.notas }}</span>
             </div>
@@ -278,13 +278,13 @@
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
-            {{ orden.tiempo_registro.strftime('%H:%M') }}
+            {{ orden.tiempo_registro|hora_local }}
           </div>
           <span>{{ orden.detalles|length }} ítem{{ 's' if orden.detalles|length != 1 else '' }}</span>
-          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-500);font-weight:700;" id="orden-total-{{ orden.id }}">
+          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-text);font-weight:700;" id="orden-total-{{ orden.id }}">
             ${{ '%.2f'|format(orden.total if orden.total is not none else 0) }}
           </span>
         </div>
@@ -318,7 +318,7 @@
       aria-label="Orden #{{ orden.id }} — Pagada">
 
       {# ── Card Header ── #}
-      <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:flex-start;justify-content:space-between;">
+      <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-secondary);">
             #{{ orden.id }}
@@ -332,7 +332,7 @@
           </div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
-          <span class="cl-timer cl-timer--fresh" style="opacity:0.7;">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+          <span class="cl-timer cl-timer--fresh" style="opacity:0.7;">{{ orden.tiempo_registro|hora_local }}</span>
           <span class="cl-status cl-status--paid" style="font-size:10px;padding:2px 8px;">
             <i data-lucide="circle-check" style="width:10px;height:10px;"></i> Pagada
           </span>
@@ -357,13 +357,13 @@
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
-            {% if orden.fecha_pago %}Pagada {{ orden.fecha_pago.strftime('%H:%M') }}{% else %}{{ orden.tiempo_registro.strftime('%H:%M') }}{% endif %}
+            {% if orden.fecha_pago %}Pagada {{ orden.fecha_pago|hora_local }}{% else %}{{ orden.tiempo_registro|hora_local }}{% endif %}
           </div>
           <span>{{ orden.detalles|length }} ítem{{ 's' if orden.detalles|length != 1 else '' }}</span>
-          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-500);font-weight:700;opacity:0.8;">
+          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-text);font-weight:700;opacity:0.8;">
             ${{ '%.2f'|format(orden.total if orden.total is not none else 0) }}
           </span>
         </div>
@@ -382,7 +382,7 @@
     {% endfor %}
     {% if not ordenes_pagadas|default([]) %}
     <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 0;gap:12px;">
-      <div style="width:56px;height:56px;border-radius:var(--cl-radius-xl);background:rgba(255,255,255,0.04);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
+      <div style="width:56px;height:56px;border-radius:var(--cl-radius-xl);background:var(--cl-overlay-subtle);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
         <i data-lucide="circle-check" style="width:24px;height:24px;color:var(--cl-text-tertiary);"></i>
       </div>
       <p style="color:var(--cl-text-tertiary);font-size:13px;">No hay órdenes pagadas hoy</p>

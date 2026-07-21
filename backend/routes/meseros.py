@@ -7,6 +7,9 @@ from backend.models.models import (
     descontar_inventario_por_orden, Cliente, MovimientoInventario, OrdenEstado, utc_now,
 )
 from backend.extensions import db, socketio
+from backend.services.tiempo import hoy_local, rango_utc
+from backend.services.cobro import cerrar_orden_pagada
+from backend.services.pagos import metodos_pago_detalle, metodos_pago_habilitados
 from backend.utils import login_required, verificar_propiedad_orden, filtrar_por_sucursal, verificar_stock_disponible, actualizar_estado_mesa
 from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
@@ -75,7 +78,8 @@ def view_meseros():
         db.session.commit()
 
     # Load paid orders from today for the "Pagadas" pill
-    hoy = date.today()
+    hoy = hoy_local()
+    desde, hasta = rango_utc(hoy)
     q_pagadas = Orden.query.options(
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
@@ -83,8 +87,8 @@ def view_meseros():
     ).filter(
         Orden.estado.in_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA]),
         db.or_(
-            db.func.date(Orden.fecha_pago) == hoy,
-            db.func.date(Orden.tiempo_registro) == hoy,
+            db.and_(Orden.fecha_pago >= desde, Orden.fecha_pago < hasta),
+            db.and_(Orden.tiempo_registro >= desde, Orden.tiempo_registro < hasta),
         ),
     )
     if not is_admin:
@@ -116,15 +120,16 @@ def mapa_mesas():
 @meseros_bp.route('/historial')
 @login_required(roles=['mesero', 'admin', 'superadmin'])
 def historial_dia():
-    hoy = date.today()
+    hoy = hoy_local()
+    desde, hasta = rango_utc(hoy)
     query = Orden.query.options(
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
     ).filter(
         Orden.estado.in_([OrdenEstado.FINALIZADA, OrdenEstado.PAGADA]),
         db.or_(
-            db.func.date(Orden.fecha_pago) == hoy,
-            db.func.date(Orden.tiempo_registro) == hoy,
+            db.and_(Orden.fecha_pago >= desde, Orden.fecha_pago < hasta),
+            db.and_(Orden.tiempo_registro >= desde, Orden.tiempo_registro < hasta),
         ),
     )
     query = filtrar_por_sucursal(query, Orden)
@@ -144,15 +149,16 @@ def historial_csv():
     import io
     from flask import Response
 
-    hoy = date.today()
+    hoy = hoy_local()
+    desde, hasta = rango_utc(hoy)
     query = Orden.query.options(
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
     ).filter(
         Orden.estado.in_([OrdenEstado.FINALIZADA, OrdenEstado.PAGADA]),
         db.or_(
-            db.func.date(Orden.fecha_pago) == hoy,
-            db.func.date(Orden.tiempo_registro) == hoy,
+            db.and_(Orden.fecha_pago >= desde, Orden.fecha_pago < hasta),
+            db.and_(Orden.tiempo_registro >= desde, Orden.tiempo_registro < hasta),
         ),
     )
     query = filtrar_por_sucursal(query, Orden)
@@ -420,7 +426,10 @@ def pago_view(orden_id):
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
     ])
-    return render_template('pago.html', orden=orden)
+    from backend.services.banco import datos_bancarios
+    return render_template('pago.html', orden=orden,
+                           metodos_pago=metodos_pago_detalle(),
+                           banco=datos_bancarios())
 
 
 # =====================================================================
@@ -646,8 +655,8 @@ def registrar_pago(orden_id):
     if not data:
         return jsonify(success=False, message="Datos faltantes."), 400
     metodo = data.get('metodo', 'efectivo')
-    if metodo not in ('efectivo', 'tarjeta', 'transferencia'):
-        return jsonify(success=False, message="Método inválido."), 400
+    if metodo not in metodos_pago_habilitados():
+        return jsonify(success=False, message="Método de pago no habilitado."), 400
 
     try:
         monto = Decimal(str(data.get('monto', 0)))
@@ -657,7 +666,13 @@ def registrar_pago(orden_id):
     if monto <= 0:
         return jsonify(success=False, message="Monto debe ser mayor a 0."), 400
 
-    referencia = data.get('referencia', '')
+    referencia = sanitizar_texto(data.get('referencia', '') or '', 100)
+    # Una transferencia sin referencia no se puede buscar en el estado de cuenta,
+    # así que no habría forma de confirmar que el dinero llegó.
+    if metodo == 'transferencia' and not referencia:
+        return jsonify(success=False,
+                       message="Captura la referencia de la transferencia "
+                               "(folio o nombre de quien transfiere)."), 400
 
     # Propina (Sprint 6 — 3.6)
     try:
@@ -685,87 +700,65 @@ def registrar_pago(orden_id):
     monto_aplicado = min(monto, saldo_antes) if metodo == 'efectivo' else monto
     cambio_pago = max(monto - saldo_antes - propina, Decimal('0')) if metodo == 'efectivo' else Decimal('0')
 
+    # El efectivo se da por verificado (está en la mano); la transferencia queda
+    # pendiente hasta que alguien la confirme en el banco.
+    requiere_verificacion = metodo == 'transferencia'
+
     pago = Pago(
-        metodo=metodo, monto=monto_aplicado,
+        metodo=metodo, monto=monto_aplicado, propina=propina,
         referencia=referencia, registrado_por=session.get('user_id'),
+        verificado=not requiere_verificacion,
     )
     orden.pagos.append(pago)  # Use relationship so in-memory collection stays in sync
     db.session.flush()
 
-    total_pagado = orden.total_pagado()
     saldo = orden.saldo_pendiente()
 
-    # Si ya se cubrió el total, cerrar la orden
+    # Si ya se cubrió el total con pagos verificados, cerrar la orden
     if saldo <= 0:
-        cambio = cambio_pago
-        orden.monto_recibido = total_pagado + cambio_pago + (propina if metodo == 'efectivo' else Decimal('0'))
-        orden.cambio = cambio
-        orden.fecha_pago = utc_now()
-        orden.estado = OrdenEstado.PAGADA
-
-        # Crear Sale record
-        venta = Sale(mesa_id=orden.mesa_id, usuario_id=session.get('user_id'),
-                     total=orden.total, estado='cerrada',
-                     sucursal_id=getattr(g, 'sucursal_id', None))
-        db.session.add(venta)
-        db.session.flush()
-        for det in orden.detalles:
-            precio = float(det.precio_unitario) if det.precio_unitario else float(det.producto.precio)
-            db.session.add(SaleItem(
-                sale_id=venta.id, producto_id=det.producto_id,
-                cantidad=det.cantidad, precio_unitario=precio,
-                subtotal=det.cantidad * precio,
-            ))
-
-        socketio.emit('orden_pagada_notificacion', {
-            'orden_id': orden.id, 'mensaje': f'Orden #{orden.id} pagada.',
-        })
-        # Descontar inventario según receta estándar (savepoint)
-        inventario_ok = True
-        try:
-            db.session.begin_nested()
-            descontar_inventario_por_orden(orden, session.get('user_id'))
-            db.session.commit()  # release savepoint
-        except Exception:
-            db.session.rollback()  # rollback savepoint only
-            inventario_ok = False
-            logger.exception('Error descontando inventario orden %s — requiere reconciliación', orden_id)
-            # Flag for reconciliation via ConfiguracionSistema
-            try:
-                from backend.models.models import ConfiguracionSistema
-                pending = ConfiguracionSistema.get('inventario_pendiente', '')
-                ids = f"{pending},{orden_id}" if pending else str(orden_id)
-                ConfiguracionSistema.set('inventario_pendiente', ids)
-            except Exception:
-                pass  # Don't block payment over flagging
-
-        # Actualizar visitas/gasto del cliente
-        if orden.cliente_id:
-            cli = db.session.get(Cliente, orden.cliente_id)
-            if cli:
-                cli.visitas = (cli.visitas or 0) + 1
-                cli.total_gastado = (cli.total_gastado or 0) + orden.total
-
-        logger.info('Orden #%s pagada total=$%.2f', orden_id, float(orden.total))
+        cerrar_orden_pagada(
+            orden, orden.mesero_id or session.get('user_id'),
+            cambio=cambio_pago,
+            propina_efectivo=(propina if metodo == 'efectivo' else Decimal('0')),
+        )
 
     # Auditoría (Sprint 6 — 3.5)
     from backend.services.audit import registrar_auditoria
     registrar_auditoria('pago', 'Orden', orden_id,
-                        f'Pago ${float(monto):.2f} ({metodo}). Propina: ${float(propina):.2f}')
+                        f'Pago ${float(monto):.2f} ({metodo}). Propina: ${float(propina):.2f}'
+                        + (' — pendiente de verificar' if requiere_verificacion else ''))
 
     db.session.commit()
+
+    if requiere_verificacion:
+        # Avisar a quien verifica que hay una transferencia esperando
+        socketio.emit('transferencia_por_verificar', {
+            'pago_id': pago.id, 'orden_id': orden.id,
+            'monto': float(monto_aplicado), 'referencia': referencia,
+            'mensaje': f'Transferencia de ${float(monto_aplicado):.2f} por verificar (orden #{orden.id}).',
+        })
 
     # Liberar mesa si orden pagada (Sprint 2 — 3.3)
     if orden.estado == OrdenEstado.PAGADA:
         actualizar_estado_mesa(orden.mesa_id)
         db.session.commit()
 
+    if requiere_verificacion:
+        mensaje = ('Transferencia registrada. La cuenta se libera cuando se '
+                   'confirme que el dinero llegó.')
+    elif orden.estado == OrdenEstado.PAGADA:
+        mensaje = 'Pago registrado. Orden pagada.'
+    else:
+        mensaje = 'Pago registrado.'
+
     return jsonify(
         success=True,
-        message="Pago registrado." + (" Orden pagada." if orden.estado == OrdenEstado.PAGADA else ""),
+        message=mensaje,
         pago_id=pago.id,
         metodo=metodo,
         monto=float(monto),
+        requiere_verificacion=requiere_verificacion,
+        por_verificar=float(orden.total_por_verificar()),
         total_pagado=float(orden.total_pagado()),
         saldo_pendiente=float(max(orden.saldo_pendiente(), Decimal('0'))),
         cambio=float(orden.cambio or 0),

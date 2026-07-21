@@ -52,8 +52,8 @@ Usage:
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px);
+      linear-gradient(var(--cl-overlay-subtle) 1px, transparent 1px),
+      linear-gradient(90deg, var(--cl-overlay-subtle) 1px, transparent 1px);
     background-size: 60px 60px;
     pointer-events: none;
   }
@@ -62,9 +62,9 @@ Usage:
     width: 100%;
     max-width: 420px;
     background: var(--cl-surface-2, #13151F);
-    border: 1px solid var(--cl-border-color, rgba(255, 255, 255, 0.07));
+    border: 1px solid var(--cl-border-color, var(--cl-overlay));
     border-radius: var(--cl-radius-xl, 20px);
-    box-shadow: 0 32px 80px rgba(0, 0, 0, .7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, .7), 0 0 0 1px var(--cl-overlay-subtle);
     padding: 36px 32px;
     position: relative;
     z-index: 1;
@@ -165,7 +165,7 @@ Usage:
     padding-left: 44px;
     height: 46px;
     background: var(--cl-surface-4, #1A1C28);
-    border-color: var(--cl-border-color, rgba(255,255,255,0.1));
+    border-color: var(--cl-border-color, var(--cl-overlay-strong));
   }
 
   .cl-auth__input-group .cl-form-input:focus {

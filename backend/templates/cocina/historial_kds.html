@@ -61,7 +61,7 @@
     <div style="font-size:var(--cl-text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--cl-text-tertiary);font-weight:var(--cl-font-semibold);margin-bottom:6px;">
       <i data-lucide="clock" class="icon-xs" style="vertical-align:-1px;"></i> Promedio
     </div>
-    <div style="font-size:var(--cl-text-3xl);font-weight:900;font-family:var(--cl-font-mono);{% if kpi.avg_min > 15 %}color:var(--cl-danger-500);{% elif kpi.avg_min > 10 %}color:var(--cl-warning-500);{% else %}color:var(--cl-success-500);{% endif %}">
+    <div style="font-size:var(--cl-text-3xl);font-weight:900;font-family:var(--cl-font-mono);{% if kpi.avg_min > 15 %}color:var(--cl-danger-text);{% elif kpi.avg_min > 10 %}color:var(--cl-warning-text);{% else %}color:var(--cl-success-text);{% endif %}">
       {{ kpi.avg_min }}<span style="font-size:var(--cl-text-sm);font-weight:600;">min</span>
     </div>
     <div style="font-size:var(--cl-text-xs);color:var(--cl-text-tertiary);margin-top:4px;">tiempo de preparación</div>
@@ -71,7 +71,7 @@
     <div style="font-size:var(--cl-text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--cl-text-tertiary);font-weight:var(--cl-font-semibold);margin-bottom:6px;">
       <i data-lucide="zap" class="icon-xs" style="vertical-align:-1px;"></i> Más rápido
     </div>
-    <div style="font-size:var(--cl-text-3xl);font-weight:900;color:var(--cl-success-500);font-family:var(--cl-font-mono);">
+    <div style="font-size:var(--cl-text-3xl);font-weight:900;color:var(--cl-success-text);font-family:var(--cl-font-mono);">
       {{ kpi.fastest }}<span style="font-size:var(--cl-text-sm);font-weight:600;">min</span>
     </div>
     <div style="font-size:var(--cl-text-xs);color:var(--cl-text-tertiary);margin-top:4px;">orden más rápida</div>
@@ -81,7 +81,7 @@
     <div style="font-size:var(--cl-text-xs);text-transform:uppercase;letter-spacing:.08em;color:var(--cl-text-tertiary);font-weight:var(--cl-font-semibold);margin-bottom:6px;">
       <i data-lucide="alert-triangle" class="icon-xs" style="vertical-align:-1px;"></i> Más lento
     </div>
-    <div style="font-size:var(--cl-text-3xl);font-weight:900;font-family:var(--cl-font-mono);{% if kpi.slowest > 20 %}color:var(--cl-danger-500);{% elif kpi.slowest > 12 %}color:var(--cl-warning-500);{% else %}color:var(--cl-text-primary);{% endif %}">
+    <div style="font-size:var(--cl-text-3xl);font-weight:900;font-family:var(--cl-font-mono);{% if kpi.slowest > 20 %}color:var(--cl-danger-text);{% elif kpi.slowest > 12 %}color:var(--cl-warning-text);{% else %}color:var(--cl-text-primary);{% endif %}">
       {{ kpi.slowest }}<span style="font-size:var(--cl-text-sm);font-weight:600;">min</span>
     </div>
     <div style="font-size:var(--cl-text-xs);color:var(--cl-text-tertiary);margin-top:4px;">orden más lenta</div>
@@ -108,7 +108,7 @@
           <span style="font-size:var(--cl-text-xs);color:var(--cl-text-tertiary);"> ítems</span>
         </div>
         <div style="text-align:right;">
-          <span style="font-size:var(--cl-text-lg);font-weight:800;font-family:var(--cl-font-mono);{% if stats.avg > 15 %}color:var(--cl-danger-500);{% elif stats.avg > 10 %}color:var(--cl-warning-500);{% else %}color:var(--cl-success-500);{% endif %}">
+          <span style="font-size:var(--cl-text-lg);font-weight:800;font-family:var(--cl-font-mono);{% if stats.avg > 15 %}color:var(--cl-danger-text);{% elif stats.avg > 10 %}color:var(--cl-warning-text);{% else %}color:var(--cl-success-text);{% endif %}">
             {{ stats.avg }} min
           </span>
           <div style="font-size:var(--cl-text-xs);color:var(--cl-text-tertiary);">promedio</div>
@@ -157,7 +157,7 @@
             <span style="font-weight:var(--cl-font-bold);color:var(--cl-text-primary);font-family:var(--cl-font-mono);">#{{ orden.id }}</span>
           </td>
           <td>
-            <span style="color:var(--cl-text-secondary);font-family:var(--cl-font-mono);">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+            <span style="color:var(--cl-text-secondary);font-family:var(--cl-font-mono);">{{ orden.tiempo_registro|hora_local }}</span>
           </td>
           <td>
             {% if orden.es_para_llevar %}
@@ -188,7 +188,7 @@
           </td>
           <td style="text-align:right;">
             {% if prep is not none %}
-            <span style="font-weight:var(--cl-font-bold);font-family:var(--cl-font-mono);{% if prep > 15 %}color:var(--cl-danger-500);{% elif prep > 10 %}color:var(--cl-warning-500);{% else %}color:var(--cl-success-500);{% endif %}">
+            <span style="font-weight:var(--cl-font-bold);font-family:var(--cl-font-mono);{% if prep > 15 %}color:var(--cl-danger-text);{% elif prep > 10 %}color:var(--cl-warning-text);{% else %}color:var(--cl-success-text);{% endif %}">
               {{ prep }} min
             </span>
             {% else %}

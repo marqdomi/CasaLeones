@@ -1,0 +1,190 @@
+{# ═══════════════════════════════════════════════════════
+   Verificación de transferencias — la dueña confirma contra el banco
+   ═══════════════════════════════════════════════════════ #}
+{% extends 'layouts/_layout_admin.html' %}
+{% block page_title %}Transferencias por verificar{% endblock %}
+
+{% block admin_breadcrumb %}
+<nav aria-label="breadcrumb">
+  <ol class="cl-breadcrumb">
+    <li><a href="{{ url_for('admin.dashboard') }}">Ventas</a></li>
+    <li class="active" aria-current="page">Transferencias</li>
+  </ol>
+</nav>
+{% endblock %}
+
+{% block admin_content %}
+<div style="margin-bottom:20px;">
+  <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;">Transferencias por verificar</h1>
+  <p style="color:var(--cl-text-secondary);font-size:14px;margin:6px 0 0;">
+    Revisa cada depósito en tu banco antes de confirmarlo. La cuenta del cliente
+    queda abierta hasta que confirmes.
+  </p>
+</div>
+
+{% if pendientes %}
+<div class="cl-v7-card" style="border-color:rgba(247,144,9,0.35);margin-bottom:24px;">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <i data-lucide="clock" style="width:16px;height:16px;color:var(--cl-warning-text);"></i>
+      <strong>{{ pendientes|length }} pendiente{{ 's' if pendientes|length != 1 else '' }}</strong>
+    </div>
+    <div style="font-family:var(--cl-font-mono);font-weight:800;color:var(--cl-warning-text);">
+      ${{ '%.2f'|format(total_pendiente) }}
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="cl-table" style="margin-bottom:0;">
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Cuenta</th>
+          <th>Referencia</th>
+          <th>Cobró</th>
+          <th class="text-end">Monto</th>
+          <th class="text-end">Confirmar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pendientes %}
+        <tr id="pago-{{ p.id }}">
+          <td style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
+            {{ p.fecha|hora_local }}
+          </td>
+          <td>
+            <a href="{{ url_for('meseros.detalle_orden', orden_id=p.orden_id) }}"
+               style="font-weight:var(--cl-font-semibold);">#{{ p.orden_id }}</a>
+            {% if p.orden and p.orden.mesa %}
+            <span style="color:var(--cl-text-tertiary);font-size:12px;">· Mesa {{ p.orden.mesa.numero }}</span>
+            {% endif %}
+            {% if p.orden and p.orden.alias %}
+            <span style="color:var(--cl-text-tertiary);font-size:12px;">· {{ p.orden.alias }}</span>
+            {% endif %}
+          </td>
+          <td style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
+          <td style="color:var(--cl-text-secondary);">{{ p.usuario.nombre if p.usuario else '—' }}</td>
+          <td class="text-end" style="font-family:var(--cl-font-mono);font-weight:700;">
+            ${{ '%.2f'|format(p.monto) }}
+          </td>
+          <td class="text-end">
+            <div class="d-flex gap-1 justify-content-end">
+              <button type="button" class="cl-btn--v7-success cl-btn--sm btn-verificar"
+                      data-pago-id="{{ p.id }}">
+                <i data-lucide="check" class="icon-sm"></i> Llegó
+              </button>
+              <button type="button" class="cl-btn--v7-outline cl-btn--sm btn-rechazar"
+                      data-pago-id="{{ p.id }}" title="El depósito no aparece">
+                <i data-lucide="x" class="icon-sm"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div style="padding:var(--cl-space-16) var(--cl-space-4);text-align:center;">
+  <div style="width:64px;height:64px;border-radius:var(--cl-radius-full);background:var(--cl-bg-tertiary);display:inline-flex;align-items:center;justify-content:center;margin-bottom:var(--cl-space-4);">
+    <i data-lucide="check-circle" style="width:32px;height:32px;color:var(--cl-success-text);"></i>
+  </div>
+  <h3 style="font-size:var(--cl-text-lg);font-weight:var(--cl-font-semibold);margin-bottom:var(--cl-space-2);">
+    Todo al corriente
+  </h3>
+  <p style="color:var(--cl-text-secondary);max-width:360px;margin:0 auto;">
+    No hay transferencias esperando confirmación.
+  </p>
+</div>
+{% endif %}
+
+{% if verificados_hoy %}
+<div class="cl-v7-card">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--cl-border-color);display:flex;align-items:center;gap:8px;">
+    <i data-lucide="check-circle" style="width:16px;height:16px;color:var(--cl-success-text);"></i>
+    <strong>Confirmadas hoy</strong>
+  </div>
+  <div class="table-responsive">
+    <table class="cl-table" style="margin-bottom:0;">
+      <thead>
+        <tr>
+          <th>Confirmada</th>
+          <th>Cuenta</th>
+          <th>Referencia</th>
+          <th>Confirmó</th>
+          <th class="text-end">Monto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in verificados_hoy %}
+        <tr>
+          <td style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
+            {{ p.fecha_verificacion|hora_local }}
+          </td>
+          <td>#{{ p.orden_id }}</td>
+          <td style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
+          <td style="color:var(--cl-text-secondary);">{{ p.verificador.nombre if p.verificador else '—' }}</td>
+          <td class="text-end" style="font-family:var(--cl-font-mono);">${{ '%.2f'|format(p.monto) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script nonce="{{ csp_nonce }}">
+  (function () {
+    function quitarFila(pagoId) {
+      var fila = document.getElementById('pago-' + pagoId);
+      if (fila) fila.remove();
+    }
+
+    function accionar(url, pagoId, boton, exito) {
+      boton.disabled = true;
+      fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.success) {
+            quitarFila(pagoId);
+            if (window.showToast) showToast(data.message || exito, 'success');
+            setTimeout(function () { window.location.reload(); }, 1200);
+          } else {
+            if (window.showToast) showToast(data.message || 'No se pudo completar', 'error');
+            else alert(data.message);
+            boton.disabled = false;
+          }
+        })
+        .catch(function () {
+          if (window.showToast) showToast('Error de conexión', 'error');
+          boton.disabled = false;
+        });
+    }
+
+    document.querySelectorAll('.btn-verificar').forEach(function (b) {
+      b.addEventListener('click', function () {
+        accionar('/admin/pagos/' + b.dataset.pagoId + '/verificar', b.dataset.pagoId, b,
+                 'Transferencia confirmada');
+      });
+    });
+
+    document.querySelectorAll('.btn-rechazar').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('¿El depósito no aparece en el banco?\n\nLa cuenta volverá a quedar por cobrar.')) return;
+        accionar('/admin/pagos/' + b.dataset.pagoId + '/rechazar', b.dataset.pagoId, b,
+                 'Transferencia rechazada');
+      });
+    });
+
+    // Aviso en vivo cuando un mesero registra una transferencia nueva
+    if (window.io) {
+      var socket = io();
+      socket.on('transferencia_por_verificar', function (d) {
+        if (window.showToast) showToast(d.mensaje || 'Nueva transferencia por verificar', 'info');
+        setTimeout(function () { window.location.reload(); }, 1500);
+      });
+    }
+  })();
+</script>
+{% endblock %}

@@ -91,7 +91,7 @@
           <td>
             <div style="display:flex;align-items:center;gap:10px;">
               <div
-                style="width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;font-family:var(--cl-font-mono);font-weight:800;font-size:14px;">
+                style="width:34px;height:34px;border-radius:8px;background:var(--cl-overlay);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;font-family:var(--cl-font-mono);font-weight:800;font-size:14px;">
                 {{ m.numero }}
               </div>
               <span style="font-weight:600;">Mesa {{ m.numero }}</span>
@@ -112,7 +112,7 @@
                 <i data-lucide="pencil" style="width:13px;height:13px;"></i>
               </a>
               <button class="cl-btn--v7-outline cl-btn--sm"
-                style="color:var(--cl-error-500);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
+                style="color:var(--cl-error-text);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
                 data-bs-target="#deleteModal" data-action="{{ url_for('admin.mesa_eliminar', id=m.id) }}"
                 data-name="Mesa {{ m.numero }}" title="Eliminar Mesa {{ m.numero }}">
                 <i data-lucide="trash-2" style="width:13px;height:13px;"></i>

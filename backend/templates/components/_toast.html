@@ -18,7 +18,7 @@
   <div class="cl-toast cl-toast--{{ variant }}" role="alert" aria-atomic="true">
     <i data-lucide="{{ icons.get(variant, 'info') }}" class="icon-sm"></i>
     <span>{{ message }}</span>
-    <button type="button" class="cl-toast__close" aria-label="Cerrar" onclick="this.parentElement.remove()">
+    <button type="button" class="cl-toast__close" aria-label="Cerrar" data-cerrar-toast>
       <i data-lucide="x" class="icon-xs"></i>
     </button>
   </div>

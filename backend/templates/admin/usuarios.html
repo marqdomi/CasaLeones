@@ -95,7 +95,7 @@
               </a>
               {% if u.nombre != current_user.nombre %}
               <button class="cl-btn--v7-outline cl-btn--sm"
-                style="color:var(--cl-error-500);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
+                style="color:var(--cl-error-text);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
                 data-bs-target="#deleteModal" data-action="{{ url_for('admin.usuario_eliminar', id=u.id) }}"
                 data-name="{{ u.nombre }}" title="Eliminar {{ u.nombre }}">
                 <i data-lucide="trash-2" style="width:13px;height:13px;"></i>

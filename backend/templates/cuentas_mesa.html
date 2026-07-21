@@ -51,7 +51,7 @@
             {{ c.detalles|length }} item{{ 's' if c.detalles|length != 1 }}
             {% if c.total %} · ${{ '%.2f'|format(c.total|float) }}{% endif %}
           </span>
-          <span><i data-lucide="clock" class="icon-xs"></i> {{ c.tiempo_registro.strftime('%H:%M') }}</span>
+          <span><i data-lucide="clock" class="icon-xs"></i> {{ c.tiempo_registro|hora_local }}</span>
         </div>
         <div style="margin-top: var(--cl-space-3);">
           {% if es_mia %}

@@ -29,7 +29,7 @@
               {{ f.estado }}
             </span>
           </td>
-          <td>{{ f.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ f.fecha_creacion|fechahora_local }}</td>
           <td>
             {% if f.estado == 'timbrada' %}
               <div class="d-flex gap-1 flex-wrap">
@@ -40,7 +40,7 @@
                   <button class="cl-btn cl-btn--outline cl-btn--sm" title="Reenviar por email"><i data-lucide="mail" class="icon-sm"></i></button>
                 </form>
                 <a href="{{ url_for('facturacion.crear_nota_credito_view', factura_id=f.id) }}" class="cl-btn cl-btn--outline cl-btn--sm" style="color:var(--cl-warning)" title="Nota de crédito">NC</a>
-                <form method="POST" action="{{ url_for('facturacion.cancelar', factura_id=f.id) }}" style="display:inline;" onsubmit="return confirm('¿Cancelar esta factura ante el SAT?');">
+                <form method="POST" action="{{ url_for('facturacion.cancelar', factura_id=f.id) }}" style="display:inline;" data-confirmar="¿Cancelar esta factura ante el SAT?">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="motivo_cancelacion" value="02">
                   <button class="cl-btn cl-btn--outline cl-btn--sm" style="color:var(--cl-danger)" title="Cancelar factura">Cancelar</button>

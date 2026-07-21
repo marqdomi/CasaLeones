@@ -64,29 +64,24 @@
       Método de Pago
     </h3>
     <div class="pago-methods" id="pagoMethods">
-      <button class="pago-method active" data-method="efectivo" onclick="selectMethod('efectivo', this)">
-        <i data-lucide="banknote" class="icon-md"></i>
-        <span>Efectivo</span>
+      {% for m in metodos_pago %}
+      <button class="pago-method{{ ' active' if loop.first else '' }}" data-method="{{ m.clave }}"
+              data-metodo-btn>
+        <i data-lucide="{{ m.icono }}" class="icon-md"></i>
+        <span>{{ m.label }}</span>
       </button>
-      <button class="pago-method" data-method="tarjeta" onclick="selectMethod('tarjeta', this)">
-        <i data-lucide="credit-card" class="icon-md"></i>
-        <span>Tarjeta</span>
-      </button>
-      <button class="pago-method" data-method="transferencia" onclick="selectMethod('transferencia', this)">
-        <i data-lucide="smartphone" class="icon-md"></i>
-        <span>Transferencia</span>
-      </button>
+      {% endfor %}
     </div>
 
     {# Quick cash buttons (for efectivo) #}
     <div id="quickCashSection">
       <p style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); margin: var(--cl-space-3) 0 var(--cl-space-2);">Monto rápido</p>
       <div class="pago-quick-cash">
-        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(100)">$100</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(200)">$200</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(500)">$500</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm" onclick="setMonto(1000)">$1,000</button>
-        <button class="cl-btn cl-btn--primary cl-btn--sm" onclick="setMontoExacto()" title="Pago exacto">Exacto</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" data-monto="100">$100</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" data-monto="200">$200</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" data-monto="500">$500</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm" data-monto="1000">$1,000</button>
+        <button class="cl-btn cl-btn--primary cl-btn--sm" id="btnMontoExacto" title="Pago exacto">Exacto</button>
       </div>
     </div>
 
@@ -94,7 +89,7 @@
     <div style="margin-top: var(--cl-space-3);">
       <label style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); display: block; margin-bottom: var(--cl-space-1);">Monto a pagar</label>
       <input type="number" id="montoInput" class="cl-input" step="0.01" min="0" placeholder="0.00"
-             style="font-size: var(--cl-text-2xl); font-weight: var(--cl-font-bold); text-align: center; height: 60px;" oninput="calcularCambio()">
+             style="font-size: var(--cl-text-2xl); font-weight: var(--cl-font-bold); text-align: center; height: 60px;">
     </div>
 
     {# Cambio display (efectivo only) #}
@@ -109,18 +104,50 @@
     <div id="referenciaSection" style="display: none; margin-top: var(--cl-space-2);">
       <label style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); display: block; margin-bottom: var(--cl-space-1);">Referencia</label>
       <input type="text" id="referenciaInput" class="cl-input" placeholder="Últimos 4 dígitos / referencia">
+      {% if banco.configurado %}
+      <div id="datosBanco" style="display:none;margin-top:var(--cl-space-2);padding:12px 14px;border-radius:8px;background:var(--cl-bg-tertiary);border:1px solid var(--cl-border-color);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+          <span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--cl-text-tertiary);">
+            Cuenta para recibir
+          </span>
+          <button type="button" id="btnCopiarClabe" class="cl-btn cl-btn--sm cl-btn--outline"
+                  style="padding:3px 8px;font-size:11px;">Copiar CLABE</button>
+        </div>
+        {% if banco.banco_nombre %}
+        <div style="font-size:13px;font-weight:600;">{{ banco.banco_nombre }}</div>
+        {% endif %}
+        {% if banco.banco_titular %}
+        <div style="font-size:12px;color:var(--cl-text-secondary);">{{ banco.banco_titular }}</div>
+        {% endif %}
+        {% if banco.banco_clabe %}
+        <div id="clabeTexto" data-clabe="{{ banco.banco_clabe }}"
+             style="font-family:var(--cl-font-mono);font-size:15px;letter-spacing:.06em;margin-top:6px;">
+          {{ banco.clabe_formateada }}
+        </div>
+        {% endif %}
+        {% if banco.banco_referencia_extra %}
+        <div style="font-size:11px;color:var(--cl-text-tertiary);margin-top:6px;">{{ banco.banco_referencia_extra }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div id="avisoVerificacion" style="display:none;align-items:flex-start;gap:8px;margin-top:var(--cl-space-2);padding:10px 12px;border-radius:8px;background:rgba(247,144,9,0.10);border:1px solid rgba(247,144,9,0.30);">
+        <i data-lucide="clock" style="width:15px;height:15px;color:var(--cl-warning-text);flex-shrink:0;margin-top:1px;"></i>
+        <span style="font-size:var(--cl-text-xs);color:var(--cl-text-secondary);line-height:1.5;">
+          La cuenta queda abierta hasta que se confirme que el depósito llegó al banco.
+        </span>
+      </div>
     </div>
 
     {# Propina section #}
     <div style="margin-top: var(--cl-space-4); padding-top: var(--cl-space-3); border-top: 1px solid var(--cl-border);">
       <p style="font-size: var(--cl-text-sm); color: var(--cl-text-secondary); margin-bottom: var(--cl-space-2);">Propina</p>
       <div class="d-flex gap-2 flex-wrap">
-        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn active" data-pct="0" onclick="selectPropina(0, this)">0%</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="10" onclick="selectPropina(10, this)">10%</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="15" onclick="selectPropina(15, this)">15%</button>
-        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="20" onclick="selectPropina(20, this)">20%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn active" data-pct="0">0%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="10">10%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="15">15%</button>
+        <button class="cl-btn cl-btn--outline cl-btn--sm propina-btn" data-pct="20">20%</button>
         <input type="number" id="propinaCustom" class="cl-input" style="width: 80px; height: 32px; font-size: var(--cl-text-sm);"
-               placeholder="$" min="0" step="0.5" oninput="customPropina()">
+               placeholder="$" min="0" step="0.5">
       </div>
       <p style="font-size: var(--cl-text-xs); color: var(--cl-text-tertiary); margin-top: var(--cl-space-1);" id="propinaLabel">Propina: $0.00</p>
     </div>
@@ -132,7 +159,7 @@
     </div>
 
     {# Confirm button #}
-    <button class="pago-confirm" id="btnConfirmar" onclick="confirmarPago()" disabled>
+    <button class="pago-confirm" id="btnConfirmar" disabled>
       <i data-lucide="check-circle" class="icon-md"></i>
       Confirmar Pago
     </button>
@@ -345,7 +372,9 @@
 <script nonce="{{ csp_nonce }}">
 const ORDEN_ID = {{ orden.id }};
 let _orderData = {};
-let _selectedMethod = 'efectivo';
+const _METODOS = {{ metodos_pago | map(attribute='clave') | list | tojson }};
+const _REQUIEREN_VERIFICACION = {{ metodos_pago | selectattr('requiere_verificacion') | map(attribute='clave') | list | tojson }};
+let _selectedMethod = _METODOS[0] || 'efectivo';
 let _propina = 0;
 
 // =============================================
@@ -423,6 +452,21 @@ function selectMethod(method, btn) {
   document.getElementById('quickCashSection').style.display = method === 'efectivo' ? 'block' : 'none';
   document.getElementById('cambioSection').style.display = method === 'efectivo' ? 'block' : 'none';
   document.getElementById('referenciaSection').style.display = method !== 'efectivo' ? 'block' : 'none';
+
+  // La transferencia no se puede confirmar en la mesa: se avisa desde ahora que la
+  // cuenta queda abierta hasta que la revisen en el banco.
+  const aviso = document.getElementById('avisoVerificacion');
+  const refInput = document.getElementById('referenciaInput');
+  const requiere = _REQUIEREN_VERIFICACION.indexOf(method) !== -1;
+  if (aviso) aviso.style.display = requiere ? 'flex' : 'none';
+  const banco = document.getElementById('datosBanco');
+  if (banco) banco.style.display = requiere ? 'block' : 'none';
+  if (refInput) {
+    refInput.required = requiere;
+    refInput.placeholder = requiere
+      ? 'Folio o nombre de quien transfiere (obligatorio)'
+      : 'Últimos 4 dígitos / referencia';
+  }
 
   calcularCambio();
 }
@@ -514,7 +558,14 @@ function confirmarPago() {
   .then(r => r.json())
   .then(data => {
     if (data.success) {
-      if (data.orden_cerrada) {
+      if (data.requiere_verificacion) {
+        // La cuenta NO se cerró: el dinero todavía no se confirma en el banco.
+        document.getElementById('successMsg').textContent = data.message;
+        document.getElementById('successOverlay').style.display = 'flex';
+        setTimeout(() => {
+          window.location.href = '{{ url_for("meseros.view_meseros") }}';
+        }, 3000);
+      } else if (data.orden_pagada) {
         // Show success overlay
         document.getElementById('successMsg').textContent =
           `Orden #${ORDEN_ID} pagada — $${data.total_pagado.toFixed(2)}`;
@@ -546,8 +597,75 @@ function confirmarPago() {
 }
 
 // =============================================
+// Copiar CLABE — dictarla de memoria es como se manda el dinero a otra cuenta
+// =============================================
+function initCopiarClabe() {
+  const btn = document.getElementById('btnCopiarClabe');
+  const texto = document.getElementById('clabeTexto');
+  if (!btn || !texto) return;
+  btn.addEventListener('click', function () {
+    const clabe = texto.dataset.clabe || '';
+    const avisar = function (ok) {
+      btn.textContent = ok ? '¡Copiada!' : 'Copia manual';
+      setTimeout(function () { btn.textContent = 'Copiar CLABE'; }, 2000);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(clabe).then(function () { avisar(true); })
+        .catch(function () { avisar(false); });
+    } else {
+      // Las tablets del negocio abren el sistema por http, donde no hay clipboard API
+      const tmp = document.createElement('textarea');
+      tmp.value = clabe;
+      document.body.appendChild(tmp);
+      tmp.select();
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(tmp);
+      avisar(ok);
+    }
+  });
+}
+
+// =============================================
+// Enganche de la pantalla
+// El CSP es 'self' + nonce (sin 'unsafe-inline'), así que los handlers en atributos
+// onclick del HTML nunca se ejecutan: hay que registrarlos desde aquí.
+// =============================================
+function initPantallaCobro() {
+  document.querySelectorAll('[data-metodo-btn]').forEach(function (btn) {
+    btn.addEventListener('click', function () { selectMethod(btn.dataset.method, btn); });
+  });
+
+  document.querySelectorAll('[data-monto]').forEach(function (btn) {
+    btn.addEventListener('click', function () { setMonto(parseFloat(btn.dataset.monto)); });
+  });
+
+  const exacto = document.getElementById('btnMontoExacto');
+  if (exacto) exacto.addEventListener('click', setMontoExacto);
+
+  const monto = document.getElementById('montoInput');
+  if (monto) monto.addEventListener('input', calcularCambio);
+
+  document.querySelectorAll('.propina-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      selectPropina(parseFloat(btn.dataset.pct), btn);
+    });
+  });
+
+  const propinaCustom = document.getElementById('propinaCustom');
+  if (propinaCustom) propinaCustom.addEventListener('input', customPropina);
+
+  const confirmar = document.getElementById('btnConfirmar');
+  if (confirmar) confirmar.addEventListener('click', confirmarPago);
+}
+
+// =============================================
 // Init
 // =============================================
-document.addEventListener('DOMContentLoaded', loadOrderInfo);
+document.addEventListener('DOMContentLoaded', function () {
+  initPantallaCobro();
+  loadOrderInfo();
+  initCopiarClabe();
+});
 </script>
 {% endblock %}

@@ -82,7 +82,7 @@
   {% if not ordenes_mesero %}
   {# ═══════════ Empty State ═══════════ #}
   <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;gap:16px;text-align:center;">
-    <div style="width:80px;height:80px;border-radius:var(--cl-radius-xl);background:rgba(255,255,255,0.05);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
+    <div style="width:80px;height:80px;border-radius:var(--cl-radius-xl);background:var(--cl-overlay);border:1px solid var(--cl-border-color);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="coffee" style="width:36px;height:36px;color:var(--cl-text-tertiary);"></i>
     </div>
     <div>
@@ -129,10 +129,10 @@
       data-filters="{{ filter_tags|join(' ') }}"
       data-href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}"
       role="button" tabindex="0"
-      aria-label="Orden #{{ orden.id }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
+      aria-label="Orden #{{ orden.id }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}{% if orden.alias %}, cuenta {{ orden.alias }}{% endif %}">
 
       {# ── Card Header ── #}
-      <div style="padding:14px 16px 12px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:flex-start;justify-content:space-between;">
+      <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-primary);">
             #{{ orden.id }}
@@ -141,7 +141,7 @@
             {% if orden.es_para_llevar %}
             <i data-lucide="package" style="width:11px;height:11px;"></i> Para llevar
             {% else %}
-            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}
+            <i data-lucide="armchair" style="width:11px;height:11px;"></i> Mesa {{ orden.mesa.numero if orden.mesa else '?' }}{% if orden.alias %} · {{ orden.alias }}{% endif %}
             {% endif %}
             <span style="margin-left:6px;opacity:.7;">· {{ orden.mesero.nombre if orden.mesero else '—' }}</span>
           </div>
@@ -153,7 +153,7 @@
           {% elif urgency == 'warning' %}
           <span class="cl-timer cl-timer--warning">{{ mins }} min</span>
           {% else %}
-          <span class="cl-timer cl-timer--fresh">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+          <span class="cl-timer cl-timer--fresh">{{ orden.tiempo_registro|hora_local }}</span>
           {% endif %}
           {# Status badge #}
           {% if orden.estado == 'pendiente' %}
@@ -216,13 +216,13 @@
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
-            {{ orden.tiempo_registro.strftime('%H:%M') }}
+            {{ orden.tiempo_registro|hora_local }}
           </div>
           <span>{{ orden.detalles|length }} ítem{{ 's' if orden.detalles|length != 1 else '' }}</span>
-          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-500);font-weight:700;">
+          <span style="font-family:var(--cl-font-mono);color:var(--cl-success-text);font-weight:700;">
             ${{ '%.2f'|format(orden.total) if orden.total else '—' }}
           </span>
         </div>

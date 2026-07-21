@@ -15,6 +15,8 @@ Usage:
 {% endblock %}
 ═══════════════════════════════════════════════════════ #}
 {% extends 'base.html' %}
+{# El KDS es un tablero fijo, siempre en oscuro para lectura a distancia #}
+{% set force_theme = 'dark' %}
 
 {% block title %}{% block page_title %}Cocina{% endblock %} — {{ brand_name | default('KaiRest') }} KDS{% endblock %}
 
@@ -115,11 +117,11 @@ Usage:
   <footer class="cl-kds-footer">
     <div class="cl-kds-stats">
       <div class="cl-kds-stat">
-        <i data-lucide="check-circle" style="width:14px;height:14px;color:var(--cl-success-500);"></i>
+        <i data-lucide="check-circle" style="width:14px;height:14px;color:var(--cl-success-text);"></i>
         Completadas hoy: <strong id="kdsCompletadas">—</strong>
       </div>
       <div class="cl-kds-stat">
-        <i data-lucide="clock" style="width:14px;height:14px;color:var(--cl-warning-500);"></i>
+        <i data-lucide="clock" style="width:14px;height:14px;color:var(--cl-warning-text);"></i>
         Tiempo prom: <strong id="kdsAvgTime">—</strong>
       </div>
       <div class="cl-kds-stat">
@@ -128,7 +130,7 @@ Usage:
       </div>
       {% block kds_stats_extra %}{% endblock %}
     </div>
-    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--cl-success-500);">
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--cl-success-text);">
       <div class="cl-live-dot"></div>
       <span>Socket.IO conectado</span>
     </div>

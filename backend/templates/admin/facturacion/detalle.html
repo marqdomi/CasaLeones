@@ -17,7 +17,7 @@
         <table class="cl-table" style="margin-bottom:0;">
           <tr><th>UUID CFDI</th><td>{{ factura.uuid_cfdi or '—' }}</td></tr>
           <tr><th>Orden</th><td>#{{ factura.orden_id }}</td></tr>
-          <tr><th>Fecha</th><td>{{ factura.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td></tr>
+          <tr><th>Fecha</th><td>{{ factura.fecha_creacion|fechahora_local }}</td></tr>
           <tr><th>Subtotal</th><td>${{ '%.2f'|format(factura.subtotal) }}</td></tr>
           <tr><th>IVA</th><td>${{ '%.2f'|format(factura.iva) }}</td></tr>
           <tr><th>Total</th><td><strong>${{ '%.2f'|format(factura.total) }}</strong></td></tr>
@@ -94,7 +94,7 @@
               {{ nc.estado }}
             </span>
           </td>
-          <td>{{ nc.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ nc.fecha_creacion|fechahora_local }}</td>
         </tr>
         {% endfor %}
       </tbody>

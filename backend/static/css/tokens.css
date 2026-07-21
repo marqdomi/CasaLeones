@@ -159,28 +159,63 @@
   --cl-kds-urgent: var(--cl-error-500);
   --cl-kds-critical: #B42318;
 
-  /* ─── v7 Dark Canvas ─── */
-  --cl-canvas: #0A0B10;
-  --cl-surface-1: #0D0E14;
-  --cl-surface-2: #13151F;
-  --cl-surface-3: #181A26;
-  --cl-surface-4: #1A1C28;
+  /* ─── v7 Canvas — valores CLAROS (el tema oscuro los sobrescribe abajo) ───
+     Un puesto de calle trabaja con sol: con fondo oscuro la pantalla se vuelve
+     espejo y lo único que se ve es el reflejo. Claro es el default. */
+  --cl-canvas: #F5F6F8;
+  --cl-surface-1: #FFFFFF;
+  --cl-surface-2: #FFFFFF;
+  --cl-surface-3: var(--cl-gray-50);
+  --cl-surface-4: var(--cl-gray-100);
 
-  /* ─── v7 Border (translúcido para dark) ─── */
-  --cl-border-color: rgba(255, 255, 255, 0.07);
-  --cl-border-color-md: rgba(255, 255, 255, 0.12);
-  --cl-border-color-lg: rgba(255, 255, 255, 0.18);
+  /* ─── v7 Border ─── */
+  --cl-border-color: rgba(16, 24, 40, 0.12);
+  --cl-border-color-md: rgba(16, 24, 40, 0.18);
+  --cl-border-color-lg: rgba(16, 24, 40, 0.28);
   --cl-border-focus: rgba(196, 30, 58, 0.6);
 
-  /* ─── v7 Color glows (para hover/active states) ─── */
-  --cl-red-glow: rgba(196, 30, 58, 0.18);
-  --cl-gold-glow: rgba(194, 158, 89, 0.12);
-  --cl-green-glow: rgba(18, 183, 106, 0.15);
-  --cl-yellow-glow: rgba(247, 144, 9, 0.12);
-  --cl-blue-glow: rgba(46, 144, 250, 0.12);
+  /* ─── v7 Velos sobre el lienzo ───
+     Reemplazan los rgba(255,255,255,α) que sólo funcionan sobre fondo oscuro:
+     en claro tienen que oscurecer, no aclarar. */
+  --cl-overlay-subtle: rgba(16, 24, 40, 0.04);
+  --cl-overlay: rgba(16, 24, 40, 0.06);
+  --cl-overlay-strong: rgba(16, 24, 40, 0.10);
 
-  /* ─── v7 Gold accent ─── */
-  --cl-gold-light: #D4B97A;
+  /* ─── v7 Color glows (para hover/active states) ─── */
+  --cl-red-glow: rgba(196, 30, 58, 0.10);
+  --cl-gold-glow: rgba(146, 110, 30, 0.12);
+  --cl-green-glow: rgba(18, 183, 106, 0.12);
+  --cl-yellow-glow: rgba(247, 144, 9, 0.14);
+  --cl-blue-glow: rgba(46, 144, 250, 0.10);
+
+  /* ─── v7 Gold accent ───
+     Sobre blanco el dorado claro es ilegible; se usa la variante oscura. */
+  --cl-gold-light: #7A6220;
+
+  /* ─── v7 Topbar (translúcida, con blur) ─── */
+  --cl-topbar-bg: rgba(255, 255, 255, 0.85);
+
+  /* ─── Colores semánticos como TEXTO ───
+     Los -500 están calibrados para brillar sobre fondo oscuro; sobre blanco no
+     alcanzan contraste. Estos tokens los oscurecen para texto/íconos en claro,
+     sin tocar los fondos de badge (que sí quieren el color brillante). El tema
+     oscuro los devuelve a la versión brillante. */
+  --cl-success-text: var(--cl-success-700);
+  --cl-warning-text: var(--cl-warning-700);
+  --cl-error-text: var(--cl-error-700);
+  --cl-info-text: var(--cl-info-700);
+  --cl-danger-500: var(--cl-error-500);
+  --cl-danger-text: var(--cl-error-700);
+  /* Rojo de marca como texto: en claro el rojo brillante no contrasta, se oscurece */
+  --cl-brand-text: var(--cl-red-600);
+
+  /* Alias usados en templates pero que nunca se definieron (caían a negro):
+     primary = marca (rojo), y los -600 semánticos faltantes. */
+  --cl-primary-100: var(--cl-red-100, #FCE7EB);
+  --cl-primary-500: var(--cl-red-500);
+  --cl-primary-600: var(--cl-red-600);
+  --cl-primary-700: var(--cl-red-700);
+  --cl-success-600: var(--cl-success-700);
 
   /* ─── v7 Layout (sidebar narrowed to 240px) ─── */
   --cl-sidebar-w: 240px;
@@ -192,11 +227,11 @@
   /* ─── v7 Z-Index (uses unified Bootstrap-compatible scale above) ─── */
   /* --cl-z-topbar, --cl-z-sidebar: use --cl-z-sticky / --cl-z-fixed from above */
 
-  /* ─── v7 Shadows (dark-native) ─── */
-  --cl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --cl-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
-  --cl-shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.4);
-  --cl-shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.5);
+  /* ─── v7 Shadows ─── */
+  --cl-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.10), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --cl-shadow-md: 0 4px 8px rgba(16, 24, 40, 0.10), 0 2px 4px rgba(16, 24, 40, 0.06);
+  --cl-shadow-lg: 0 12px 24px rgba(16, 24, 40, 0.12), 0 4px 8px rgba(16, 24, 40, 0.08);
+  --cl-shadow-xl: 0 24px 48px rgba(16, 24, 40, 0.16), 0 8px 16px rgba(16, 24, 40, 0.10);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -218,10 +253,48 @@
   --cl-border-primary: var(--cl-gray-600);
   --cl-border-secondary: var(--cl-gray-700);
 
+  /* ─── v7 Canvas oscuro ─── */
+  --cl-canvas: #0A0B10;
+  --cl-surface-1: #0D0E14;
+  --cl-surface-2: #13151F;
+  --cl-surface-3: #181A26;
+  --cl-surface-4: #1A1C28;
+
+  /* ─── v7 Border (translúcido para dark) ─── */
+  --cl-border-color: rgba(255, 255, 255, 0.07);
+  --cl-border-color-md: rgba(255, 255, 255, 0.12);
+  --cl-border-color-lg: rgba(255, 255, 255, 0.18);
+
+  /* ─── v7 Velos: sobre fondo oscuro aclaran ─── */
+  --cl-overlay-subtle: rgba(255, 255, 255, 0.04);
+  --cl-overlay: rgba(255, 255, 255, 0.06);
+  --cl-overlay-strong: rgba(255, 255, 255, 0.10);
+
+  /* ─── v7 Color glows ─── */
+  --cl-red-glow: rgba(196, 30, 58, 0.18);
+  --cl-gold-glow: rgba(194, 158, 89, 0.12);
+  --cl-green-glow: rgba(18, 183, 106, 0.15);
+  --cl-yellow-glow: rgba(247, 144, 9, 0.12);
+  --cl-blue-glow: rgba(46, 144, 250, 0.12);
+
+  --cl-gold-light: #D4B97A;
+
+  --cl-topbar-bg: rgba(13, 14, 20, 0.92);
+
+  /* En oscuro los colores de texto vuelven a la versión brillante */
+  --cl-success-text: var(--cl-success-500);
+  --cl-warning-text: var(--cl-warning-500);
+  --cl-error-text: var(--cl-error-500);
+  --cl-info-text: var(--cl-info-500);
+  --cl-danger-500: var(--cl-error-500);
+  --cl-danger-text: var(--cl-error-500);
+  --cl-brand-text: var(--cl-red-400);
+
   --cl-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.30);
-  --cl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.40), 0 1px 2px rgba(0, 0, 0, 0.30);
-  --cl-shadow-md: 0 4px 8px -2px rgba(0, 0, 0, 0.50), 0 2px 4px -2px rgba(0, 0, 0, 0.30);
-  --cl-shadow-lg: 0 12px 16px -4px rgba(0, 0, 0, 0.40), 0 4px 6px -2px rgba(0, 0, 0, 0.20);
+  --cl-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --cl-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+  --cl-shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.55), 0 4px 8px rgba(0, 0, 0, 0.4);
+  --cl-shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.6), 0 8px 16px rgba(0, 0, 0, 0.5);
 }
 
 
@@ -398,9 +471,9 @@ small,
 }
 
 .cl-btn--success {
-  background-color: var(--cl-success-500);
+  background-color: var(--cl-success-text);
   color: var(--cl-text-on-brand);
-  border-color: var(--cl-success-500);
+  border-color: var(--cl-success-text);
 }
 
 .cl-btn--success:hover {
@@ -422,9 +495,9 @@ small,
 }
 
 .cl-btn--danger {
-  background-color: var(--cl-error-500);
+  background-color: var(--cl-error-text);
   color: var(--cl-text-on-brand);
-  border-color: var(--cl-error-500);
+  border-color: var(--cl-error-text);
 }
 
 .cl-btn--danger:hover {
@@ -515,17 +588,17 @@ small,
 
 .cl-kpi-card--success .cl-kpi-card__icon {
   background: var(--cl-success-50);
-  color: var(--cl-success-500);
+  color: var(--cl-success-text);
 }
 
 .cl-kpi-card--warning .cl-kpi-card__icon {
   background: var(--cl-warning-50);
-  color: var(--cl-warning-500);
+  color: var(--cl-warning-text);
 }
 
 .cl-kpi-card--info .cl-kpi-card__icon {
   background: var(--cl-info-50);
-  color: var(--cl-info-500);
+  color: var(--cl-info-text);
 }
 
 .cl-kpi-card--gold .cl-kpi-card__icon {
@@ -562,11 +635,11 @@ small,
 }
 
 .cl-kpi-card__trend--up {
-  color: var(--cl-success-500);
+  color: var(--cl-success-text);
 }
 
 .cl-kpi-card__trend--down {
-  color: var(--cl-error-500);
+  color: var(--cl-error-text);
 }
 
 
@@ -881,7 +954,7 @@ small,
 }
 
 .cl-form-input--error {
-  border-color: var(--cl-error-500);
+  border-color: var(--cl-error-text);
 }
 
 .cl-form-input--error:focus {
@@ -889,12 +962,12 @@ small,
 }
 
 .cl-form-input--success {
-  border-color: var(--cl-success-500);
+  border-color: var(--cl-success-text);
 }
 
 .cl-form-error {
   font-size: var(--cl-text-xs);
-  color: var(--cl-error-500);
+  color: var(--cl-error-text);
   margin-top: var(--cl-space-1);
 }
 
@@ -1355,7 +1428,7 @@ small,
 [data-theme="dark"] .cl-topbar__tab.active,
 [data-bs-theme="dark"] .cl-topbar__tab.active {
   background: rgba(196, 30, 58, .15);
-  color: var(--cl-red-400);
+  color: var(--cl-brand-text);
 }
 
 .cl-ops-main {
@@ -1503,7 +1576,7 @@ small,
 [data-theme="dark"] .cl-sidebar__link.active,
 [data-bs-theme="dark"] .cl-sidebar__link.active {
   background: rgba(196, 30, 58, .12);
-  color: var(--cl-red-400);
+  color: var(--cl-brand-text);
 }
 
 .cl-sidebar__label {

@@ -261,7 +261,7 @@
   flex-direction: column;
   background: var(--cl-surface-2, #13151F);
   border-radius: var(--cl-radius-xl);
-  border: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border: 1px solid var(--cl-border-color, var(--cl-overlay));
   overflow: hidden;
 }
 
@@ -280,7 +280,7 @@
   white-space: nowrap;
   padding: var(--cl-space-2) var(--cl-space-3);
   border-radius: var(--cl-radius-full);
-  border: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border: 1px solid var(--cl-border-color, var(--cl-overlay));
   background: var(--cl-surface-2, #13151F);
   color: var(--cl-text-secondary);
   font-size: var(--cl-text-sm);
@@ -299,7 +299,7 @@
 }
 .cl-pill__count {
   font-size: 10px;
-  background: rgba(255,255,255,0.12);
+  background: var(--cl-overlay-strong);
   color: var(--cl-text-tertiary);
   border-radius: var(--cl-radius-full);
   padding: 0 6px;
@@ -314,12 +314,12 @@
 .cl-pill--fav { border-color: var(--cl-gold-500, #D4A843); color: var(--cl-gold-500, #D4A843); }
 .cl-pill--fav.active { background: var(--cl-gold-500, #D4A843); color: #1a1a1a; border-color: var(--cl-gold-500); }
 .cl-pill--popular { border-color: var(--cl-error-400, #F04438); color: var(--cl-error-400, #F04438); }
-.cl-pill--popular.active { background: var(--cl-error-500); color: white; border-color: var(--cl-error-500); }
+.cl-pill--popular.active { background: var(--cl-error-500); color: white; border-color: var(--cl-error-text); }
 
 /* Product tiles */
 .cl-product-tile {
   background: var(--cl-surface-2, #13151F);
-  border: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border: 1px solid var(--cl-border-color, var(--cl-overlay));
   border-radius: var(--cl-radius-lg);
   padding: var(--cl-space-3);
   cursor: pointer;
@@ -389,7 +389,7 @@
 
 /* Tile notes button */
 .tile-notes-btn {
-  background: rgba(255,255,255,0.07);
+  background: var(--cl-overlay);
   border: none;
   color: var(--cl-text-tertiary);
   cursor: pointer;
@@ -413,7 +413,7 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: var(--cl-space-4);
-  border-bottom: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border-bottom: 1px solid var(--cl-border-color, var(--cl-overlay));
 }
 .cart-header__title {
   font-size: var(--cl-text-lg);
@@ -441,7 +441,7 @@
   color: var(--cl-gold-500, #D4A843);
 }
 .cart-badge--neutral {
-  background: rgba(255,255,255,0.07);
+  background: var(--cl-overlay);
   color: var(--cl-text-secondary);
 }
 .cart-badge--count {
@@ -478,7 +478,7 @@
   align-items: center;
   gap: var(--cl-space-2);
   padding: var(--cl-space-2) 0;
-  border-bottom: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border-bottom: 1px solid var(--cl-border-color, var(--cl-overlay));
   animation: slideIn 0.2s ease;
 }
 @keyframes slideIn {
@@ -514,7 +514,7 @@
   gap: 0;
   border-radius: var(--cl-radius-md);
   overflow: hidden;
-  border: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border: 1px solid var(--cl-border-color, var(--cl-overlay));
   flex-shrink: 0;
 }
 .cart-item__qty-btn {
@@ -523,7 +523,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  background: rgba(255,255,255,0.05);
+  background: var(--cl-overlay);
   border: none;
   color: var(--cl-text-secondary);
   cursor: pointer;
@@ -561,7 +561,7 @@
 /* Cart totals — M1 dark */
 .cart-totals {
   padding: var(--cl-space-3) var(--cl-space-4);
-  border-top: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border-top: 1px solid var(--cl-border-color, var(--cl-overlay));
   background: var(--cl-surface-3, #181A26);
 }
 .cart-totals__row {
@@ -577,7 +577,7 @@
   color: var(--cl-text-primary);
   margin-top: var(--cl-space-1);
   padding-top: var(--cl-space-2);
-  border-top: 2px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border-top: 2px solid var(--cl-border-color, var(--cl-overlay));
 }
 
 /* Cart actions */
@@ -585,7 +585,7 @@
   display: flex;
   gap: var(--cl-space-2);
   padding: var(--cl-space-3);
-  border-top: 1px solid var(--cl-border-color, rgba(255,255,255,0.07));
+  border-top: 1px solid var(--cl-border-color, var(--cl-overlay));
 }
 
 /* Mobile cart FAB */

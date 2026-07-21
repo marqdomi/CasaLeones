@@ -304,7 +304,12 @@ class Orden(db.Model):
         return self.total
 
     def total_pagado(self):
-        return sum((p.monto for p in self.pagos), Decimal('0'))
+        """Sólo cuenta pagos verificados: una transferencia sin confirmar todavía
+        no es dinero, así que no debe cerrar la cuenta."""
+        return sum((p.monto for p in self.pagos if p.verificado), Decimal('0'))
+
+    def total_por_verificar(self):
+        return sum((p.monto for p in self.pagos if not p.verificado), Decimal('0'))
 
     def saldo_pendiente(self):
         t = self.total or Decimal('0')
@@ -368,11 +373,21 @@ class Pago(db.Model):
     orden_id = db.Column(db.Integer, db.ForeignKey('orden.id'), nullable=False, index=True)
     metodo = db.Column(db.String(30), nullable=False)
     monto = db.Column(db.Numeric(10, 2), nullable=False)
+    # Propina cobrada junto con este pago. Se guarda por pago (y no sólo en Orden)
+    # para saber cuánta propina entró en efectivo y que el arqueo de caja cuadre.
+    propina = db.Column(db.Numeric(10, 2), nullable=False, default=0, server_default='0')
     referencia = db.Column(db.String(100), nullable=True)
     fecha = db.Column(db.DateTime, default=utc_now, index=True)
     registrado_por = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    # El efectivo se verifica solo (está en la mano); una transferencia hay que
+    # confirmarla en el banco. Un pago sin verificar NO cubre la cuenta.
+    verificado = db.Column(db.Boolean, nullable=False, default=True,
+                           server_default='1', index=True)
+    verificado_por = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    fecha_verificacion = db.Column(db.DateTime, nullable=True)
 
-    usuario = db.relationship('Usuario')
+    usuario = db.relationship('Usuario', foreign_keys=[registrado_por])
+    verificador = db.relationship('Usuario', foreign_keys=[verificado_por])
 
 
 # -------------------- INVENTARIO (Fase 3 - Item 15) --------------------
