@@ -120,7 +120,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.12) transparent;
+    scrollbar-color: var(--cl-overlay-strong) transparent;
 }
 
 .cl-sidebar__nav::-webkit-scrollbar {
@@ -132,7 +132,7 @@
 }
 
 .cl-sidebar__nav::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.12);
+    background: var(--cl-overlay-strong);
     border-radius: 4px;
 }
 
@@ -177,7 +177,7 @@
     font-size: 11px;
     padding: 6px 10px;
     color: var(--cl-text-tertiary);
-    background: rgba(255,255,255,0.04);
+    background: var(--cl-overlay-subtle);
     border: 1px solid var(--cl-border-color);
     border-radius: var(--cl-radius-sm, 8px);
     cursor: pointer;
@@ -187,7 +187,7 @@
 
 .cl-sidebar__modo-btn:hover {
     color: var(--cl-text-primary);
-    background: rgba(255,255,255,0.07);
+    background: var(--cl-overlay);
 }
 
 /* Regular nav link */
@@ -209,19 +209,39 @@
 }
 
 .cl-sidebar__link:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--cl-overlay);
     color: var(--cl-text-primary);
+}
+
+/* Contador de pendientes (transferencias por verificar) */
+.cl-sidebar__badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--cl-warning-500, #f79009);
+    color: #1a1a1a;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 18px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.cl-sidebar--collapsed .cl-sidebar__badge {
+    display: none;
 }
 
 .cl-sidebar__link.active {
     background: var(--cl-red-glow);
-    color: var(--cl-red-400);
+    color: var(--cl-brand-text);
     border-color: rgba(196, 30, 58, 0.2);
 }
 
 .cl-sidebar__link.active svg,
 .cl-sidebar__link.active [data-lucide] {
-    color: var(--cl-red-400);
+    color: var(--cl-brand-text);
 }
 
 /* Sub-links (dropdown children) */
@@ -239,11 +259,11 @@
 
 .cl-sidebar__sublink:hover {
     color: var(--cl-text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cl-overlay-subtle);
 }
 
 .cl-sidebar__sublink.active {
-    color: var(--cl-red-400);
+    color: var(--cl-brand-text);
     font-weight: var(--cl-font-semibold);
 }
 
@@ -274,7 +294,7 @@
 
 .cl-sidebar__toggle:hover {
     color: var(--cl-text-primary);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cl-overlay-subtle);
 }
 
 /* ─── SIDEBAR FOOTER ─── */
@@ -291,13 +311,13 @@
     gap: 9px;
     padding: 7px 9px;
     border-radius: var(--cl-radius-sm);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cl-overlay-subtle);
     cursor: pointer;
     transition: background var(--cl-transition-fast);
 }
 
 .cl-user-pill:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--cl-overlay);
 }
 
 .cl-user-avatar {
@@ -328,7 +348,7 @@
 /* ─── TOPBAR ─── */
 .cl-topbar {
     height: var(--cl-topbar-h, 60px);
-    background: rgba(13, 14, 20, 0.92);
+    background: var(--cl-topbar-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid var(--cl-border-color);
@@ -348,6 +368,28 @@
     gap: 8px;
     font-size: 13px;
     color: var(--cl-text-tertiary);
+    /* Se usa tanto con <div> como con <ol> (lo semánticamente correcto): sin este
+       reset, la variante <ol> sale numerada "1. Ventas 2. Transferencias". */
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.cl-breadcrumb li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cl-breadcrumb li+li::before {
+    content: '/';
+    color: var(--cl-text-tertiary);
+    opacity: .5;
+}
+
+.cl-breadcrumb li.active {
+    color: var(--cl-text-primary);
+    font-weight: var(--cl-font-semibold);
 }
 
 .cl-breadcrumb__current {
@@ -378,12 +420,12 @@
 }
 
 .cl-topbar-tab:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--cl-overlay);
     color: var(--cl-text-secondary);
 }
 
 .cl-topbar-tab.active {
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--cl-overlay-strong);
     color: var(--cl-text-primary);
     font-weight: var(--cl-font-semibold);
 }
@@ -399,7 +441,7 @@
     width: 34px;
     height: 34px;
     border-radius: var(--cl-radius-sm);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--cl-overlay);
     border: 1px solid var(--cl-border-color);
     display: flex;
     align-items: center;
@@ -410,7 +452,7 @@
 }
 
 .cl-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.09);
+    background: var(--cl-overlay-strong);
     color: var(--cl-text-primary);
 }
 
@@ -425,7 +467,7 @@
     padding: 4px 12px;
     font-size: 12px;
     font-weight: var(--cl-font-semibold);
-    color: var(--cl-info-500);
+    color: var(--cl-info-text);
 }
 
 /* ─── MAIN AREA (offset for sidebar) ─── */
@@ -484,7 +526,7 @@
 .cl-period-pills {
     display: flex;
     gap: 3px;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--cl-overlay);
     border: 1px solid var(--cl-border-color);
     border-radius: var(--cl-radius-sm);
     padding: 3px;
@@ -509,7 +551,7 @@
 .cl-period-pill.active,
 .cl-period-pill[aria-selected="true"] {
     background: rgba(196, 30, 58, 0.2);
-    color: var(--cl-red-400);
+    color: var(--cl-brand-text);
     border: 1px solid rgba(196, 30, 58, 0.3);
 }
 

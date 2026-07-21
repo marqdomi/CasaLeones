@@ -22,7 +22,7 @@
         </h3>
         <div style="display:flex;align-items:center;gap:20px;">
             <div id="logoPreview"
-                style="width:80px;height:80px;border-radius:16px;background:var(--cl-surface-2,#1A1D26);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px dashed var(--cl-border-color,rgba(255,255,255,.1));">
+                style="width:80px;height:80px;border-radius:16px;background:var(--cl-surface-2,#1A1D26);display:flex;align-items:center;justify-content:center;overflow:hidden;border:2px dashed var(--cl-border-color,var(--cl-overlay-strong));">
                 {% if sucursal.logo_url %}
                 <img src="{{ sucursal.logo_url }}" alt="Logo actual" style="width:100%;height:100%;object-fit:contain;">
                 {% else %}
@@ -35,7 +35,7 @@
                     <i data-lucide="upload" style="width:14px;height:14px;margin-right:4px;vertical-align:-2px;"></i>
                     Subir Logo
                     <input type="file" name="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                        style="display:none;" onchange="previewLogo(this)">
+                        style="display:none;" id="logoInput">
                 </label>
                 <div style="font-size:11px;color:var(--cl-text-tertiary,#98A2B3);">PNG, JPG, SVG o WebP · Máx 2MB</div>
             </div>
@@ -103,6 +103,66 @@
         </div>
     </div>
 
+    {# ── Métodos de pago ── #}
+    <div class="cl-v7-card" style="padding:20px;margin-bottom:24px;">
+        <h2 style="font-size:15px;font-weight:700;margin:0 0 6px;">Métodos de pago</h2>
+        <p style="font-size:12px;color:var(--cl-text-tertiary,#98A2B3);margin:0 0 14px;">
+            Sólo aparecen al cobrar los que habilites aquí. Deja fuera los que el
+            negocio no acepta para que nadie los elija por error.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            {% for clave, m in metodos_disponibles.items() %}
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                <input type="checkbox" name="metodos_pago" value="{{ clave }}"
+                    {% if clave in metodos_activos %}checked{% endif %}>
+                <i data-lucide="{{ m.icono }}" style="width:16px;height:16px;"></i>
+                <span style="font-size:13px;color:var(--cl-text-primary,#F2F4F7);">{{ m.label }}</span>
+                {% if clave == 'transferencia' %}
+                <span style="font-size:11px;color:var(--cl-text-tertiary,#98A2B3);">
+                    — requiere confirmar el depósito antes de liberar la cuenta
+                </span>
+                {% endif %}
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    {# ── Datos bancarios ── #}
+    <div class="cl-v7-card" style="padding:20px;margin-bottom:24px;">
+        <h2 style="font-size:15px;font-weight:700;margin:0 0 6px;">Datos para transferencias</h2>
+        <p style="font-size:12px;color:var(--cl-text-tertiary,#98A2B3);margin:0 0 14px;">
+            Aparecen en la pantalla de cobro cuando el cliente elige transferencia, para
+            que nadie tenga que dictar la CLABE de memoria.
+        </p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;">
+            <div>
+                <label for="banco_nombre" style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">Banco</label>
+                <input type="text" name="banco_nombre" id="banco_nombre" class="cl-input"
+                    value="{{ banco.banco_nombre }}" placeholder="BBVA, Banorte, Nu…" maxlength="60">
+            </div>
+            <div>
+                <label for="banco_titular" style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">Titular de la cuenta</label>
+                <input type="text" name="banco_titular" id="banco_titular" class="cl-input"
+                    value="{{ banco.banco_titular }}" placeholder="A nombre de quién llega" maxlength="120">
+            </div>
+        </div>
+        <div style="margin-top:14px;">
+            <label for="banco_clabe" style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">CLABE interbancaria</label>
+            <input type="text" name="banco_clabe" id="banco_clabe" class="cl-input"
+                value="{{ banco.banco_clabe }}" placeholder="18 dígitos" inputmode="numeric"
+                maxlength="24" style="font-family:var(--cl-font-mono);letter-spacing:.04em;">
+            <p style="font-size:11px;color:var(--cl-text-tertiary,#98A2B3);margin:6px 0 0;">
+                Se valida el dígito verificador: si te falta o sobra un número, no se guarda.
+            </p>
+        </div>
+        <div style="margin-top:14px;">
+            <label for="banco_referencia_extra" style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;">Nota adicional <span style="font-weight:400;color:var(--cl-text-tertiary,#98A2B3);">(opcional)</span></label>
+            <input type="text" name="banco_referencia_extra" id="banco_referencia_extra" class="cl-input"
+                value="{{ banco.banco_referencia_extra }}"
+                placeholder="Ej: también aceptamos SPEI al 55 1234 5678" maxlength="120">
+        </div>
+    </div>
+
     {# ── Submit ── #}
     <div style="display:flex;justify-content:flex-end;gap:12px;">
         <a href="{{ url_for('admin.dashboard') }}" class="cl-btn cl-btn--outline">Cancelar</a>
@@ -126,6 +186,10 @@
     }
     document.getElementById('color_primario').addEventListener('input', function () {
         document.getElementById('colorHex').textContent = this.value;
+    });
+    // Los handlers en atributos onchange no corren bajo el CSP del sistema.
+    document.getElementById('logoInput').addEventListener('change', function () {
+        previewLogo(this);
     });
 </script>
 {% endblock admin_content %}

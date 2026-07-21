@@ -47,7 +47,7 @@
 
     <div class="d-flex gap-2">
       <button type="submit" class="cl-btn cl-btn--primary"
-              onclick="return confirm('¿Registrar complemento de pago por este monto?');">
+              data-confirmar="¿Registrar complemento de pago por este monto?">
         <i data-lucide="receipt" class="icon-sm"></i> Generar Complemento de Pago
       </button>
       <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="cl-btn cl-btn--outline">Cancelar</a>

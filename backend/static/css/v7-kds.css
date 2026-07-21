@@ -16,7 +16,7 @@
 .cl-kds-header {
     height: 60px;
     background: #08090E;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--cl-overlay);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -52,8 +52,8 @@
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: var(--cl-overlay);
+    border: 1px solid var(--cl-overlay);
     border-radius: var(--cl-radius-full);
     font-size: 13px;
     font-weight: var(--cl-font-semibold);
@@ -114,7 +114,7 @@
 }
 
 .cl-kds-strip::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--cl-overlay-strong);
     border-radius: 4px;
 }
 
@@ -123,7 +123,7 @@
     width: 280px;
     min-width: 280px;
     border-radius: var(--cl-radius-lg);
-    border: 1px solid rgba(255, 255, 255, 0.07);
+    border: 1px solid var(--cl-overlay);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -208,7 +208,7 @@
 /* Card header */
 .cl-kds-card__hdr {
     padding: 14px 16px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-bottom: 1px solid var(--cl-overlay);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -296,7 +296,7 @@
     font-weight: var(--cl-font-semibold);
     padding: 3px 9px;
     border-radius: var(--cl-radius-full);
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--cl-overlay);
     color: var(--cl-text-secondary);
 }
 
@@ -318,8 +318,8 @@
     gap: 10px;
     padding: 10px 12px;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--cl-overlay-subtle);
+    border: 1px solid var(--cl-overlay);
 }
 
 .cl-kds-item--done {
@@ -378,7 +378,7 @@
 
 .cl-kds-check--done {
     background: var(--cl-success-500);
-    border-color: var(--cl-success-500);
+    border-color: var(--cl-success-text);
 }
 
 /* Item done state */
@@ -394,7 +394,7 @@
 .cl-kds-progress {
     position: relative;
     height: 6px;
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--cl-overlay);
     border-radius: 3px;
     margin: 0 16px 4px;
     overflow: hidden;
@@ -416,7 +416,7 @@
     top: -16px;
     font-size: 10px;
     font-family: var(--cl-font-mono);
-    color: var(--cl-success-500);
+    color: var(--cl-success-text);
     letter-spacing: 0.02em;
 }
 
@@ -429,7 +429,7 @@
 /* Card footer */
 .cl-kds-card__footer {
     padding: 12px 16px;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid var(--cl-overlay);
     display: flex;
     gap: 8px;
 }
@@ -461,13 +461,13 @@
 }
 
 .cl-kds-btn--skip {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--cl-overlay);
+    border: 1px solid var(--cl-overlay-strong);
     color: var(--cl-text-tertiary);
 }
 
 .cl-kds-btn--skip:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--cl-overlay-strong);
     color: var(--cl-text-secondary);
 }
 
@@ -475,7 +475,7 @@
 .cl-kds-footer {
     height: 52px;
     background: #08090E;
-    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-top: 1px solid var(--cl-overlay);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -499,7 +499,7 @@
 
 .cl-kds-stat strong {
     font-family: var(--cl-font-mono);
-    color: var(--cl-success-500);
+    color: var(--cl-success-text);
 }
 
 /* Live connection dot */

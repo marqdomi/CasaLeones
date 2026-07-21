@@ -37,7 +37,7 @@
                 {{ d.estado_plataforma }}
               </span>
             </td>
-            <td>{{ d.fecha_recibido.strftime('%H:%M') if d.fecha_recibido else '' }}</td>
+            <td>{{ d.fecha_recibido|hora_local if d.fecha_recibido else '' }}</td>
             <td>
               {% if d.estado_plataforma in ('nueva', None) %}
               <button class="cl-btn cl-btn--sm cl-btn--primary btn-aceptar-delivery" data-id="{{ d.id }}">

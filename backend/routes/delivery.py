@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify
+from backend.services.tiempo import hoy_local, rango_utc
 from backend.utils import login_required
 from backend.extensions import db, socketio
 from backend.models.models import DeliveryOrden, Orden, utc_now
@@ -74,11 +75,12 @@ def api_delivery_status():
     """Resumen de órdenes delivery del día."""
     from datetime import date
     from sqlalchemy import func
-    hoy = date.today()
+    hoy = hoy_local()
+    _desde, _hasta = rango_utc(hoy)
     stats = db.session.query(
         DeliveryOrden.plataforma,
         func.count(DeliveryOrden.id).label('total'),
     ).filter(
-        func.date(DeliveryOrden.fecha_recibido) == hoy,
+        DeliveryOrden.fecha_recibido >= _desde, DeliveryOrden.fecha_recibido < _hasta,
     ).group_by(DeliveryOrden.plataforma).all()
     return jsonify([{'plataforma': s.plataforma, 'total': s.total} for s in stats])

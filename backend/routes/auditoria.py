@@ -2,6 +2,7 @@
 import logging
 from datetime import date
 from flask import Blueprint, render_template, request
+from backend.services.tiempo import hoy_local, rango_utc
 from backend.utils import login_required
 from backend.extensions import db
 from backend.models.models import AuditLog, Usuario
@@ -16,8 +17,8 @@ auditoria_bp = Blueprint('auditoria', __name__, url_prefix='/admin/auditoria')
 @auditoria_bp.route('/')
 @login_required(roles=['superadmin'])
 def lista_auditoria():
-    fi = request.args.get('fecha_inicio', date.today().isoformat())
-    ff = request.args.get('fecha_fin', date.today().isoformat())
+    fi = request.args.get('fecha_inicio', hoy_local().isoformat())
+    ff = request.args.get('fecha_fin', hoy_local().isoformat())
     accion_filtro = request.args.get('accion', '')
     entidad_filtro = request.args.get('entidad', '')
     page = request.args.get('page', 1, type=int)
@@ -25,8 +26,8 @@ def lista_auditoria():
     q = AuditLog.query.options(joinedload(AuditLog.usuario))
 
     q = q.filter(
-        func.date(AuditLog.fecha) >= date.fromisoformat(fi),
-        func.date(AuditLog.fecha) <= date.fromisoformat(ff),
+        AuditLog.fecha >= rango_utc(date.fromisoformat(fi))[0],
+        AuditLog.fecha < rango_utc(date.fromisoformat(ff))[1],
     )
 
     if accion_filtro:

@@ -467,3 +467,202 @@ PostgreSQL 16 real (no solo SQLite).
   (`data-para-llevar` en fragment), persistente en localStorage por estación,
   se reaplica tras cada refresh
 - Test: conteo de pendientes por estación en test_kds_undo.py. Suite: 80 passed.
+
+## Auditoría del Panel Admin (v6.2 — barrido de rutas + coherencia con v6.2)
+Barrido HTTP de las ~70 rutas GET del admin como superadmin + pyflakes sobre
+`backend/routes/`. 6 fallas reales corregidas:
+- `api_ordenes_cocina` (KPI "En cocina") tronaba con 500: `utc_now()` es aware y
+  `Orden.tiempo_registro` se guarda naive. Convención del repo: comparar contra
+  `utc_now().replace(tzinfo=None)` (igual que el `now_utc` que se pasa a templates).
+  Además contaba PENDIENTE en vez de ENVIADO — ahora usa los mismos estados que el KDS
+- `admin_routes.py` no importaba `session` ni `Response`: **generar el corte de caja
+  daba 500** (NameError) y el PDF del corte habría tronado apenas existiera pango
+- `reportes.py` no importaba `flash`/`redirect`: la rama de error de los export PDF
+  también tronaba
+- `dockerfile` no instalaba pango/cairo → WeasyPrint fallaba en producción, no sólo en
+  local. Agregadas libs del sistema; `generar_pdf` ahora captura el OSError del dlopen
+  (no sólo ImportError) y degrada a flash
+- Blueprint `productos` era un segundo CRUD bajo el mismo prefijo (`/admin/productos/`
+  con slash ≠ `/admin/productos`) con templates que aún usaban `precio_unitario` → 500.
+  Reducido a redirects al CRUD vigente de `admin_routes`; templates viejos eliminados
+- Mesas compartidas invisibles para el admin: `admin/ordenes_activas.html` y
+  `admin/historial_dia.html` son forks de las vistas de mesero que no recibieron el
+  `alias` de v6.2. Agregado ahí y en el feed del dashboard (que además mostraba
+  "Mesa P/LL" en órdenes para llevar)
+- Tests: `tests/test_admin_panel.py` (5) — APIs del dashboard, corte de caja POST,
+  alias en el feed, redirects legacy. Suite total 85 passed.
+- Pendiente (no bloquea demo): el chip "N en cocina" de órdenes activas suma pendientes
+  (aún no enviadas), así que no coincide con el KPI del dashboard ni con el KDS.
+
+## Zona horaria del negocio — el día contable (v6.3)
+**El hallazgo más caro de la auditoría financiera.** Las fechas se guardan en UTC
+(`utc_now()`) pero los filtros usaban `func.date(columna) == date.today()`. En México
+(UTC-6) eso manda al día siguiente **toda la venta posterior a las 18:00 local** — la
+cena, que es el grueso de una taquería. Afectaba corte de caja, dashboard, reportes,
+historial del día y métricas de cocina.
+
+- `backend/services/tiempo.py` — `zona()`, `hoy_local()`, `rango_utc(fi, ff)`,
+  `a_local()`, `iso_utc()`, `dia_local(col)`, `hora_local_sql(col)`
+- Regla: filtrar por rango `col >= desde AND col < hasta` (además usa índice, a
+  diferencia de `func.date()`), y agrupar por día con `dia_local(col)`
+- `dia_local`/`hora_local_sql` resuelven por dialecto: PostgreSQL con `AT TIME ZONE`
+  (respeta DST), SQLite con offset fijo (exacto para México, sin DST desde 2022)
+- Configurable con `APP_TIMEZONE` en .env (default `America/Mexico_City`)
+- Convertidos: admin_routes (corte, 11 APIs del dashboard, PDF), reportes.py (~50
+  filtros + agrupaciones), meseros.py, cocina.py, delivery.py, auditoria.py
+- `reservaciones.py` NO se convirtió: `Reservacion.fecha_hora` viene del form en hora
+  local naive, ahí `date.today()` es correcto. Sí se corrigió comparar ese naive contra
+  `utc_now()` aware al marcar mesa (TypeError al crear reservación con mesa)
+
+### Horas visibles
+- Filtros Jinja `hora_local`, `fecha_local`, `fechahora_local` (registrados en app.py);
+  reemplazan `.strftime()` sobre columnas UTC en 16 templates. Un ticket de las 13:44
+  se mostraba como 19:44
+- Filtro `iso_utc` + `iso_utc()` en cocina.api_orders: sin la `Z`, `new Date()` lee el
+  timestamp como hora local y el **cronómetro del KDS quedaba 6 h en el futuro** (00:00
+  permanente). También la gráfica "ventas por hora" mostraba el pico de la comida a las 19:00
+
+## Cuadre de caja — propina por método de pago (v6.3)
+- `Pago.propina` (migración c011, idempotente): la propina sólo vivía en `Orden`, sin
+  saber por qué método entró
+- Corte: "Efectivo en caja" = venta en efectivo + propinas en efectivo, con el desglose
+  visible. Antes decía sólo la venta, así que contar el cajón siempre daba un "sobrante"
+  exactamente igual a las propinas. La `diferencia` del arqueo y el `efectivo_esperado`
+  guardado en `CorteCaja` usan ya el monto que debe estar físicamente en la caja
+- Pagos anteriores a c011 tienen `propina=0`; el KPI "Propinas" (lee `Orden.propina`)
+  puede no coincidir con el desglose de efectivo para esos registros históricos
+
+### Verificado end-to-end
+Venta real contra el server (mesero → KDS → entrega → cobro): 3 × $25 = $75, cliente
+paga $125 con $20 de propina → cambio $30, `Pago.monto` = $75 (no los $125). El mismo
+$75 aparece en dashboard, reporte de ventas, top productos, reporte de pagos y corte.
+- Tests: `tests/test_finanzas.py` (10) con control negativo verificado — al revertir las
+  consultas al día UTC, el test del corte falla. Suite total 95 passed.
+
+### Pendientes financieros (decisión de negocio, no bugs de código)
+- Propina con tarjeta: `registrar_pago` rechaza cobrar más que el saldo, así que la
+  propina se registra en la orden pero **nunca se le cobra al cliente**
+- `cobrar_orden_post` (ruta legacy `/ordenes/<id>/cobrar`, sin uso en el frontend)
+  guarda `Pago.monto = monto_recibido` incluyendo el cambio: inflaría el corte. El flujo
+  vivo es `/ordenes/<id>/pago`, que sí aplica sólo el saldo
+
+## Transferencias con verificación + métodos de pago configurables (v6.4)
+El negocio piloto no acepta tarjeta pero sí transferencias, y una de las dueñas revisa
+en su app del banco que el depósito haya llegado antes de dar la cuenta por pagada.
+Antes el sistema sólo guardaba un `referencia` de texto libre, opcional, que **no se
+mostraba en ninguna pantalla del admin**: un cobro marcado como transferencia cerraba
+la cuenta aunque el dinero nunca llegara, y el corte se veía perfecto.
+
+### Modelo
+- `Pago.verificado` / `verificado_por` / `fecha_verificacion` (migración c012, idempotente)
+- `Orden.total_pagado()` **sólo suma pagos verificados** — un depósito sin confirmar no
+  cubre la cuenta ni la cierra. `total_por_verificar()` para mostrar lo que está en el aire
+- El efectivo nace verificado (está en la mano); la transferencia nace pendiente
+
+### Flujo
+- Cobro con transferencia: referencia **obligatoria** (sin ella no se puede buscar en el
+  estado de cuenta), la orden NO se cierra, se emite `transferencia_por_verificar`
+- `/admin/pagos/verificar` (admin/superadmin) — bandeja con hora, cuenta, referencia,
+  quién cobró y monto; botones "Llegó" y rechazar. Badge con contador en el sidebar
+  (polling 30s + eventos Socket.IO)
+- Confirmar → cierra la cuenta, genera la venta y libera la mesa. Rechazar → borra el
+  pago, la cuenta vuelve a quedar por cobrar. Ambos quedan en auditoría
+- Doble verificación devuelve 409 (no duplica la venta)
+
+### `backend/services/cobro.py`
+`cerrar_orden_pagada()` — extraído de `registrar_pago` porque ahora el cierre ocurre
+desde dos lados (cobro en efectivo y confirmación posterior de la dueña) y ambos deben
+dejar el mismo rastro: venta, inventario descontado, cliente actualizado, mesa liberada.
+La venta se atribuye a `orden.mesero_id`, **no** a quien aprieta el botón — si no, el
+reporte de meseros le acreditaría las ventas a la dueña.
+
+### Métodos de pago configurables
+- `backend/services/pagos.py` + `ConfiguracionSistema['metodos_pago']`
+- Default `efectivo,transferencia` (tarjeta apagada: el negocio no tiene terminal). Se
+  habilita desde Personalización con checkboxes
+- `registrar_pago` valida contra los habilitados; la pantalla de cobro pinta sólo esos
+
+### Corte de caja
+- Los pagos sin verificar **no cuentan** como ingreso del día
+- Aviso con monto y liga a la bandeja cuando hay transferencias pendientes
+
+### Corregido de paso
+`pago.html` leía `data.orden_cerrada` pero el backend responde `orden_pagada`: el overlay
+de "orden pagada" nunca se mostraba y la pantalla se quedaba recargando el saldo.
+
+- Tests: `tests/test_transferencias.py` (10). Suite total 105 passed.
+
+## Datos bancarios configurables (v6.4)
+- `backend/services/banco.py` + `ConfiguracionSistema`: `banco_nombre`, `banco_titular`,
+  `banco_clabe`, `banco_referencia_extra`
+- Se capturan en Personalización y aparecen en la pantalla de cobro al elegir
+  transferencia, con la CLABE agrupada de 4 en 4 y botón "Copiar CLABE" (con fallback a
+  `execCommand` porque las tablets abren el sistema por http, sin clipboard API)
+- **Validación de CLABE con dígito verificador** (ponderación 3-7-1, módulo 10), igual
+  que el validador de RFC: 18 dígitos con un número cambiado NO se guarda. Un dígito mal
+  capturado manda el dinero a la cuenta de otra persona
+- Tests: `tests/test_datos_bancarios.py` (12), incluye 3 CLABEs reales de bancos distintos
+
+## CSP mataba todos los handlers inline (bug preexistente grave)
+El CSP es `script-src 'self' 'nonce-…'` sin `'unsafe-inline'`, así que **los atributos
+`onclick`/`oninput`/`onchange`/`onsubmit` del HTML nunca se ejecutaron**. Verificado en
+el navegador: `element.onclick` queda en `null` y el handler no corre.
+
+Había 24 repartidos por los templates. El peor caso: **13 en `pago.html`**, o sea que la
+pantalla de cobro de página completa estaba inerte — no se podía elegir método, ni usar
+los montos rápidos, ni poner propina, ni siquiera apretar "Confirmar Pago".
+
+Otros afectados: cálculo de diferencia en vivo del arqueo, filtros de zona al elegir
+mesa, preview del logo, cerrar toasts, y los `confirm()` antes de cancelar una factura
+ante el SAT (se ejecutaban sin preguntar).
+
+- Convertidos a `addEventListener` dentro de los `<script nonce>` existentes, usando
+  `data-*` para los parámetros que iban en el atributo
+- Dos patrones repetidos (`data-cerrar-toast`, `data-confirmar`) se enganchan una sola
+  vez con delegación en `base.html`
+- El estilo de foco que se hacía con `onfocus`/`onblur` pasó a CSS (`.cl-corte-campo:focus`)
+- **Regla para adelante: nada de handlers en atributos HTML** — no funcionan en este
+  sistema. Todo va en un `<script nonce="{{ csp_nonce }}">`
+
+## Tema claro real + arranque por defecto (v6.5)
+Auditoría de contraste (medida en el navegador, WCAG): el **tema claro no existía**.
+Los tokens v7 (`--cl-canvas`, `--cl-surface-*`, bordes, sombras, velos) sólo tenían
+valores oscuros y nunca se sobrescribían, así que en claro salía texto `#101828` sobre
+fondo `#0A0B10` — **contraste 1.02:1, negro sobre negro**. Peor aún, el arranque sólo
+*activaba* oscuro; una tablet en modo claro sin preferencia guardada caía en ese estado
+roto (el default de fábrica de cualquier tablet).
+
+### Modelo de tokens
+- Los tokens de superficie ahora viven **claros en `:root`** y el bloque
+  `[data-theme="dark"]` los devuelve a oscuro. Motivo: un puesto de calle con sol —
+  con fondo oscuro la pantalla es un espejo. Claro es el default.
+- `--cl-overlay-subtle/overlay/overlay-strong`: reemplazan los 84
+  `rgba(255,255,255,α)` de baja opacidad (tintes/hover/bordes) que sólo aclaran sobre
+  oscuro; ahora oscurecen en claro y aclaran en oscuro
+- `--cl-*-text` (success/warning/error/info/danger/brand): los `-500` brillan sobre
+  oscuro pero no contrastan como texto sobre blanco. Estos tokens usan el `-700`/`-600`
+  en claro y el brillante en oscuro. Retarget mecánico: sólo los usos como `color:`
+  (98 sitios), no los fondos de badge (que sí quieren el color brillante)
+- `--cl-topbar-bg`: la topbar de operaciones tenía `rgba(13,14,20,.92)` fijo → texto
+  claro sobre fondo claro. Ahora es un token que se invierte
+
+### Arranque del tema (base.html)
+- Default **claro**; respeta `localStorage.theme` si el usuario eligió. Ya no auto-sigue
+  el modo del SO (era impredecible y el caso de uso pide claro)
+- `force_theme` por template: el KDS lo fija en `'dark'` (tablero fijo, lectura a
+  distancia, normalmente bajo techo). El resto usa el default
+
+### Resultado (medido)
+- Meseros en claro: de 17 fallos AA → 1 (un contador de 10px en 4.33). Admin: 0 fallos
+- Oscuro sin regresión; KDS intacto (verde/ámbar brillantes sobre negro)
+- Fuentes de cronómetro (11→12.5px) y contadores (10→11px) subidas: mejora en ambos temas
+
+### Bugs latentes corregidos de paso
+- `--cl-danger-500`, `--cl-success-600`, `--cl-primary-100/500/600/700` se usaban en
+  templates pero **nunca se definieron** (caían a negro/heredado). Agregados como alias
+- `v7-base.css` forzaba `--bs-body-bg`/`html`/`body` a oscuro hardcodeado, ignorando el
+  tema. Ahora usan los tokens
+
+### Regla
+Nada de colores de superficie hardcodeados. Todo fondo/borde/texto va por token para
+que herede el tema. Colores semánticos como texto → `--cl-*-text`, no `-500`.

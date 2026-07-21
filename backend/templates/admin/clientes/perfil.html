@@ -20,7 +20,7 @@
         <p><strong>Teléfono:</strong> {{ cliente.telefono or '—' }}</p>
         <p><strong>Email:</strong> {{ cliente.email or '—' }}</p>
         <p><strong>RFC:</strong> {{ cliente.rfc or '—' }}</p>
-        <p class="mb-0"><strong>Desde:</strong> {{ cliente.fecha_registro.strftime('%Y-%m-%d') if cliente.fecha_registro else '—' }}</p>
+        <p class="mb-0"><strong>Desde:</strong> {{ cliente.fecha_registro|fecha_local if cliente.fecha_registro else '—' }}</p>
       </div>
     </div>
   </div>
@@ -51,7 +51,7 @@
       {% for o in ordenes %}
       <tr>
         <td>#{{ o.id }}</td>
-        <td>{{ o.tiempo_registro.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ o.tiempo_registro|fechahora_local }}</td>
         <td>{{ status_badge(o.estado) }}</td>
         <td>${{ '%.2f'|format(o.total or 0) }}</td>
       </tr>

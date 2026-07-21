@@ -57,6 +57,8 @@ Children: list of (label, endpoint) for sub-nav #}
 'key': 'ventas',
 'items': [
 {'icon': 'wallet', 'label': 'Corte de Caja', 'endpoint': 'admin.corte_caja'},
+{'icon': 'smartphone', 'label': 'Transferencias', 'endpoint': 'pagos.lista_por_verificar',
+ 'badge': 'transferencias'},
 {'icon': 'bar-chart-3', 'label': 'Reportes', 'endpoint': 'reportes.dashboard_reportes',
 'children': [
 {'label': 'Ventas', 'endpoint': 'reportes.reporte_ventas'},
@@ -161,6 +163,9 @@ Children: list of (label, endpoint) for sub-nav #}
       %}aria-current="page" {% endif %}>
       <i data-lucide="{{ item.icon }}" class="icon-sm"></i>
       <span class="cl-sidebar__label">{{ item.label }}</span>
+      {% if item.badge == 'transferencias' %}
+      <span class="cl-sidebar__badge" id="badgeTransferencias" hidden aria-live="polite"></span>
+      {% endif %}
     </a>
     {% endif %}
     {% endfor %}
@@ -258,7 +263,7 @@ Children: list of (label, endpoint) for sub-nav #}
         <i data-lucide="{{ {'success':'check-circle','error':'x-circle','warning':'alert-triangle','info':'info'}.get(variant,'info') }}"
           class="icon-sm"></i>
         <span>{{ message }}</span>
-        <button type="button" class="cl-toast__close" aria-label="Cerrar" onclick="this.parentElement.remove()">
+        <button type="button" class="cl-toast__close" aria-label="Cerrar" data-cerrar-toast>
           <i data-lucide="x" class="icon-xs"></i>
         </button>
       </div>
@@ -314,6 +319,31 @@ Children: list of (label, endpoint) for sub-nav #}
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
     });
+
+    // Transferencias esperando confirmación: contador en el menú. Se refresca solo
+    // y en cuanto un mesero registra una, para que no se queden pendientes sin verse.
+    var badge = document.getElementById('badgeTransferencias');
+    if (badge) {
+      function refrescarPendientes() {
+        fetch('/admin/pagos/api/pendientes')
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (!d) return;
+            badge.textContent = d.cantidad;
+            badge.hidden = d.cantidad === 0;
+            badge.setAttribute('aria-label', d.cantidad + ' transferencias por verificar');
+          })
+          .catch(function () { });
+      }
+      refrescarPendientes();
+      setInterval(refrescarPendientes, 30000);
+      if (window.io) {
+        var socketPagos = io();
+        socketPagos.on('transferencia_por_verificar', refrescarPendientes);
+        socketPagos.on('pago_verificado', refrescarPendientes);
+        socketPagos.on('pago_rechazado', refrescarPendientes);
+      }
+    }
 
     // Auto-dismiss toasts (pause on hover/focus for a11y)
     document.querySelectorAll('.cl-toast').forEach(function (t) {

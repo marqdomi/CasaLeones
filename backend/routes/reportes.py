@@ -7,8 +7,9 @@ import csv
 import logging
 from datetime import date, datetime, timedelta
 from decimal import Decimal
-from flask import Blueprint, render_template, request, jsonify, Response, g
+from flask import Blueprint, render_template, request, jsonify, Response, g, flash, redirect, url_for
 from backend.utils import login_required, filtrar_por_sucursal
+from backend.services.tiempo import hoy_local, rango_utc, dia_local, hora_local_sql
 from backend.extensions import db
 from backend.models.models import (
     Sale, SaleItem, Producto, Pago, Orden, Usuario, Ingrediente,
@@ -27,7 +28,7 @@ def _parse_rango(args):
 
     Falls back to first-of-month / today when values are missing or malformed.
     """
-    hoy = date.today()
+    hoy = hoy_local()
     default_inicio = hoy.replace(day=1)
 
     fi_raw = args.get('fecha_inicio', '') or default_inicio.isoformat()
@@ -66,20 +67,21 @@ def dashboard_reportes():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_ventas():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     # Ventas por día (aggregated at DB level)
     ventas_dia_q = db.session.query(
-        func.date(Sale.fecha_hora).label('dia'),
+        dia_local(Sale.fecha_hora).label('dia'),
         func.sum(Sale.total).label('total'),
         func.count(Sale.id).label('cantidad'),
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         ventas_dia_q = ventas_dia_q.filter(Sale.sucursal_id == suc_id)
-    ventas_por_dia = ventas_dia_q.group_by(func.date(Sale.fecha_hora)).order_by(func.date(Sale.fecha_hora)).all()
+    ventas_por_dia = ventas_dia_q.group_by(dia_local(Sale.fecha_hora)).order_by(dia_local(Sale.fecha_hora)).all()
 
     # KPIs from already-aggregated rows (no extra query needed)
     total_ventas = sum(float(r.total) for r in ventas_por_dia)
@@ -97,12 +99,13 @@ def reporte_ventas():
 @login_required(roles=['admin', 'superadmin'])
 def export_ventas_csv():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     ventas = filtrar_por_sucursal(
         Sale.query.options(
             joinedload(Sale.usuario),
         ).filter(
-            func.date(Sale.fecha_hora) >= fi,
-            func.date(Sale.fecha_hora) <= ff,
+            Sale.fecha_hora >= desde,
+            Sale.fecha_hora < hasta,
         ), Sale,
     ).order_by(Sale.fecha_hora).all()
 
@@ -129,18 +132,19 @@ def export_ventas_pdf():
     from backend.services.pdf_generator import generar_pdf
 
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     ventas_dia_q = db.session.query(
-        func.date(Sale.fecha_hora).label('dia'),
+        dia_local(Sale.fecha_hora).label('dia'),
         func.sum(Sale.total).label('total'),
         func.count(Sale.id).label('cantidad'),
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
         ventas_dia_q = ventas_dia_q.filter(Sale.sucursal_id == suc_id)
-    ventas_por_dia = ventas_dia_q.group_by(func.date(Sale.fecha_hora)).order_by(func.date(Sale.fecha_hora)).all()
+    ventas_por_dia = ventas_dia_q.group_by(dia_local(Sale.fecha_hora)).order_by(dia_local(Sale.fecha_hora)).all()
 
     total_ventas = sum(float(r.total) for r in ventas_por_dia)
     num_ventas = sum(r.cantidad for r in ventas_por_dia)
@@ -167,13 +171,14 @@ def export_productos_pdf():
     from backend.services.pdf_generator import generar_pdf
 
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     top = db.session.query(
         Producto.nombre.label('nombre'),
         func.sum(SaleItem.cantidad).label('cantidad'),
         func.sum(SaleItem.subtotal).label('total'),
     ).join(SaleItem, SaleItem.producto_id == Producto.id
     ).join(Sale, Sale.id == SaleItem.sale_id
-    ).filter(func.date(Sale.fecha_hora) >= fi, func.date(Sale.fecha_hora) <= ff)
+    ).filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta)
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
         top = top.filter(Sale.sucursal_id == suc_id)
@@ -196,6 +201,7 @@ def export_productos_pdf():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_productos():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
 
     top = db.session.query(
         Producto.nombre,
@@ -204,8 +210,8 @@ def reporte_productos():
     ).join(SaleItem, SaleItem.producto_id == Producto.id
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -220,6 +226,7 @@ def reporte_productos():
 @login_required(roles=['admin', 'superadmin'])
 def export_productos_csv():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     top = db.session.query(
         Producto.nombre,
         func.sum(SaleItem.cantidad).label('cantidad'),
@@ -227,8 +234,8 @@ def export_productos_csv():
     ).join(SaleItem, SaleItem.producto_id == Producto.id
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -254,6 +261,7 @@ def export_productos_csv():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_meseros():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
 
     datos = db.session.query(
         Usuario.nombre,
@@ -261,8 +269,8 @@ def reporte_meseros():
         func.sum(Sale.total).label('total_ventas'),
     ).join(Sale, Sale.usuario_id == Usuario.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -276,8 +284,8 @@ def reporte_meseros():
     ).join(Orden, Orden.mesero_id == Usuario.id
     ).filter(
         Orden.estado == OrdenEstado.PAGADA,
-        func.date(Orden.fecha_pago) >= fi,
-        func.date(Orden.fecha_pago) <= ff,
+        Orden.fecha_pago >= desde,
+        Orden.fecha_pago < hasta,
     )
     if suc_id is not None:
         propinas_q = propinas_q.filter(Orden.sucursal_id == suc_id)
@@ -295,14 +303,15 @@ def reporte_meseros():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_pagos():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
 
     datos = db.session.query(
         Pago.metodo,
         func.count(Pago.id).label('cantidad'),
         func.sum(Pago.monto).label('total'),
     ).filter(
-        func.date(Pago.fecha) >= fi,
-        func.date(Pago.fecha) <= ff,
+        Pago.fecha >= desde,
+        Pago.fecha < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -320,6 +329,7 @@ def reporte_pagos():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_inventario():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
 
     mermas = db.session.query(
         Ingrediente.nombre,
@@ -328,8 +338,8 @@ def reporte_inventario():
     ).join(MovimientoInventario, MovimientoInventario.ingrediente_id == Ingrediente.id
     ).filter(
         MovimientoInventario.tipo == 'merma',
-        func.date(MovimientoInventario.fecha) >= fi,
-        func.date(MovimientoInventario.fecha) <= ff,
+        MovimientoInventario.fecha >= desde,
+        MovimientoInventario.fecha < hasta,
     )
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -349,34 +359,35 @@ def reporte_inventario():
 def api_ventas_chart():
     """Ventas por día + ventas por hora para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     # Ventas por día
     q_dia = db.session.query(
-        func.date(Sale.fecha_hora).label('dia'),
+        dia_local(Sale.fecha_hora).label('dia'),
         func.sum(Sale.total).label('total'),
         func.count(Sale.id).label('cantidad'),
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_dia = q_dia.filter(Sale.sucursal_id == suc_id)
-    por_dia = q_dia.group_by(func.date(Sale.fecha_hora)).order_by(func.date(Sale.fecha_hora)).all()
+    por_dia = q_dia.group_by(dia_local(Sale.fecha_hora)).order_by(dia_local(Sale.fecha_hora)).all()
 
     # Ventas por hora del día
     q_hora = db.session.query(
-        extract('hour', Sale.fecha_hora).label('hora'),
+        hora_local_sql(Sale.fecha_hora).label('hora'),
         func.sum(Sale.total).label('total'),
         func.count(Sale.id).label('cantidad'),
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_hora = q_hora.filter(Sale.sucursal_id == suc_id)
-    por_hora = q_hora.group_by(extract('hour', Sale.fecha_hora)).order_by(
-        extract('hour', Sale.fecha_hora)).all()
+    por_hora = q_hora.group_by(hora_local_sql(Sale.fecha_hora)).order_by(
+        hora_local_sql(Sale.fecha_hora)).all()
 
     return jsonify({
         'por_dia': {
@@ -397,6 +408,7 @@ def api_ventas_chart():
 def api_productos_chart():
     """Top 20 productos + ingresos por categoría para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -408,8 +420,8 @@ def api_productos_chart():
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).outerjoin(Categoria, Producto.categoria_id == Categoria.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q = q.filter(Sale.sucursal_id == suc_id)
@@ -423,8 +435,8 @@ def api_productos_chart():
     ).join(SaleItem, SaleItem.producto_id == Producto.id
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_cat = q_cat.filter(Sale.sucursal_id == suc_id)
@@ -448,6 +460,7 @@ def api_productos_chart():
 def api_meseros_chart():
     """Rendimiento por mesero para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -456,8 +469,8 @@ def api_meseros_chart():
         func.sum(Sale.total).label('total_ventas'),
     ).join(Sale, Sale.usuario_id == Usuario.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q = q.filter(Sale.sucursal_id == suc_id)
@@ -475,6 +488,7 @@ def api_meseros_chart():
 def api_pagos_chart():
     """Desglose de métodos de pago para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -482,8 +496,8 @@ def api_pagos_chart():
         func.count(Pago.id).label('cantidad'),
         func.sum(Pago.monto).label('total'),
     ).filter(
-        func.date(Pago.fecha) >= fi,
-        func.date(Pago.fecha) <= ff,
+        Pago.fecha >= desde,
+        Pago.fecha < hasta,
     )
     if suc_id is not None:
         q = q.join(Orden, Pago.orden_id == Orden.id).filter(Orden.sucursal_id == suc_id)
@@ -501,6 +515,7 @@ def api_pagos_chart():
 def api_inventario_chart():
     """Mermas de inventario para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -510,8 +525,8 @@ def api_inventario_chart():
     ).join(MovimientoInventario, MovimientoInventario.ingrediente_id == Ingrediente.id
     ).filter(
         MovimientoInventario.tipo == 'merma',
-        func.date(MovimientoInventario.fecha) >= fi,
-        func.date(MovimientoInventario.fecha) <= ff,
+        MovimientoInventario.fecha >= desde,
+        MovimientoInventario.fecha < hasta,
     )
     if suc_id is not None:
         q = q.filter(Ingrediente.sucursal_id == suc_id)
@@ -530,6 +545,7 @@ def api_inventario_chart():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_rentabilidad():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     # Cantidad vendida por producto en el rango
@@ -539,8 +555,8 @@ def reporte_rentabilidad():
         func.sum(SaleItem.subtotal).label('ingreso_total'),
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_ventas = q_ventas.filter(Sale.sucursal_id == suc_id)
@@ -600,6 +616,7 @@ def reporte_rentabilidad():
 @login_required(roles=['admin', 'superadmin'])
 def export_rentabilidad_csv():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q_ventas = db.session.query(
@@ -608,8 +625,8 @@ def export_rentabilidad_csv():
         func.sum(SaleItem.subtotal).label('ingreso_total'),
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_ventas = q_ventas.filter(Sale.sucursal_id == suc_id)
@@ -662,6 +679,7 @@ def export_rentabilidad_csv():
 def api_rentabilidad_chart():
     """Bar/Line: Ingreso Total vs Margen % para Chart.js."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     # Cantidad vendida por producto en el rango
@@ -671,8 +689,8 @@ def api_rentabilidad_chart():
         func.sum(SaleItem.subtotal).label('ingreso_total'),
     ).join(Sale, SaleItem.sale_id == Sale.id
     ).filter(
-        func.date(Sale.fecha_hora) >= fi,
-        func.date(Sale.fecha_hora) <= ff,
+        Sale.fecha_hora >= desde,
+        Sale.fecha_hora < hasta,
     )
     if suc_id is not None:
         q_ventas = q_ventas.filter(Sale.sucursal_id == suc_id)
@@ -719,6 +737,7 @@ def api_rentabilidad_chart():
 @login_required(roles=['admin', 'superadmin'])
 def reporte_delivery():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     # Ventas por canal
@@ -728,8 +747,8 @@ def reporte_delivery():
         func.sum(Orden.total).label('total_ventas'),
     ).filter(
         Orden.estado == OrdenEstado.PAGADA,
-        func.date(Orden.fecha_pago) >= fi,
-        func.date(Orden.fecha_pago) <= ff,
+        Orden.fecha_pago >= desde,
+        Orden.fecha_pago < hasta,
     )
     if suc_id is not None:
         q = q.filter(Orden.sucursal_id == suc_id)
@@ -759,8 +778,8 @@ def reporte_delivery():
         func.sum(DeliveryOrden.total_plataforma).label('total_plat'),
         func.sum(DeliveryOrden.comision).label('total_comision'),
     ).filter(
-        func.date(DeliveryOrden.fecha_recibido) >= fi,
-        func.date(DeliveryOrden.fecha_recibido) <= ff,
+        DeliveryOrden.fecha_recibido >= desde,
+        DeliveryOrden.fecha_recibido < hasta,
     )
     comisiones = q_com.group_by(DeliveryOrden.plataforma).all()
 
@@ -784,6 +803,7 @@ def reporte_delivery():
 @login_required(roles=['admin', 'superadmin'])
 def export_delivery_csv():
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -792,8 +812,8 @@ def export_delivery_csv():
         func.sum(Orden.total).label('total_ventas'),
     ).filter(
         Orden.estado == OrdenEstado.PAGADA,
-        func.date(Orden.fecha_pago) >= fi,
-        func.date(Orden.fecha_pago) <= ff,
+        Orden.fecha_pago >= desde,
+        Orden.fecha_pago < hasta,
     )
     if suc_id is not None:
         q = q.filter(Orden.sucursal_id == suc_id)
@@ -818,6 +838,7 @@ def export_delivery_csv():
 def api_delivery_chart():
     """Ventas por canal para Chart.js (stacked bar)."""
     fi, ff = _parse_rango(request.args)
+    desde, hasta = rango_utc(fi, ff)
     suc_id = getattr(g, 'sucursal_id', None)
 
     q = db.session.query(
@@ -826,8 +847,8 @@ def api_delivery_chart():
         func.sum(Orden.total).label('total'),
     ).filter(
         Orden.estado == OrdenEstado.PAGADA,
-        func.date(Orden.fecha_pago) >= fi,
-        func.date(Orden.fecha_pago) <= ff,
+        Orden.fecha_pago >= desde,
+        Orden.fecha_pago < hasta,
     )
     if suc_id is not None:
         q = q.filter(Orden.sucursal_id == suc_id)

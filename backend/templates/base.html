@@ -29,15 +29,18 @@
 
   <link rel="icon" href="{{ url_for('static', filename='img/icon-512.png') }}" type="image/png">
   {% block head %}{% endblock %}
-  <!-- Dark mode: restore before paint -->
+  <!-- Tema: fijar antes de pintar para que no haya parpadeo -->
   <script nonce="{{ csp_nonce }}">
     (function () {
-      var t = localStorage.getItem('theme');
-      var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme:dark)').matches);
-      if (dark) {
-        document.documentElement.setAttribute('data-bs-theme', 'dark');
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
+      // Algunas pantallas fuerzan un tema (el KDS siempre oscuro: es un tablero fijo,
+      // normalmente bajo techo). El resto usa la preferencia guardada; el default es
+      // CLARO, porque el caso de uso es un puesto de calle con sol, donde un fondo
+      // oscuro convierte la pantalla en un espejo.
+      var forzado = {{ (force_theme | default('')) | tojson }};
+      var t = forzado || localStorage.getItem('theme') || 'light';
+      var dark = t === 'dark';
+      document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     })();
   </script>
 </head>
@@ -153,6 +156,28 @@
   {% block scripts %}
   {% endblock %}
   <script nonce="{{ csp_nonce }}">
+    // El CSP es 'self' + nonce, sin 'unsafe-inline': los handlers escritos como
+    // atributo (onclick="...") NO se ejecutan. Estos dos patrones se repetían por
+    // todo el sistema, así que se enganchan una sola vez aquí.
+    document.addEventListener('click', function (e) {
+      var cerrar = e.target.closest('[data-cerrar-toast]');
+      if (cerrar && cerrar.parentElement) {
+        cerrar.parentElement.remove();
+        return;
+      }
+      // Confirmación antes de acciones irreversibles (cancelar factura, nota de crédito)
+      var confirmar = e.target.closest('[data-confirmar]');
+      if (confirmar && !window.confirm(confirmar.dataset.confirmar)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+    document.addEventListener('submit', function (e) {
+      var form = e.target.closest('form[data-confirmar]');
+      if (form && !window.confirm(form.dataset.confirmar)) e.preventDefault();
+    });
+  </script>
+  <script nonce="{{ csp_nonce }}">
     // Global HTML escape helper — use before injecting user text into innerHTML
     window.__escapeHtml = function(str) {
       if (!str) return '';
@@ -218,9 +243,6 @@
         var next = !isDark();
         apply(next);
         localStorage.setItem('theme', next ? 'dark' : 'light');
-      });
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-        if (!localStorage.getItem('theme')) apply(e.matches);
       });
     })();
   </script>

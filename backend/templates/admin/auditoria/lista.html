@@ -65,7 +65,7 @@
         <tbody>
           {% for log in logs %}
           <tr>
-            <td><small>{{ log.fecha.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+            <td><small>{{ log.fecha|fechahora_local('%Y-%m-%d %H:%M:%S') }}</small></td>
             <td>{{ log.usuario.nombre if log.usuario else 'Sistema' }}</td>
             <td>
               <span class="badge {% if log.accion == 'login' %}bg-primary{% elif log.accion == 'logout' %}bg-secondary{% elif log.accion in ('crear', 'pago') %}bg-success{% elif log.accion == 'editar' %}bg-warning text-dark{% elif log.accion in ('eliminar', 'cancelar') %}bg-danger{% else %}bg-info{% endif %}">

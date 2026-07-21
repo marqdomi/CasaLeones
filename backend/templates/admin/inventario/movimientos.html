@@ -18,7 +18,7 @@
     <tbody>
       {% for m in movimientos.items %}
       <tr>
-        <td>{{ m.fecha.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ m.fecha|fechahora_local }}</td>
         <td>{{ m.ingrediente.nombre }}</td>
         <td>
           {% if m.tipo == 'merma' %}

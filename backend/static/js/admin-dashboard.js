@@ -315,7 +315,7 @@
           <div class="cl-feed__avatar" style="background:${avatarColor};">${esc(initials)}</div>
           <div style="flex:1;min-width:0;">
             <div class="cl-feed__text">
-              <strong>Orden #${item.id}</strong> · ${item.mesa ? 'Mesa ' + esc(item.mesa) : 'Para llevar'} · ${esc(item.mesero)}
+              <strong>Orden #${item.id}</strong> · ${item.mesa ? 'Mesa ' + esc(item.mesa) : 'Para llevar'}${item.alias ? ' · ' + esc(item.alias) : ''} · ${esc(item.mesero)}
             </div>
             <div class="cl-feed__time">${item.hora} &nbsp; ${estadoBadge(item.estado)}</div>
           </div>

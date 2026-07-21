@@ -38,7 +38,7 @@
 
 {% block kds_stats_extra %}
 <div class="cl-kds-stat">
-  <i data-lucide="utensils" style="width:14px;height:14px;color:var(--cl-warning-500);"></i>
+  <i data-lucide="utensils" style="width:14px;height:14px;color:var(--cl-warning-text);"></i>
   Items: <strong id="kdsItemCount">{{ ordenes_data.values() | map('length') | sum }}</strong>
 </div>
 {% endblock %}

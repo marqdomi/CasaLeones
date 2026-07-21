@@ -79,7 +79,7 @@ Usage:
     <div class="dropdown">
       <button class="cl-topbar__user-btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"
         id="userMenuBtn"
-        style="background:rgba(255,255,255,0.07);border:1px solid var(--cl-border-color);border-radius:100px;padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;">
+        style="background:var(--cl-overlay);border:1px solid var(--cl-border-color);border-radius:100px;padding:5px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;">
         <span class="cl-user-avatar" style="width:26px;height:26px;font-size:10px;">{{ current_user.nombre[0]|upper
           }}</span>
         <span style="font-size:12.5px;font-weight:600;color:var(--cl-text-primary);" class="d-none d-md-inline">{{
@@ -196,7 +196,7 @@ Usage:
         class="icon-sm" style="color:{{ icon_color }};flex-shrink:0;"></i>
 
       <span style="flex:1;font-size:13px;color:var(--cl-text-primary);">{{ message }}</span>
-      <button type="button" class="cl-icon-btn" aria-label="Cerrar" onclick="this.parentElement.remove()"
+      <button type="button" class="cl-icon-btn" aria-label="Cerrar" data-cerrar-toast
         style="width:24px;height:24px;border:none;cursor:pointer;">
         <i data-lucide="x" class="icon-xs"></i>
       </button>

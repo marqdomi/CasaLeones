@@ -15,7 +15,7 @@
 
     <div class="mb-3">
       <label class="cl-form-label">Cliente existente (opcional)</label>
-      <select name="cliente_id" id="cliente_select" class="cl-form-input" onchange="toggleDatosCliente()">
+      <select name="cliente_id" id="cliente_select" class="cl-form-input">
         <option value="">— Nuevo cliente —</option>
         {% for c in clientes %}
         <option value="{{ c.id }}"
@@ -106,6 +106,12 @@ function toggleDatosCliente() {
         div.style.display = '';
     }
 }
+
+  // Los handlers en atributos onchange no corren bajo el CSP del sistema.
+  (function () {
+    var sel = document.getElementById('cliente_select');
+    if (sel) sel.addEventListener('change', toggleDatosCliente);
+  })();
 </script>
 <script src="{{ url_for('static', filename='js/rfc-validator.js') }}" nonce="{{ csp_nonce }}"></script>
 {% endblock %}

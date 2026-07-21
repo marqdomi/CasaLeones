@@ -65,7 +65,7 @@
             <span style="font-weight: var(--cl-font-semibold); color: var(--cl-text-primary);">#{{ orden.id }}</span>
           </td>
           <td>
-            <span style="color: var(--cl-text-secondary);">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+            <span style="color: var(--cl-text-secondary);">{{ orden.tiempo_registro|hora_local }}</span>
           </td>
           <td>
             {% if orden.es_para_llevar %}
@@ -73,7 +73,8 @@
                 <i data-lucide="package" class="icon-xs"></i> Para llevar
               </span>
             {% elif orden.mesa %}
-              <span style="font-weight: var(--cl-font-medium);">Mesa {{ orden.mesa.numero }}</span>
+              <span style="font-weight: var(--cl-font-medium);">Mesa {{ orden.mesa.numero }}</span>{% if orden.alias %}
+              <span style="color: var(--cl-text-tertiary);">· {{ orden.alias }}</span>{% endif %}
             {% else %}
               <span style="color: var(--cl-text-tertiary);">—</span>
             {% endif %}

@@ -2,6 +2,7 @@
 import logging
 from datetime import datetime, date, timedelta
 from backend.models.models import utc_now
+from backend.services.tiempo import ahora_local, hoy_local
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from backend.utils import login_required, filtrar_por_sucursal
 from backend.extensions import db
@@ -19,7 +20,7 @@ reservaciones_bp = Blueprint('reservaciones', __name__, url_prefix='/admin/reser
 @reservaciones_bp.route('/')
 @login_required(roles=['admin', 'superadmin', 'mesero'])
 def lista_reservaciones():
-    hoy = date.today()
+    hoy = hoy_local()
     filtro = request.args.get('fecha', hoy.isoformat())
     fecha_filtro = date.fromisoformat(filtro)
 
@@ -77,7 +78,9 @@ def nueva_reservacion():
         if mesa_id:
             mesa = db.session.get(Mesa, int(mesa_id))
             if mesa and mesa.estado == 'disponible':
-                now = utc_now()
+                # fecha_hora viene del form en hora local naive; comparar contra un
+                # utc_now() aware truena. La reservación se agenda en hora del negocio.
+                now = ahora_local().replace(tzinfo=None)
                 if fecha_hora <= now + timedelta(hours=RESERVACION_DURACION_HORAS):
                     mesa.estado = 'reservada'
 

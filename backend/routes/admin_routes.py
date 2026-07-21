@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app, g
+from flask import (Blueprint, render_template, request, redirect, url_for, flash, jsonify,
+                   current_app, g, session, Response)
 from backend.utils import login_required, filtrar_por_sucursal
 from backend.extensions import db
 from backend.services.sanitizer import sanitizar_texto, sanitizar_email
@@ -11,6 +12,7 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 from datetime import date, datetime, timedelta
 from backend.models.models import utc_now
+from backend.services.tiempo import hoy_local, rango_utc, dia_local
 from flask_login import current_user
 
 logger = logging.getLogger(__name__)
@@ -21,9 +23,10 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 def _period_range():
     """Return (start_date, end_date) tuple from ?period= query param.
     Supports: today (default), yesterday, week, month.
+    Días locales del negocio — conviértelos con `rango_utc` antes de filtrar.
     """
     period = request.args.get('period', 'today')
-    hoy = date.today()
+    hoy = hoy_local()
     if period == 'yesterday':
         return hoy - timedelta(days=1), hoy - timedelta(days=1)
     elif period == 'week':
@@ -48,11 +51,10 @@ def crear_usuario():
 @admin_bp.route('/api/dashboard/ventas_hoy')
 @login_required(roles=['admin','superadmin'])
 def api_ventas_hoy():
-    inicio, fin = _period_range()
+    desde, hasta = rango_utc(*_period_range())
     q = filtrar_por_sucursal(
         db.session.query(db.func.sum(Sale.total))
-        .filter(db.func.date(Sale.fecha_hora) >= inicio)
-        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
+        .filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale,
     )
     total = q.scalar() or 0
     return jsonify({'ventasHoy': float(total)})
@@ -60,37 +62,34 @@ def api_ventas_hoy():
 @admin_bp.route('/api/dashboard/ordenes_hoy')
 @login_required(roles=['admin','superadmin'])
 def api_ordenes_hoy():
-    inicio, fin = _period_range()
+    desde, hasta = rango_utc(*_period_range())
     count = filtrar_por_sucursal(
-        Sale.query.filter(db.func.date(Sale.fecha_hora) >= inicio)
-        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
+        Sale.query.filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale,
     ).count()
     return jsonify({'ordenesHoy': count})
 
 @admin_bp.route('/api/dashboard/ticket_promedio')
 @login_required(roles=['admin','superadmin'])
 def api_ticket_promedio():
-    inicio, fin = _period_range()
-    ventas = filtrar_por_sucursal(
-        Sale.query.filter(db.func.date(Sale.fecha_hora) >= inicio)
-        .filter(db.func.date(Sale.fecha_hora) <= fin), Sale,
-    ).all()
-    if not ventas:
+    desde, hasta = rango_utc(*_period_range())
+    total, num = filtrar_por_sucursal(
+        db.session.query(db.func.sum(Sale.total), db.func.count(Sale.id))
+        .filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale,
+    ).one()
+    if not num:
         return jsonify({'ticketPromedio': 0})
-    promedio = sum(v.total for v in ventas) / len(ventas)
-    return jsonify({'ticketPromedio': float(promedio)})
+    return jsonify({'ticketPromedio': float(total or 0) / num})
 
 @admin_bp.route('/api/dashboard/top_productos')
 @login_required(roles=['admin','superadmin'])
 def api_top_productos():
-    inicio, fin = _period_range()
+    desde, hasta = rango_utc(*_period_range())
     results = db.session.query(
         Producto.nombre,
         db.func.sum(SaleItem.cantidad).label('cantidad')
     ).join(SaleItem, SaleItem.producto_id == Producto.id) \
      .join(Sale, SaleItem.sale_id == Sale.id) \
-     .filter(db.func.date(Sale.fecha_hora) >= inicio) \
-     .filter(db.func.date(Sale.fecha_hora) <= fin) \
+     .filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta) \
      .filter(Sale.sucursal_id == g.sucursal_id if getattr(g, 'sucursal_id', None) else True) \
      .group_by(Producto.id) \
      .order_by(db.desc('cantidad')) \
@@ -118,14 +117,15 @@ def api_mesas_activas():
 @admin_bp.route('/api/dashboard/ordenes_cocina')
 @login_required(roles=['admin','superadmin'])
 def api_ordenes_cocina():
-    """Órdenes con items pendientes en cocina."""
+    """Órdenes con items pendientes en cocina (mismos estados que el KDS)."""
+    en_cocina = [OrdenEstado.ENVIADO, OrdenEstado.EN_PREPARACION]
     pendientes = filtrar_por_sucursal(
-        Orden.query.filter(Orden.estado.in_([OrdenEstado.PENDIENTE, OrdenEstado.EN_PREPARACION])), Orden
+        Orden.query.filter(Orden.estado.in_(en_cocina)), Orden
     ).count()
-    # Timer promedio de órdenes activas
-    ahora = utc_now()
+    # Timer promedio de órdenes activas. tiempo_registro se guarda naive (UTC).
+    ahora = utc_now().replace(tzinfo=None)
     ordenes_activas = filtrar_por_sucursal(
-        Orden.query.filter(Orden.estado.in_([OrdenEstado.PENDIENTE, OrdenEstado.EN_PREPARACION])), Orden
+        Orden.query.filter(Orden.estado.in_(en_cocina)), Orden
     ).all()
     if ordenes_activas:
         tiempos = [(ahora - o.tiempo_registro).total_seconds() / 60 for o in ordenes_activas]
@@ -160,11 +160,11 @@ def api_alertas_stock():
 @login_required(roles=['admin','superadmin'])
 def api_propinas_hoy():
     """Total de propinas del período."""
-    inicio, fin = _period_range()
+    desde, hasta = rango_utc(*_period_range())
     q = filtrar_por_sucursal(
         db.session.query(func.sum(Orden.propina)).filter(
-            func.date(Orden.fecha_pago) >= inicio,
-            func.date(Orden.fecha_pago) <= fin,
+            Orden.fecha_pago >= desde,
+            Orden.fecha_pago < hasta,
             Orden.propina > 0
         ), Orden
     )
@@ -196,15 +196,17 @@ def api_ultimo_corte():
 @login_required(roles=['admin','superadmin'])
 def api_ventas_7dias():
     """Ventas diarias de los últimos 7 días."""
-    hoy = date.today()
+    hoy = hoy_local()
     inicio = hoy - timedelta(days=6)
+    desde, hasta = rango_utc(inicio, hoy)
+    dia = dia_local(Sale.fecha_hora)
     results = filtrar_por_sucursal(
         db.session.query(
-            func.date(Sale.fecha_hora).label('dia'),
+            dia.label('dia'),
             func.sum(Sale.total).label('total')
-        ).filter(func.date(Sale.fecha_hora) >= inicio)
-        .group_by(func.date(Sale.fecha_hora))
-        .order_by(func.date(Sale.fecha_hora)), Sale
+        ).filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta)
+        .group_by(dia)
+        .order_by(dia), Sale
     ).all()
 
     # Fill missing days with 0
@@ -234,7 +236,8 @@ def api_actividad_reciente():
         items.append({
             'id': o.id,
             'estado': o.estado,
-            'mesa': o.mesa.numero if o.mesa else 'P/LL',
+            'mesa': o.mesa.numero if o.mesa else None,
+            'alias': o.alias,
             'mesero': o.mesero.nombre if o.mesero else '—',
             'total': float(o.total) if o.total else 0,
             'hora': o.tiempo_registro.strftime('%H:%M'),
@@ -491,17 +494,18 @@ def mesa_guardar_posicion(id):
 @admin_bp.route('/corte-caja', methods=['GET', 'POST'])
 @login_required(roles=['superadmin'])
 def corte_caja():
-    hoy = date.today()
+    hoy = hoy_local()
+    desde, hasta = rango_utc(hoy)
 
     # Totales de venta del día (filtrado por sucursal)
     sale_q = filtrar_por_sucursal(
         db.session.query(func.sum(Sale.total)).filter(
-            func.date(Sale.fecha_hora) == hoy
+            Sale.fecha_hora >= desde, Sale.fecha_hora < hasta
         ), Sale,
     )
     total = sale_q.scalar() or Decimal('0')
     count = filtrar_por_sucursal(
-        Sale.query.filter(func.date(Sale.fecha_hora) == hoy), Sale,
+        Sale.query.filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale,
     ).count()
     promedio = (float(total) / count) if count else 0
 
@@ -509,7 +513,10 @@ def corte_caja():
     pago_q = db.session.query(
         Pago.metodo,
         func.sum(Pago.monto).label('total'),
-    ).filter(func.date(Pago.fecha) == hoy)
+        func.sum(Pago.propina).label('propina'),
+    ).filter(Pago.fecha >= desde, Pago.fecha < hasta,
+             # Un depósito sin confirmar todavía no es ingreso del día.
+             Pago.verificado.is_(True))
     # Filtrar pagos por sucursal via Sale
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
@@ -519,13 +526,19 @@ def corte_caja():
     efectivo_esperado = Decimal('0')
     tarjeta_total = Decimal('0')
     transferencia_total = Decimal('0')
-    for metodo, monto in pagos_hoy:
+    propina_efectivo = Decimal('0')
+    for metodo, monto, propina in pagos_hoy:
         if metodo == 'efectivo':
             efectivo_esperado = monto or Decimal('0')
+            propina_efectivo = propina or Decimal('0')
         elif metodo == 'tarjeta':
             tarjeta_total = monto or Decimal('0')
         elif metodo == 'transferencia':
             transferencia_total = monto or Decimal('0')
+
+    # Lo que debe haber físicamente en el cajón: la venta cobrada en efectivo más las
+    # propinas que se dieron en efectivo (el cambio ya se le devolvió al cliente).
+    efectivo_en_caja = efectivo_esperado + propina_efectivo
 
     resumen = {
         'fecha': hoy,
@@ -533,6 +546,8 @@ def corte_caja():
         'num_ordenes': count,
         'ticket_promedio': float(promedio),
         'efectivo_esperado': float(efectivo_esperado),
+        'propina_efectivo': float(propina_efectivo),
+        'efectivo_en_caja': float(efectivo_en_caja),
         'tarjeta_total': float(tarjeta_total),
         'transferencia_total': float(transferencia_total),
     }
@@ -540,23 +555,38 @@ def corte_caja():
     # Propinas del día (Sprint 6 — 3.6)
     propinas_q = db.session.query(func.sum(Orden.propina)).filter(
         Orden.estado == OrdenEstado.PAGADA,
-        func.date(Orden.fecha_pago) == hoy,
+        Orden.fecha_pago >= desde, Orden.fecha_pago < hasta,
     )
     if suc_id is not None:
         propinas_q = propinas_q.filter(Orden.sucursal_id == suc_id)
     resumen['propinas_total'] = float(propinas_q.scalar() or 0)
 
+    # Transferencias que siguen esperando confirmación en el banco: no cuentan como
+    # ingreso, pero el dueño tiene que verlas para saber qué le falta por cobrar.
+    por_verificar_q = db.session.query(
+        func.count(Pago.id), func.sum(Pago.monto)
+    ).join(Orden, Pago.orden_id == Orden.id).filter(Pago.verificado.is_(False))
+    if suc_id is not None:
+        por_verificar_q = por_verificar_q.filter(Orden.sucursal_id == suc_id)
+    num_por_verificar, monto_por_verificar = por_verificar_q.one()
+    resumen['transferencias_por_verificar'] = int(num_por_verificar or 0)
+    resumen['monto_por_verificar'] = float(monto_por_verificar or 0)
+
     if request.method == 'POST':
         efectivo_contado = request.form.get('efectivo_contado', type=float) or 0.0
         notas = request.form.get('notas', '')
-        diferencia = efectivo_contado - float(efectivo_esperado)
+        # El arqueo se compara contra el efectivo que realmente debería estar en caja
+        # (venta + propinas en efectivo), si no la diferencia sale sobrada siempre.
+        diferencia = efectivo_contado - float(efectivo_en_caja)
 
         corte = CorteCaja(
             fecha=hoy,
             sucursal_id=getattr(g, 'sucursal_id', None),
             total_ingresos=total,
             num_ordenes=count,
-            efectivo_esperado=efectivo_esperado,
+            # Lo que debía estar en el cajón, para que el histórico cuadre con la
+            # diferencia registrada (venta en efectivo + propinas en efectivo).
+            efectivo_esperado=efectivo_en_caja,
             efectivo_contado=Decimal(str(efectivo_contado)),
             diferencia=Decimal(str(round(diferencia, 2))),
             tarjeta_total=tarjeta_total,
@@ -606,22 +636,26 @@ def export_corte_pdf():
     from datetime import datetime as dt
     from backend.services.pdf_generator import generar_pdf
 
-    hoy = date.today()
+    hoy = hoy_local()
+    desde, hasta = rango_utc(hoy)
     sale_q = filtrar_por_sucursal(
-        db.session.query(func.sum(Sale.total)).filter(func.date(Sale.fecha_hora) == hoy), Sale)
+        db.session.query(func.sum(Sale.total)).filter(
+            Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale)
     total = sale_q.scalar() or Decimal('0')
-    count = filtrar_por_sucursal(Sale.query.filter(func.date(Sale.fecha_hora) == hoy), Sale).count()
+    count = filtrar_por_sucursal(
+        Sale.query.filter(Sale.fecha_hora >= desde, Sale.fecha_hora < hasta), Sale).count()
 
     pago_q = db.session.query(Pago.metodo, func.sum(Pago.monto).label('total'),
                                func.count(Pago.id).label('cantidad')
-                               ).filter(func.date(Pago.fecha) == hoy)
+                               ).filter(Pago.fecha >= desde, Pago.fecha < hasta)
     suc_id = getattr(g, 'sucursal_id', None)
     if suc_id is not None:
         pago_q = pago_q.join(Orden, Pago.orden_id == Orden.id).filter(Orden.sucursal_id == suc_id)
     pagos_hoy = pago_q.group_by(Pago.metodo).all()
 
     propinas_q = db.session.query(func.sum(Orden.propina)).filter(
-        Orden.estado == OrdenEstado.PAGADA, func.date(Orden.fecha_pago) == hoy)
+        Orden.estado == OrdenEstado.PAGADA,
+        Orden.fecha_pago >= desde, Orden.fecha_pago < hasta)
     if suc_id is not None:
         propinas_q = propinas_q.filter(Orden.sucursal_id == suc_id)
 
@@ -697,8 +731,29 @@ def personalizacion():
             else:
                 flash('Formato de imagen no soportado. Usa PNG, JPG, SVG o WebP.', 'warning')
 
+        # Métodos de pago que acepta el negocio (al menos efectivo)
+        from backend.models.models import ConfiguracionSistema
+        from backend.services.pagos import METODOS
+        elegidos = [m for m in request.form.getlist('metodos_pago') if m in METODOS]
+        if elegidos:
+            ConfiguracionSistema.set('metodos_pago', ','.join(elegidos))
+        else:
+            flash('Debes dejar al menos un método de pago habilitado.', 'warning')
+
+        # Datos bancarios para cobrar por transferencia
+        from backend.services.banco import guardar_datos_bancarios
+        errores_banco = guardar_datos_bancarios(request.form)
+
         db.session.commit()
-        flash('Personalización guardada exitosamente.', 'success')
+        for err in errores_banco:
+            flash(err, 'danger')
+        if not errores_banco:
+            flash('Personalización guardada exitosamente.', 'success')
         return redirect(url_for('admin.personalizacion'))
 
-    return render_template('admin/personalizacion.html', sucursal=sucursal)
+    from backend.services.pagos import METODOS, metodos_pago_habilitados
+    from backend.services.banco import datos_bancarios
+    return render_template('admin/personalizacion.html', sucursal=sucursal,
+                           metodos_disponibles=METODOS,
+                           metodos_activos=metodos_pago_habilitados(),
+                           banco=datos_bancarios())

@@ -44,7 +44,7 @@
               {{ nc.estado }}
             </span>
           </td>
-          <td>{{ nc.fecha_creacion.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ nc.fecha_creacion|fechahora_local }}</td>
         </tr>
         {% endfor %}
         {% if not notas %}

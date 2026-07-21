@@ -69,7 +69,7 @@
             {% if p.descripcion %}<div style="font-size:11px;color:var(--cl-text-tertiary);margin-top:2px;">{{
               p.descripcion[:50] }}{% if p.descripcion|length > 50 %}…{% endif %}</div>{% endif %}
           </td>
-          <td style="font-family:var(--cl-font-mono);color:var(--cl-success-500);font-weight:600;">
+          <td style="font-family:var(--cl-font-mono);color:var(--cl-success-text);font-weight:600;">
             ${{ '%.2f'|format(p.precio) }}
           </td>
           <td>
@@ -86,7 +86,7 @@
                 <i data-lucide="pencil" style="width:13px;height:13px;"></i>
               </a>
               <button class="cl-btn--v7-outline cl-btn--sm"
-                style="color:var(--cl-error-500);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
+                style="color:var(--cl-error-text);border-color:rgba(240,68,56,0.2);" data-bs-toggle="modal"
                 data-bs-target="#deleteModal" data-action="{{ url_for('admin.producto_eliminar', id=p.id) }}"
                 data-name="{{ p.nombre }}" title="Eliminar {{ p.nombre }}">
                 <i data-lucide="trash-2" style="width:13px;height:13px;"></i>

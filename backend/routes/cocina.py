@@ -1,6 +1,7 @@
 import logging
 from flask import Blueprint, render_template, session, flash, redirect, url_for, jsonify, abort, request
 from backend.models.models import Orden, OrdenDetalle, Producto, Estacion, Usuario, OrdenEstado
+from backend.services.tiempo import hoy_local, rango_utc, iso_utc
 from backend.utils import login_required, verificar_orden_completa
 from backend.extensions import db, socketio
 from flask_login import current_user
@@ -174,7 +175,7 @@ def api_orders():
     ordenes = Orden.query.filter(Orden.estado != OrdenEstado.PAGADA, Orden.estado != OrdenEstado.CANCELADA).all()
     return jsonify([{
         'id': o.id, 'estado': o.estado,
-        'tiempo_registro': o.tiempo_registro.isoformat()
+        'tiempo_registro': iso_utc(o.tiempo_registro)
     } for o in ordenes]), 200
 
 
@@ -185,7 +186,7 @@ def station_stats(slug):
     """Return today's stats for a KDS station: completed count + avg time."""
     estacion = _get_estacion_or_404(slug)
     _require_station_access(estacion)
-    hoy = date.today()
+    hoy = hoy_local()
 
     # Completed detalles today (items with fecha_listo set today)
     completados = OrdenDetalle.query \
@@ -196,7 +197,7 @@ def station_stats(slug):
             Estacion.nombre == estacion.nombre,
             OrdenDetalle.estado == OrdenEstado.LISTO,
             OrdenDetalle.fecha_listo.isnot(None),
-            db.func.date(OrdenDetalle.fecha_listo) == hoy,
+            db.and_(OrdenDetalle.fecha_listo >= rango_utc(hoy)[0], OrdenDetalle.fecha_listo < rango_utc(hoy)[1]),
         ).all()
 
     # Count unique orders that contain at least one completed item
@@ -223,7 +224,7 @@ def station_stats(slug):
             Estacion.nombre == estacion.nombre,
             OrdenDetalle.estado == OrdenEstado.LISTO,
             OrdenDetalle.fecha_listo.isnot(None),
-            db.func.date(OrdenDetalle.fecha_listo) == ayer,
+            db.and_(OrdenDetalle.fecha_listo >= rango_utc(ayer)[0], OrdenDetalle.fecha_listo < rango_utc(ayer)[1]),
         ).all()
 
     tiempos_ayer = []
@@ -498,9 +499,9 @@ def historial_dia():
     estacion_slug = request.args.get('estacion', '')
 
     try:
-        fecha = date.fromisoformat(fecha_str) if fecha_str else date.today()
+        fecha = date.fromisoformat(fecha_str) if fecha_str else hoy_local()
     except ValueError:
-        fecha = date.today()
+        fecha = hoy_local()
 
     # All stations for the dropdown
     estaciones = Estacion.query.order_by(Estacion.nombre).all()
@@ -523,7 +524,7 @@ def historial_dia():
         .filter(
             OrdenDetalle.estado == OrdenEstado.LISTO,
             OrdenDetalle.fecha_listo.isnot(None),
-            db.func.date(OrdenDetalle.fecha_listo) == fecha,
+            db.and_(OrdenDetalle.fecha_listo >= rango_utc(fecha)[0], OrdenDetalle.fecha_listo < rango_utc(fecha)[1]),
         )
 
     if estacion_filter:

@@ -15,7 +15,7 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
 {% set items_total = detalles|length %}
 <div class="cl-kds-card cl-kds-card--{{ urgency }} cl-kds-card--new"
   id="kds-orden-{{ orden.id }}"
-  data-tiempo-registro="{{ orden.tiempo_registro.isoformat() }}"
+  data-tiempo-registro="{{ orden.tiempo_registro|iso_utc }}"
   data-orden-id="{{ orden.id }}"
   data-items-total="{{ items_total }}"
   data-items-listos="{{ items_listos }}"

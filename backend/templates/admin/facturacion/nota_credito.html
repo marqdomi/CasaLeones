@@ -48,7 +48,7 @@
 
     <div class="d-flex gap-2">
       <button type="submit" class="cl-btn cl-btn--primary" style="background:var(--cl-warning);border-color:var(--cl-warning);color:#000;"
-              onclick="return confirm('¿Generar nota de crédito por este monto?');">
+              data-confirmar="¿Generar nota de crédito por este monto?">
         <i data-lucide="file-minus" class="icon-sm"></i> Generar Nota de Crédito
       </button>
       <a href="{{ url_for('facturacion.detalle_factura', factura_id=factura.id) }}" class="cl-btn cl-btn--outline">Cancelar</a>

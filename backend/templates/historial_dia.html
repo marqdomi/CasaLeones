@@ -58,7 +58,7 @@
             <span style="font-weight: var(--cl-font-semibold); color: var(--cl-text-primary);">#{{ orden.id }}</span>
           </td>
           <td>
-            <span style="color: var(--cl-text-secondary);">{{ orden.tiempo_registro.strftime('%H:%M') }}</span>
+            <span style="color: var(--cl-text-secondary);">{{ orden.tiempo_registro|hora_local }}</span>
           </td>
           <td>
             {% if orden.es_para_llevar %}

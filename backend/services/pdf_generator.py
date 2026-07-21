@@ -21,6 +21,11 @@ def generar_pdf(template_name, **context):
     except ImportError:
         logger.error('WeasyPrint no está instalado. Instale con: pip install WeasyPrint>=60.0')
         return None
+    except Exception:
+        # WeasyPrint carga pango/cairo por dlopen al importarse: si faltan las
+        # librerías del sistema lanza OSError, no ImportError.
+        logger.exception('WeasyPrint no pudo cargar sus librerías del sistema (pango/cairo).')
+        return None
 
     try:
         html_string = render_template(template_name, **context)
