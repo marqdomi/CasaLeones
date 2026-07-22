@@ -689,6 +689,156 @@ small,
 
 
 /* ═══════════════════════════════════════════════════
+   Campos de formulario en celular
+   Safari de iOS hace zoom automático al enfocar un campo con letra menor a 16px, y
+   deja la vista descuadrada. Se fuerza 16px y altura cómoda para el dedo.
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea,
+  .cl-input,
+  .cl-form-input {
+    font-size: 16px !important;
+    min-height: 44px;
+  }
+
+  textarea {
+    min-height: 66px;
+  }
+
+  /* Objetivos táctiles: 44px es el mínimo cómodo para el pulgar. Se aplica a los
+     controles que salían por debajo (chips de filtro, propina, botones de icono). */
+  .cl-filter-pill,
+  .cl-pill,
+  .cl-chip--accion,
+  .propina-btn,
+  .cl-icon-btn,
+  .cl-btn--sm,
+  .cl-topbar__hamburger,
+  .cl-user-pill__logout {
+    min-height: 44px;
+  }
+
+  .cl-icon-btn,
+  .cl-topbar__hamburger,
+  .cl-user-pill__logout {
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* El botón de cerrar sesión medía 14x14: el icono se queda chico, el área crece. */
+  .cl-user-pill__logout {
+    padding: 0;
+  }
+
+  /* Piso de 12px para la letra chica: a 9-11px no se lee de reojo en la calle.
+     (El KDS queda fuera: vive en tablet y ya se midió legible.) */
+  /* El prefijo `html` sube la especificidad por encima de los <style> propios de
+     cada plantilla, que si no ganan por venir después en la cascada. */
+  html .cl-badge,
+  html .cl-status,
+  html .cl-chip,
+  html .cl-pill-count,
+  html .cl-feed__time,
+  html .cl-kpi-trend,
+  html .cl-ops-bottom-tab,
+  html .cl-sidebar__badge,
+  html .cl-sidebar__group-label,
+  html .cl-user-role,
+  html .cl-product-tile__cat,
+  html .cl-pill__count,
+  html .cl-est-badge,
+  html .cart-fab__badge,
+  html .cl-progress-label,
+  html .cl-tabla-cards td::before {
+    font-size: 12px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   Tabla → tarjetas en celular (.cl-tabla-cards)
+   Una tabla de 6 columnas en 360px deja las acciones fuera de la pantalla: hay que
+   arrastrar de lado para encontrar el botón. En celular cada fila se apila como
+   tarjeta y cada celda muestra su encabezado desde data-label.
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+
+  .cl-tabla-cards,
+  .cl-tabla-cards tbody,
+  .cl-tabla-cards tr,
+  .cl-tabla-cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .cl-tabla-cards thead {
+    /* Oculto pero accesible: el lector de pantalla sigue anunciando la columna */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .cl-tabla-cards tr {
+    border: 1px solid var(--cl-border-color);
+    border-radius: var(--cl-radius-md, 10px);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: var(--cl-surface-2);
+  }
+
+  .cl-tabla-cards td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    border: none;
+    text-align: left !important;
+  }
+
+  .cl-tabla-cards td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--cl-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  /* Celda sin encabezado (acciones): ocupa todo el ancho */
+  .cl-tabla-cards td[data-label=""]::before,
+  .cl-tabla-cards td:not([data-label])::before {
+    content: none;
+  }
+
+  .cl-tabla-cards td.cl-td-acciones {
+    display: block;
+    padding-top: 10px;
+    margin-top: 6px;
+    border-top: 1px solid var(--cl-border-color);
+  }
+
+  /* El botón principal a todo lo ancho: es el que se toca con el pulgar */
+  .cl-tabla-cards td.cl-td-acciones .d-flex {
+    justify-content: stretch !important;
+  }
+
+  .cl-tabla-cards td.cl-td-acciones .d-flex>* {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
    CL Table
    ═══════════════════════════════════════════════════ */
 .cl-table-container {
@@ -1475,10 +1625,18 @@ small,
   color: var(--cl-text-primary);
 }
 
-/* When bottom tabs visible, add padding to ops-main */
+/* Con la barra inferior visible (56px) el contenido queda debajo de ella: hay que
+   reservar su alto más el notch. Antes esta regla no aplicaba porque el <main> no
+   llevaba la clase. */
 @media (max-width: 767.98px) {
   .cl-ops-main {
-    padding-bottom: 72px;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 16px);
+  }
+
+  /* Donde además hay botones flotantes, se reserva su pila para poder sacar la
+     última tarjeta de abajo de ellos al hacer scroll. */
+  .cl-ops-main--con-fab {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 110px);
   }
 }
 

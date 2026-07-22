@@ -37,6 +37,23 @@ class Config:
     # Bump this whenever any static asset (CSS/JS) changes, to force browser reload
     VERSION = '5.5.0'
 
+    # ── Compresión de respuestas ──
+    # Los estáticos viajaban sin comprimir (lucide.min.js son 356 KB en crudo).
+    # Se listan br y gzip: brotli comprime más, pero los WebView viejos de gama
+    # baja no lo soportan y sin gzip de respaldo se quedaban sin comprimir.
+    COMPRESS_ALGORITHM = ['br', 'gzip', 'deflate']
+    # Los estáticos se sirven en streaming y usan su propia lista; sin gzip aquí,
+    # un navegador que sólo pida gzip se queda sin comprimir.
+    COMPRESS_ALGORITHM_STREAMING = ['br', 'gzip', 'deflate']
+    COMPRESS_MIMETYPES = [
+        'text/html', 'text/css', 'text/xml', 'text/plain',
+        'application/json', 'application/javascript', 'text/javascript',
+        'image/svg+xml',
+    ]
+    COMPRESS_MIN_SIZE = 500
+    COMPRESS_LEVEL = 6
+
+
     # --- Redis ---
     REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379')
 

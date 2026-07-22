@@ -10,7 +10,7 @@ from flask import Flask, g, request as flask_request
 
 from backend.models.models import Usuario
 from backend.models.database import init_db
-from backend.extensions import db, socketio, login_manager, cors, csrf, limiter, cache, server_session
+from backend.extensions import db, socketio, login_manager, cors, csrf, limiter, cache, server_session, compress
 from backend.routes.auth import auth_bp
 from backend.routes.cocina import cocina_bp
 from backend.routes.meseros import meseros_bp
@@ -82,6 +82,7 @@ def create_app():
     csrf.init_app(app)
     limiter.init_app(app)
     cache.init_app(app)
+    compress.init_app(app)
 
     # Flask-Session (Redis server-side sessions)
     redis_url = app.config.get('REDIS_URL', '')
@@ -292,6 +293,10 @@ def create_app():
     app.register_blueprint(pagos_bp)
     # Onboarding
     app.register_blueprint(setup_bp)
+
+    # Comandos de consola (recuperar acceso sin poder entrar al sistema)
+    from backend.cli import registrar_comandos
+    registrar_comandos(app)
 
     # Exempt ONLY the delivery webhook blueprint (JSON-only, no forms, HMAC-verified)
     csrf.exempt(delivery_bp)

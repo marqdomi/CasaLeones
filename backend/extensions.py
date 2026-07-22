@@ -11,6 +11,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
 from flask_session import Session
+from flask_compress import Compress
 
 migrate = Migrate()
 login_manager = LoginManager()
@@ -45,3 +46,6 @@ limiter = Limiter(
 )
 cache = Cache()
 server_session = Session()
+# Compresión gzip/brotli: los estáticos viajaban sin comprimir (lucide.min.js son
+# 356 KB en crudo). Pesa sobre todo en celulares de gama baja con datos móviles.
+compress = Compress()

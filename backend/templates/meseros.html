@@ -4,6 +4,7 @@
 ═══════════════════════════════════════════════════════ #}
 {% extends 'layouts/_layout_operations.html' %}
 {% set active_op_tab = 'meseros' %}
+{% set tiene_fab = true %}{# reserva espacio extra abajo para los botones flotantes #}
 {% block page_title %}Mis Órdenes{% endblock %}
 
 {% block ops_content %}
@@ -19,77 +20,45 @@
 <div style="padding:20px 24px;min-height:calc(100vh - 56px);">
 
   {# ═══════════ Page Header ═══════════ #}
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
-    <div>
-      <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;">Mis Órdenes</h1>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        <span class="cl-chip cl-chip--neutral" id="counterTotal" aria-live="polite">
-          <i data-lucide="clipboard-list" style="width:11px;height:11px;"></i>
-          {{ total_activas }} activa{{ 's' if total_activas != 1 else '' }}
-        </span>
-        {% if en_cocina + pendientes_count > 0 %}
-        <span class="cl-chip cl-chip--yellow" id="counterCocina" aria-live="polite">
-          <i data-lucide="clock" style="width:11px;height:11px;"></i>
-          {{ en_cocina + pendientes_count }} en cocina
-        </span>
-        {% else %}
-        <span class="cl-chip cl-chip--yellow" id="counterCocina" style="display:none;" aria-live="polite">
-          <i data-lucide="clock" style="width:11px;height:11px;"></i>
-          0 en cocina
-        </span>
-        {% endif %}
-        {% if listas > 0 %}
-        <span class="cl-chip cl-chip--green" id="counterListas" aria-live="polite">
-          <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
-          {{ listas }} {{ 'lista' if listas == 1 else 'listas' }}
-        </span>
-        {% else %}
-        <span class="cl-chip cl-chip--green" id="counterListas" style="display:none;" aria-live="polite">
-          <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
-          0 listas
-        </span>
-        {% endif %}
-        {# Urgentes counter #}
-        {% set urgentes_count = [] %}
-        {% for o in ordenes_mesero %}
-          {% set mins = ((now_utc - o.tiempo_registro).total_seconds() / 60)|int if now_utc is defined else 0 %}
-          {% if mins > 20 and o.estado not in ['completada','lista_para_entregar'] %}
-            {% if urgentes_count.append(1) %}{% endif %}
-          {% endif %}
-        {% endfor %}
-        {% if urgentes_count|length > 0 %}
-        <span class="cl-chip cl-chip--red">
-          <i data-lucide="alert-triangle" style="width:11px;height:11px;"></i>
-          {{ urgentes_count|length }} urgente{{ 's' if urgentes_count|length != 1 else '' }}
-        </span>
-        {% endif %}
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--cl-text-tertiary);" id="socketStatus" title="Socket.IO">
+  {# Los contadores viven dentro de los filtros: antes había además una fila de chips
+     que decía exactamente lo mismo y se comía media pantalla en celular. #}
+  {% set urgentes_list = [] %}
+  {% for o in ordenes_mesero %}
+    {% set mins = ((now_utc - o.tiempo_registro).total_seconds() / 60)|int if now_utc is defined else 0 %}
+    {% if mins > 20 and o.estado not in ['completada','lista_para_entregar'] %}
+      {% if urgentes_list.append(1) %}{% endif %}
+    {% endif %}
+  {% endfor %}
+  {% set urgentes_count = urgentes_list|length %}
+  {% set para_llevar_count = ordenes_mesero|selectattr('es_para_llevar')|list|length %}
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;">
+    <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;margin:0;">Mis Órdenes</h1>
+    <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--cl-text-tertiary);" id="socketStatus" title="Socket.IO">
         <span class="cl-live-dot" id="liveDot"></span>
-        <span id="liveLabel">Conectando...</span>
+        <span id="liveLabel" class="d-none d-sm-inline">Conectando...</span>
       </div>
       <button class="cl-btn--v7-outline cl-btn--sm" id="btnToggleSound" type="button" aria-label="Sonido" title="Activar/desactivar sonido" style="padding:4px 8px;">
         <i data-lucide="volume-2" style="width:13px;height:13px;" id="soundIcon"></i>
       </button>
       <button class="cl-btn--v7-outline cl-btn--sm" id="btnRefresh" type="button" aria-label="Actualizar">
-        <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Actualizar
+        <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> <span class="d-none d-sm-inline">Actualizar</span>
       </button>
-      <div style="font-size:10px;color:var(--cl-text-tertiary);" id="autoRefreshLabel"></div>
+      <div style="font-size:12px;color:var(--cl-text-tertiary);" id="autoRefreshLabel"></div>
     </div>
   </div>
 
-  {# ═══════════ Filter Pills ═══════════ #}
-  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="filterRow">
-    <button class="cl-filter-pill active" data-filter="all" type="button">Todas <span class="cl-pill-count" id="pillCountAll">{{ ordenes_mesero|length }}</span></button>
-    <button class="cl-filter-pill" data-filter="pendiente" type="button">Pendientes</button>
+  {# ═══════════ Filtros con contador (una sola fila, deslizable en celular) ═══════════ #}
+  <div class="cl-filter-row" id="filterRow" role="group" aria-label="Filtrar órdenes">
+    <button class="cl-filter-pill active" data-filter="all" type="button">Todas <span class="cl-pill-count" id="pillCountAll">{{ total_activas }}</span></button>
     <button class="cl-filter-pill" data-filter="cocina" type="button">En Cocina <span class="cl-pill-count" id="pillCountCocina">{{ en_cocina + pendientes_count }}</span></button>
+    {% if urgentes_count %}<button class="cl-filter-pill cl-filter-pill--urgente" data-filter="urgente" type="button">Urgentes <span class="cl-pill-count">{{ urgentes_count }}</span></button>{% endif %}
     <button class="cl-filter-pill" data-filter="lista" type="button">Listas <span class="cl-pill-count" id="pillCountListas">{{ listas }}</span></button>
-    <button class="cl-filter-pill" data-filter="urgente" type="button">Urgentes</button>
-    <button class="cl-filter-pill" data-filter="para_llevar" type="button">Para Llevar</button>
+    <button class="cl-filter-pill" data-filter="pendiente" type="button">Pendientes <span class="cl-pill-count">{{ pendientes_count }}</span></button>
+    {% if para_llevar_count %}<button class="cl-filter-pill" data-filter="para_llevar" type="button">Llevar <span class="cl-pill-count">{{ para_llevar_count }}</span></button>{% endif %}
     <button class="cl-filter-pill cl-filter-pill--pagadas" data-filter="pagadas" type="button">
-      <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
+      <i data-lucide="check-circle" style="width:12px;height:12px;"></i>
       Pagadas <span class="cl-pill-count" id="pillCountPagadas">{{ pagadas_count }}</span>
     </button>
   </div>
@@ -110,7 +79,7 @@
       <a href="{{ url_for('meseros.seleccionar_mesa') }}" class="cl-btn--v7-primary">
         <i data-lucide="plus" class="icon-sm"></i> Nueva Orden Mesa
       </a>
-      <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="cl-btn--v7-outline">
+      <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" data-post-link class="cl-btn--v7-outline">
         <i data-lucide="package" class="icon-sm"></i> Para Llevar
       </a>
     </div>
@@ -141,7 +110,7 @@
 
     <div class="cl-order-card cl-order-card--{{ urgency }}" id="orden-card-{{ orden.id }}"
       data-orden-id="{{ orden.id }}"
-      data-orden-num="#{{ orden.id }}"
+      data-orden-num="#{{ orden.numero }}"
       data-mesa-label="{% if orden.es_para_llevar %}Para llevar{% else %}Mesa {{ orden.mesa.numero if orden.mesa else '?' }}{% endif %}"
       data-mesa-icon="{% if orden.es_para_llevar %}package{% else %}armchair{% endif %}"
       data-total="{{ '%.2f'|format(orden.total if orden.total is not none else 0) }}"
@@ -149,13 +118,13 @@
       data-filters="{{ filter_tags|join(' ') }}"
       data-href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}"
       role="button" tabindex="0"
-      aria-label="Orden #{{ orden.id }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
+      aria-label="Orden #{{ orden.numero }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
 
       {# ── Card Header ── #}
       <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-primary);">
-            #{{ orden.id }}
+            #{{ orden.numero }}
           </div>
           <div style="font-size:12px;color:var(--cl-text-tertiary);margin-top:4px;display:flex;align-items:center;gap:4px;">
             {% if orden.es_para_llevar %}
@@ -176,27 +145,27 @@
           {% endif %}
           {# Status badge #}
           {% if orden.estado == 'pendiente' %}
-          <span class="cl-status cl-status--pending" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--pending" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="clock" style="width:10px;height:10px;"></i> Pendiente
           </span>
           {% elif orden.estado in ['enviado','en_preparacion'] %}
-          <span class="cl-status cl-status--kitchen" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--kitchen" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="chef-hat" style="width:10px;height:10px;"></i> En cocina
           </span>
           {% elif orden.estado == 'lista_para_entregar' %}
-          <span class="cl-status cl-status--ready" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--ready" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="check-circle" style="width:10px;height:10px;"></i> Lista
           </span>
           {% elif orden.estado == 'completada' %}
-          <span class="cl-status cl-status--done" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--done" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="check-circle" style="width:10px;height:10px;"></i> Completada
           </span>
           {% elif urgency == 'urgent' %}
-          <span class="cl-status cl-status--urgent" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--urgent" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="alert-triangle" style="width:10px;height:10px;"></i> Retrasada
           </span>
           {% else %}
-          <span class="cl-status cl-status--kitchen" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--kitchen" style="font-size:12px;padding:2px 8px;">
             {{ orden.estado|capitalize }}
           </span>
           {% endif %}
@@ -210,7 +179,7 @@
         {% set listos = orden.detalles|selectattr('estado','equalto','listo')|list|length %}
         {% set entregados = orden.detalles|selectattr('estado','equalto','entregado')|list|length %}
         {% set pct_done = ((listos + entregados) * 100 / total_items)|int if total_items > 0 else 0 %}
-        <div class="cl-progress-row" data-orden-id="{{ orden.id }}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:10px;color:var(--cl-text-tertiary);">
+        <div class="cl-progress-row" data-orden-id="{{ orden.id }}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--cl-text-tertiary);">
           <div style="flex:1;height:4px;background:var(--cl-overlay-strong);border-radius:2px;overflow:hidden;">
             <div class="cl-progress-fill" style="height:100%;border-radius:2px;transition:width 0.4s ease;width:{{ pct_done }}%;
               background:{% if entregados == total_items %}var(--cl-success-500){% elif pct_done > 0 %}var(--cl-warning-500){% else %}transparent{% endif %};">
@@ -253,17 +222,17 @@
               <span class="accion-producto" style="flex-shrink:0;">
                 {% if detalle.estado == 'listo' %}
                 <button type="button" class="btn-entregar-item" data-detalle-id="{{ detalle.id }}" data-orden-id="{{ orden.id }}"
-                  style="font-size:10px;padding:2px 8px;border-radius:6px;border:none;background:var(--cl-primary-500);color:#fff;cursor:pointer;font-weight:600;">
+                  style="font-size:12px;padding:2px 8px;border-radius:6px;border:none;background:var(--cl-primary-500);color:#fff;cursor:pointer;font-weight:600;">
                   Entregar
                 </button>
                 {% elif detalle.estado == 'entregado' %}
-                <span style="font-size:10px;color:var(--cl-success-text);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
+                <span style="font-size:12px;color:var(--cl-success-text);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
                 {% endif %}
               </span>
             </div>
             {# Item notes #}
             {% if detalle.notas %}
-            <div style="margin-left:14px;font-size:11px;color:var(--cl-warning-text);display:flex;align-items:center;gap:4px;">
+            <div style="margin-left:14px;font-size:12px;color:var(--cl-warning-text);display:flex;align-items:center;gap:4px;">
               <i data-lucide="message-circle" style="width:10px;height:10px;flex-shrink:0;"></i>
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ detalle.notas }}</span>
             </div>
@@ -271,14 +240,14 @@
           </div>
           {% endfor %}
           {% if orden.detalles|length > 5 %}
-          <div class="cl-scroll-hint" style="text-align:center;padding:2px 0;font-size:10px;color:var(--cl-text-tertiary);opacity:0.6;">
+          <div class="cl-scroll-hint" style="text-align:center;padding:2px 0;font-size:12px;color:var(--cl-text-tertiary);opacity:0.6;">
             <i data-lucide="chevrons-down" style="width:12px;height:12px;"></i> Scroll para ver todos
           </div>
           {% endif %}
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:12px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
             {{ orden.tiempo_registro|hora_local }}
@@ -315,13 +284,13 @@
     <div class="cl-order-card cl-order-card--paid" id="orden-paid-{{ orden.id }}"
       data-orden-id="{{ orden.id }}"
       data-filters="pagadas"
-      aria-label="Orden #{{ orden.id }} — Pagada">
+      aria-label="Orden #{{ orden.numero }} — Pagada">
 
       {# ── Card Header ── #}
       <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-secondary);">
-            #{{ orden.id }}
+            #{{ orden.numero }}
           </div>
           <div style="font-size:12px;color:var(--cl-text-tertiary);margin-top:4px;display:flex;align-items:center;gap:4px;">
             {% if orden.es_para_llevar %}
@@ -333,7 +302,7 @@
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
           <span class="cl-timer cl-timer--fresh" style="opacity:0.7;">{{ orden.tiempo_registro|hora_local }}</span>
-          <span class="cl-status cl-status--paid" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--paid" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="circle-check" style="width:10px;height:10px;"></i> Pagada
           </span>
         </div>
@@ -352,12 +321,12 @@
           </div>
           {% endfor %}
           {% if orden.detalles|length > 4 %}
-          <span style="font-size:11px;color:var(--cl-text-tertiary);">+{{ orden.detalles|length - 4 }} más...</span>
+          <span style="font-size:12px;color:var(--cl-text-tertiary);">+{{ orden.detalles|length - 4 }} más...</span>
           {% endif %}
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:12px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
             {% if orden.fecha_pago %}Pagada {{ orden.fecha_pago|hora_local }}{% else %}{{ orden.tiempo_registro|hora_local }}{% endif %}
@@ -391,8 +360,8 @@
   </div>
 
   {# ═══════════ FABs ═══════════ #}
-  <div class="cl-fab-container">
-    <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="cl-fab--secondary" id="fabParaLlevar">
+  <div class="cl-fab-container cl-fab-container--sobre-tabs">
+    <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" data-post-link class="cl-fab--secondary" id="fabParaLlevar">
       <i data-lucide="package" style="width:15px;height:15px;"></i>
       <span>Para Llevar</span>
     </a>

@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════ #}
 {% extends 'layouts/_layout_operations.html' %}
 {% set active_op_tab = 'meseros' %}
-{% block page_title %}Cobro #{{ orden.id }}{% endblock %}
+{% block page_title %}Cobro #{{ orden.numero }}{% endblock %}
 
 {% block ops_content %}
 <div class="pago-layout">
@@ -16,7 +16,7 @@
         <i data-lucide="arrow-left" class="icon-xs"></i> Regresar
       </a>
       <h2 style="margin: 0; font-size: var(--cl-text-xl); font-weight: var(--cl-font-bold);">
-        Orden #{{ orden.id }}
+        Orden #{{ orden.numero }}
       </h2>
       <span class="cl-badge cl-badge--pill" style="background: var(--cl-primary-100); color: var(--cl-primary-700);">
         {% if orden.es_para_llevar %}
@@ -327,6 +327,23 @@
 }
 .pago-confirm:hover:not(:disabled) { background: var(--cl-gold-600, #C09838); transform: translateY(-1px); box-shadow: var(--cl-shadow-lg); }
 .pago-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* En celular la pantalla de cobro mide ~960px: el botón quedaba fuera de la vista y
+   había que bajar hasta el fondo en CADA cobro. Aquí se ancla al pie. */
+@media (max-width: 767.98px) {
+  .pago-confirm {
+    position: sticky;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    margin-top: var(--cl-space-4);
+    box-shadow: 0 -6px 24px rgba(16, 24, 40, .18), var(--cl-shadow-lg);
+    z-index: 5;
+  }
+
+  /* Espacio para que la última sección no quede debajo del botón anclado */
+  .pago-panel {
+    padding-bottom: 12px;
+  }
+}
 
 /* Success overlay */
 .pago-success-overlay {

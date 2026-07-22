@@ -17,6 +17,7 @@ requests
 # Fase 5 — Sprint 1
 Flask-Session
 Flask-Caching
+Flask-Compress
 redis
 bleach
 # Sprint 2 — 2.4

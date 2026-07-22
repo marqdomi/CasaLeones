@@ -41,15 +41,17 @@ Usage:
   {# ── KDS Header ── #}
   <header class="cl-kds-header" id="kdsHeader">
     {# Back link — admin al dashboard, mesero a sus órdenes (apoya en estación y regresa) #}
+    {# La salida siempre va arriba a la izquierda y CON etiqueta: una flecha pelona
+       en un tablero a pantalla completa no se encuentra. #}
     {% if current_user.is_authenticated and current_user.rol in ['admin','superadmin'] %}
-    <a href="{{ url_for('admin.dashboard') }}" class="cl-icon-btn"
-      style="color:var(--cl-text-tertiary);margin-right:8px;" aria-label="Panel Admin">
+    <a href="{{ url_for('admin.dashboard') }}" class="cl-kds-salir" aria-label="Volver al panel de administración">
       <i data-lucide="arrow-left" style="width:15px;height:15px;"></i>
+      <span>Panel</span>
     </a>
     {% elif current_user.is_authenticated and current_user.rol == 'mesero' %}
-    <a href="{{ url_for('meseros.view_meseros') }}" class="cl-icon-btn"
-      style="color:var(--cl-text-tertiary);margin-right:8px;" aria-label="Mis Órdenes">
+    <a href="{{ url_for('meseros.view_meseros') }}" class="cl-kds-salir" aria-label="Volver a mis órdenes">
       <i data-lucide="arrow-left" style="width:15px;height:15px;"></i>
+      <span>Mis Órdenes</span>
     </a>
     {% endif %}
 

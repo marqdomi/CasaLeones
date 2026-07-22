@@ -33,6 +33,32 @@ class OrdenEstado:
 
 # -------------------- CONFIGURACIÓN DEL SISTEMA (Fase 7 - Onboarding) --------------------
 
+class FolioDiario(db.Model):
+    """Contador de folios por sucursal y día.
+
+    El `id` de Orden es una secuencia global que además salta cuando se descarta un
+    borrador, así que no sirve para gritar en la barra. El folio reinicia cada día:
+    "orden 7" es la séptima cuenta real del día en esa sucursal.
+
+    Se bloquea con FOR UPDATE al asignar, para que dos meseros que registran su
+    primer producto al mismo tiempo no se lleven el mismo número.
+    """
+    __tablename__ = 'folios_diarios'
+    id = db.Column(db.Integer, primary_key=True)
+    # 0 = sin sucursal. NO admite NULL a propósito: en SQL dos NULL nunca son iguales,
+    # así que un UNIQUE sobre una columna nullable NO impide filas duplicadas — y en la
+    # instalación de una sola sucursal el id viene vacío. Con NULL se creaban varios
+    # contadores en paralelo y tres clientes recibían el folio 1.
+    # Sin ForeignKey porque 0 no es una sucursal real.
+    sucursal_id = db.Column(db.Integer, nullable=False, default=0, server_default='0')
+    fecha = db.Column(db.Date, nullable=False)
+    ultimo = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint('sucursal_id', 'fecha', name='uq_folio_sucursal_fecha'),
+    )
+
+
 class ConfiguracionSistema(db.Model):
     """Key-value store for system-wide configuration.
     Used for onboarding state, system mode, and business settings."""
@@ -242,6 +268,11 @@ class Orden(db.Model):
     cliente_id = db.Column(db.Integer, db.ForeignKey('clientes.id'), nullable=True)
     sucursal_id = db.Column(db.Integer, db.ForeignKey('sucursales.id'), nullable=True, index=True)
     estado = db.Column(db.String(50), default=OrdenEstado.PENDIENTE, index=True)
+    # Folio diario por sucursal: lo que ve el cliente y grita la barra. Se asigna
+    # cuando la orden deja de ser borrador (primer producto); los borradores nunca
+    # consumen folio. `id` sigue siendo la llave global para URLs y relaciones.
+    folio = db.Column(db.Integer, nullable=True, index=True)
+    folio_fecha = db.Column(db.Date, nullable=True, index=True)
     es_para_llevar = db.Column(db.Boolean, default=False)
     canal = db.Column(db.String(30), default='local')  # local, uber_eats, rappi, didi_food
     # Mesas compartidas (c010): varias cuentas pueden convivir en la misma mesa;
@@ -302,6 +333,12 @@ class Orden(db.Model):
             self.total = (self.subtotal + self.iva).quantize(Decimal('0.01'))
 
         return self.total
+
+    @property
+    def numero(self):
+        """Lo que se le muestra a la gente: el folio del día, o el id si aún no tiene
+        (borrador, u órdenes anteriores a que existiera el folio)."""
+        return self.folio if self.folio else self.id
 
     def total_pagado(self):
         """Sólo cuenta pagos verificados: una transferencia sin confirmar todavía

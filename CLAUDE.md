@@ -666,3 +666,193 @@ roto (el default de fábrica de cualquier tablet).
 ### Regla
 Nada de colores de superficie hardcodeados. Todo fondo/borde/texto va por token para
 que herede el tema. Colores semánticos como texto → `--cl-*-text`, no `-500`.
+
+## Auditoría móvil — celulares y tablets (v6.5)
+Medición en 360×640 (gama baja), 390×844, 430×932 y tablet 768×1024, sobre las
+pantallas del mesero, cobro, KDS, dashboard y transferencias.
+
+### Lo que ya estaba bien
+Cero scroll horizontal en todas las pantallas y tamaños. KDS en tablet impecable
+(tipografía grande, LISTO enorme, oscuro forzado). Sin tablas desbordadas en el admin.
+
+### Corregido
+- **Los FAB tapaban el botón "Cobrar"** y las pestañas de estación, en TODOS los anchos
+  de celular (el contenedor iba de 822 a 916 y la barra inferior arranca en 876).
+  `.cl-fab-container--sobre-tabs` los sube por encima de la barra (56px + notch).
+  Clase explícita en vez de `:has()`: los WebView viejos de gama baja no lo soportan
+- La regla que reservaba espacio inferior apuntaba a `.cl-ops-main`, clase que el
+  `<main>` **no tenía** — por eso el contenido quedaba debajo de la barra. Se conectó,
+  y las pantallas con FAB reservan además su pila (`tiene_fab` → `--con-fab`)
+- **La bandeja de transferencias era una tabla de 6 columnas**: 594px en un contenedor
+  de 328, con el botón "Llegó" en x=468, fuera de la pantalla. Patrón nuevo
+  `.cl-tabla-cards`: en <768px cada fila se apila como tarjeta con su `data-label` y el
+  botón principal a todo lo ancho (thead se oculta accesible, no con display:none)
+- **"Confirmar Pago" caía fuera de la vista** (y=883 en pantalla de 640): ahora es
+  `position:sticky` al pie en celular
+- **Zoom automático de iOS**: 5 campos bajo 16px. Regla global de 16px + alto 44px
+- **Objetivos táctiles**: de 21 a 8 por pantalla, y los que quedan son 38–43px (antes
+  había de 14×14 —cerrar sesión— y 18×25 —estrella de favorito—)
+- **Letra bajo 12px**: de 46 a 1 en detalle de orden. El piso usa prefijo `html` para
+  ganarle a los `<style>` de cada plantilla, que si no vencen por orden de cascada
+
+### Compresión (lo que más pesa en gama baja)
+Los estáticos viajaban **sin comprimir**: `lucide.min.js` son 356 KB en crudo.
+- Flask-Compress con `COMPRESS_ALGORITHM` y **`COMPRESS_ALGORITHM_STREAMING`** — este
+  segundo es clave: los estáticos van en streaming y usan su propia lista, que por
+  defecto no incluye gzip, así que un navegador sin brotli se quedaba sin comprimir
+- Medido con cabeceras de navegador viejo (`gzip, deflate`): **842 KB → 188 KB (−78%)**
+
+### Pendiente
+La librería de iconos son 348 KB para ~107 iconos usados; un subconjunto ahorraría otro
+tanto, pero requiere paso de build (hoy todo es vendorizado a mano).
+
+## Encabezado de órdenes: contadores dentro de los filtros (v6.5)
+En 360×640 el chrome se comía **319 px de 640** antes de la primera orden: una fila de
+chips ("5 activas / 5 en cocina / 5 urgentes"), otra con el botón Actualizar, y los
+filtros partidos en **tres renglones**. Los chips y los filtros decían lo mismo.
+
+- Los contadores viven ahora **dentro de los filtros** (`cl-pill-count`); la fila de
+  chips se eliminó en `meseros.html` y `admin/ordenes_activas.html`
+- `.cl-filter-row`: una sola fila que **se desliza de lado** en celular
+  (`flex-wrap:nowrap` + `overflow-x:auto` + `scroll-snap`), y sigue envolviendo normal
+  en ≥768px. La sangría negativa deja los filtros a ras del borde al deslizar
+- Filtros de Urgentes y Llevar sólo aparecen si hay algo que filtrar
+- El botón Actualizar queda sólo icono en celular (ahorraba una fila entera al envolver)
+- `updateFilterCounters()` en meseros.js: se quitó el bloque que actualizaba los chips
+  (código muerto; los ids ya no existen)
+
+Medido: primera tarjeta de **319 px → 184 px**, filtros de **96 px en 3 filas → 48 px en
+1**, y de 1 a **3 órdenes visibles** sin hacer scroll. En la vista de mesero el botón
+"Cobrar" de la primera orden ya se ve sin desplazarse.
+
+## Órdenes borrador: nada existe hasta que hay algo pedido (v6.6)
+Tocar "Nueva orden" creaba la fila al instante: si el mesero se regresaba quedaba una
+cuenta fantasma ocupando la mesa y contando como activa. En la base de la demo había
+**4 de 6 órdenes vacías**.
+
+### Por qué no se crea "hasta confirmar"
+El carrito **no es local**: cada producto se guarda al tocarlo (`POST /api/ordenes/<id>/detalle`).
+Mover el carrito al navegador significaría perder la orden completa si el celular se
+bloquea a media captura — en gama baja el WebView mata pestañas en segundo plano. Además
+la mesa se marca ocupada al crear, y el sistema permite agregar productos a una orden ya
+enviada a cocina, así que habría que mantener dos flujos.
+
+La solución conserva el guardado por toque, pero **mientras la orden esté vacía no existe
+para nadie**:
+- `utils.no_es_borrador()` — condición SQL (`estado != pendiente OR tiene detalles`).
+  Aplicada a la lista de órdenes y al conteo de ocupación de mesa
+- **Reutilización**: si el mesero ya tiene un borrador vacío de esa mesa (o para llevar),
+  se reutiliza en vez de crear otro. Tocar 3 veces = 1 orden
+- La mesa se ocupa **con el primer producto**, no al elegirla (en `orders.py` y en
+  `agregar_productos_a_orden`)
+- `utils.limpiar_borradores(mesero_id, minutos=10)` — barrido al abrir la lista; no
+  depende de que el mesero use "Regresar" (puede salir con el gesto del teléfono)
+- El selector de cuentas ignora **sólo el borrador propio**: el de otro mesero sí avisa,
+  para que dos no levanten la misma mesa sin enterarse
+
+### `crear_orden_para_llevar` pasó a POST
+Era un enlace `GET` sin CSRF: bastaba con que el navegador precargara la liga para crear
+una orden. Ahora responde 405 a GET. Los 6 enlaces usan `data-post-link`, manejado con
+delegación en `base.html` (arma un form con CSRF y lo envía; bloquea el doble tap).
+
+- Tests: `tests/test_ordenes_borrador.py` (10). Los de mesas compartidas se actualizaron
+  para darle producto a la cuenta antes de exigir el selector — sin productos ya no es
+  una cuenta. Suite total 128 passed.
+
+## Salida homogénea desde los paneles de cocina (v6.6)
+El KDS tenía una flecha pelona de 15px sin etiqueta, en un encabezado que **se desbordaba
+de lado** (625 px en una pantalla de 360), así que competía con chips cortados.
+- `.cl-kds-salir` — botón con etiqueta visible ("← Panel" para admin, "← Mis Órdenes"
+  para mesero), siempre arriba a la izquierda
+- El encabezado del KDS envuelve en celular en vez de desbordarse; en tablet sigue en
+  una sola fila de 60px
+
+## Folio diario por sucursal (v6.6)
+El `id` de Orden es una secuencia global compartida por todas las sucursales, y además
+salta cuando se descarta un borrador: al tercer día el cliente escucharía "orden 247".
+
+- `FolioDiario(sucursal_id, fecha, ultimo)` con UNIQUE — contador por sucursal y día
+  contable (`hoy_local()`, así que respeta la zona del negocio)
+- `Orden.folio` + `Orden.folio_fecha` (migración c013, idempotente)
+- `Orden.numero` — property: el folio, o el `id` si no tiene. Las órdenes anteriores a
+  esta función siguen mostrándose sin romperse
+- `services/folio.py::asignar_folio()` — idempotente (agregar un segundo producto no
+  renumera). Bloquea el contador con `with_for_update()` para que dos meseros que
+  registran su primer producto al mismo tiempo no se lleven el mismo número; la
+  creación del contador va en savepoint y tolera la carrera por el UNIQUE
+- **Se asigna con el primer producto**, cuando la orden deja de ser borrador: un
+  borrador abandonado no quema número
+- El `id` sigue siendo la llave para URLs y relaciones; sólo cambió lo que se muestra
+  (20 lugares en templates + `data-orden-num` que usa meseros.js)
+
+Verificado contra el servidor: 3 borradores abandonados → 0 folios usados; luego 3
+órdenes reales con ids internos 5, 6, 7 → folios 1, 2, 3.
+
+### El contador guarda 0, nunca NULL (bug encontrado en revisión)
+`Orden.sucursal_id` viene **NULL** en la instalación de una sola sucursal (que es la del
+cliente). El contador arrancó con esa columna nullable y `UNIQUE(sucursal_id, fecha)`:
+en SQL **dos NULL nunca son iguales**, así que el UNIQUE no impedía filas duplicadas.
+Probado contra PostgreSQL real con 12 órdenes simultáneas: se crearon **5 contadores** y
+**3 órdenes recibieron el folio 1**, sin ningún error visible.
+
+`FolioDiario.sucursal_id` es ahora `NOT NULL DEFAULT 0` (0 = sin sucursal, sin FK porque
+0 no es una sucursal real) y el servicio normaliza con `sucursal_id or 0`. Revalidado:
+60 órdenes simultáneas en 3 sucursales → 1..20 en cada una, cero duplicados, 3
+contadores. **SQLite ignora `with_for_update`, así que la concurrencia sólo se puede
+probar contra PostgreSQL** — los tests en SQLite fijan el invariante (el contador nunca
+guarda NULL), no la serialización.
+
+- Tests: `tests/test_folio_diario.py` (10, con control negativo verificado).
+  Suite total 138 passed.
+
+## Operación sin poder entrar: recuperar acceso y restaurar (v6.6)
+Preparación para que el cliente lo use sin Marco enfrente. Los tres huecos no eran de
+producto sino de **operación**: qué hace el negocio cuando algo sale mal y nadie del
+equipo técnico está ahí.
+
+### Contraseña olvidada
+No había ningún camino de recuperación: olvidar la contraseña del admin dejaba el
+sistema inservible salvo entrando a mano a la base. `backend/cli.py` agrega dos comandos
+al `flask` de la app (registrados en `create_app`):
+- `flask usuarios` — lista correo/nombre/rol/sucursal (el dueño no recuerda con qué
+  correo se dio de alta)
+- `flask reset-password <correo>` — pide la contraseña sin mostrarla (o `--password`),
+  la valida con `validar_password()` y la deja en auditoría
+
+Se pasa `usuario_id` explícito a `registrar_auditoria`: fuera de request, la línea
+`session.get('user_id')` lanza `RuntimeError` **fuera del try** del servicio.
+
+En Docker: `docker compose exec web flask reset-password correo@ejemplo.com`
+(`FLASK_APP=backend.app` ya viene en el compose).
+
+### `restore.ps1` — el backup que no se podía restaurar
+Los respaldos corren cada hora y la guía del cliente es de Windows, pero `restore.sh`
+sólo existía en bash. Portado con la misma secuencia: respaldo de seguridad previo →
+parar `web` (no la db) → `pg_restore --clean --if-exists` → arrancar → health check.
+
+**Los .dump binarios NO pueden pasar por la redirección de PowerShell**: `>` convierte
+la salida a texto y corrompe el archivo, y `<` ni siquiera existe como operador. Ambos
+`pg_dump`/`pg_restore` van por `cmd /c "... > archivo"`. Por esto los backups que
+generaba `update.ps1` estaban **corruptos desde siempre** — no se habrían podido usar.
+
+### `update.ps1` no aplicaba migraciones
+El bug más caro del camino Windows: `update.sh` hace `flask db stamp head` (si la base
+nació de `create_all`) + `flask db upgrade`, y la versión PowerShell **no tenía ese
+paso**. Actualizar en Windows dejaba el código nuevo contra el schema viejo — sin la
+columna `folio`, cada orden truena. Portado igual que el bash.
+
+Además `update.ps1` elegía `docker-compose.prod.yml` en cuanto el archivo existiera,
+pero `install.ps1` instala con `docker-compose.yml` (build local) y el clon de git trae
+ambos: la primera actualización cambiaba al equipo a jalar `ghcr.io/marqdomi/kairest`,
+una imagen distinta a la que tenía corriendo. Ahora usa la regla de `update.sh`: con
+`.git` → build local; `prod.yml` sólo para despliegues sin git.
+
+### Ruta legacy de cobro eliminada
+`POST /meseros/ordenes/<id>/cobrar` guardaba `Pago.monto = monto_recibido`, **con el
+cambio incluido**: cobrar $75 con un billete de $100 registraba $100 e inflaba el corte.
+Ningún frontend la llamaba (el flujo vivo es `/ordenes/<id>/pago`) pero seguía expuesta.
+Borrada junto con sus imports huérfanos.
+
+- Tests: `tests/test_cli.py` (7, con control negativo verificado). Suite total 145 passed.
+- **No verificado**: la instalación en frío en Windows real (Docker Desktop → `install.ps1`
+  → wizard) y la sintaxis de los `.ps1` — no hay PowerShell en el Mac de desarrollo.

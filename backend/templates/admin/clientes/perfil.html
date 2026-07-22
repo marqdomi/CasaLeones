@@ -50,7 +50,7 @@
     <tbody>
       {% for o in ordenes %}
       <tr>
-        <td>#{{ o.id }}</td>
+        <td>#{{ o.numero }}</td>
         <td>{{ o.tiempo_registro|fechahora_local }}</td>
         <td>{{ status_badge(o.estado) }}</td>
         <td>${{ '%.2f'|format(o.total or 0) }}</td>

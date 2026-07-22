@@ -33,10 +33,10 @@
         <div class="d-flex justify-content-between align-items-start" style="margin-bottom: var(--cl-space-2);">
           <div>
             <strong style="font-size: var(--cl-text-lg); color: var(--cl-text-primary);">
-              {% if c.alias %}{{ c.alias }}{% else %}Cuenta #{{ c.id }}{% endif %}
+              {% if c.alias %}{{ c.alias }}{% else %}Cuenta #{{ c.numero }}{% endif %}
             </strong>
             {% if c.alias %}
-            <span class="cl-badge cl-badge--pill" style="font-size: 10px; margin-left: 6px;">#{{ c.id }}</span>
+            <span class="cl-badge cl-badge--pill" style="font-size: 10px; margin-left: 6px;">#{{ c.numero }}</span>
             {% endif %}
           </div>
           <span class="cl-badge cl-badge--pill cl-badge--{{ 'success' if c.estado in ('completada', 'lista_para_entregar') else 'warning' }}"

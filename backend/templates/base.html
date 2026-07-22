@@ -176,6 +176,26 @@
       var form = e.target.closest('form[data-confirmar]');
       if (form && !window.confirm(form.dataset.confirmar)) e.preventDefault();
     });
+
+    // Enlaces que en realidad son acciones (crean algo). Van por POST con CSRF: como
+    // GET, bastaba con que el navegador precargara la liga para crear una orden.
+    document.addEventListener('click', function (e) {
+      var enlace = e.target.closest('a[data-post-link]');
+      if (!enlace) return;
+      e.preventDefault();
+      if (enlace.dataset.enviando) return;   // doble tap = una sola orden
+      enlace.dataset.enviando = '1';
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = enlace.getAttribute('href');
+      var tok = document.createElement('input');
+      tok.type = 'hidden';
+      tok.name = 'csrf_token';
+      tok.value = window.__csrfToken || '';
+      form.appendChild(tok);
+      document.body.appendChild(form);
+      form.submit();
+    });
   </script>
   <script nonce="{{ csp_nonce }}">
     // Global HTML escape helper — use before injecting user text into innerHTML

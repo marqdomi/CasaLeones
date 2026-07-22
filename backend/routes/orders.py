@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session, g, current_app
-from backend.utils import login_required, verificar_orden_completa, verificar_stock_disponible, verificar_propiedad_orden
+from backend.utils import (login_required, verificar_orden_completa, verificar_stock_disponible,
+                           verificar_propiedad_orden, actualizar_estado_mesa)
 from backend.services.sanitizer import sanitizar_texto
 from backend.models.models import Orden, OrdenDetalle, Producto, Mesa, OrdenEstado
 from backend.extensions import db, socketio
@@ -121,6 +122,15 @@ def add_product_to_order(orden_id):
             'orden_id': orden.id,
             'mensaje': f'Nuevos productos en orden #{orden.id}.',
         })
+
+    # Con el primer producto la orden deja de ser borrador: recibe su folio del día
+    # y ocupa la mesa. Antes no debía consumir número ni bloquear la mesa.
+    from backend.services.folio import asignar_folio
+    asignar_folio(orden)
+    db.session.commit()
+    if orden.mesa_id:
+        actualizar_estado_mesa(orden.mesa_id)
+        db.session.commit()
 
     verificar_orden_completa(orden.id)
     return jsonify({

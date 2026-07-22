@@ -78,9 +78,11 @@ def test_idor_blocked_on_cancelar_entregar_descuento(client, db, mesero_user, sa
 
 
 def test_mesa_ocupada_redirige_al_selector_sin_duplicar(client, db, mesero_user, sample_mesa):
-    """Mesas compartidas: un segundo POST sin forzar_nueva no crea otra orden —
-    redirige al selector de cuentas de la mesa (la creación explícita de una
-    segunda cuenta se cubre en test_mesas_compartidas.py)."""
+    """Un segundo POST sin forzar_nueva no crea otra orden.
+
+    Si la cuenta previa es el borrador vacío del MISMO mesero, se reutiliza y se
+    vuelve a la captura; el resguardo que importa es que no se duplique la orden.
+    """
     _marcar_onboarding_completo(db)
     login(client, mesero_user.email, 'Test1234!')
     r1 = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id}, follow_redirects=True)
@@ -88,11 +90,30 @@ def test_mesa_ocupada_redirige_al_selector_sin_duplicar(client, db, mesero_user,
 
     r2 = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id}, follow_redirects=False)
     assert r2.status_code == 302
-    assert f'/meseros/mesa/{sample_mesa.id}/cuentas' in r2.headers['Location']
+    assert '/detalle_orden' in r2.headers['Location']
 
     from backend.models.models import Orden
     count = Orden.query.filter_by(mesa_id=sample_mesa.id).count()
     assert count == 1, f'expected exactly 1 order for the table, got {count}'
+
+
+def test_borrador_de_otro_mesero_si_avisa(client, db, mesero_user, sample_mesa):
+    """El borrador ajeno sí debe verse: si no, dos meseros levantan la misma mesa
+    sin enterarse el uno del otro."""
+    from backend.models.models import Orden, OrdenEstado
+    from tests.conftest import _make_user
+
+    _marcar_onboarding_completo(db)
+    otro = _make_user(db, 'Otro Mesero', 'otro_mesero@test.com', 'Test1234!', 'mesero')
+    db.session.add(Orden(mesero_id=otro.id, mesa_id=sample_mesa.id,
+                         estado=OrdenEstado.PENDIENTE))
+    db.session.commit()
+
+    login(client, mesero_user.email, 'Test1234!')
+    r = client.post('/meseros/seleccionar_mesa', data={'mesa_id': sample_mesa.id},
+                    follow_redirects=False)
+    assert f'/meseros/mesa/{sample_mesa.id}/cuentas' in r.headers['Location'], \
+        'no avisó que otro mesero ya está en esa mesa'
 
 
 def test_mesero_puede_ver_cualquier_estacion(client, db, mesero_user):

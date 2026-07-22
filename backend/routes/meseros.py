@@ -3,14 +3,16 @@ import json
 from decimal import Decimal
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, g, current_app, abort
 from backend.models.models import (
-    Mesa, Orden, Producto, OrdenDetalle, Sale, SaleItem, Usuario, Pago, IVA_RATE,
-    descontar_inventario_por_orden, Cliente, MovimientoInventario, OrdenEstado, utc_now,
+    Mesa, Orden, Producto, OrdenDetalle, Usuario, Pago, IVA_RATE,
+    Cliente, MovimientoInventario, OrdenEstado,
 )
 from backend.extensions import db, socketio
 from backend.services.tiempo import hoy_local, rango_utc
 from backend.services.cobro import cerrar_orden_pagada
 from backend.services.pagos import metodos_pago_detalle, metodos_pago_habilitados
-from backend.utils import login_required, verificar_propiedad_orden, filtrar_por_sucursal, verificar_stock_disponible, actualizar_estado_mesa
+from backend.utils import (login_required, verificar_propiedad_orden, filtrar_por_sucursal,
+                           verificar_stock_disponible, actualizar_estado_mesa,
+                           no_es_borrador, limpiar_borradores)
 from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
@@ -56,12 +58,16 @@ def _revertir_inventario_orden(orden, usuario_id):
 def view_meseros():
     is_admin = session.get('rol') in ('admin', 'superadmin')
     user_id = session.get('user_id')
+    # Barrido de borradores abandonados (ver utils.limpiar_borradores)
+    if not is_admin:
+        limpiar_borradores(user_id)
     query = Orden.query.options(
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
         joinedload(Orden.mesero),
     ).filter(
         Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+        no_es_borrador(),
     )
     if not is_admin:
         query = query.filter(Orden.mesero_id == user_id)
@@ -184,17 +190,33 @@ def historial_csv():
 # =====================================================================
 # Crear órdenes
 # =====================================================================
-@meseros_bp.route('/crear_orden_para_llevar')
+@meseros_bp.route('/crear_orden_para_llevar', methods=['POST'])
 @login_required(roles='mesero')
 def crear_orden_para_llevar():
+    """Crea (o reutiliza) la orden para llevar del mesero.
+
+    POST y no GET: como enlace, bastaba con que el navegador precargara la liga para
+    generar una orden fantasma sin que nadie la pidiera.
+    """
+    user_id = session.get('user_id')
+
+    # Si ya dejó un borrador vacío para llevar, se reutiliza en vez de crear otro.
+    borrador = Orden.query.filter(
+        Orden.mesero_id == user_id,
+        Orden.es_para_llevar.is_(True),
+        Orden.estado == OrdenEstado.PENDIENTE,
+        ~Orden.detalles.any(),
+    ).order_by(Orden.id.desc()).first()
+    if borrador:
+        return redirect(url_for('meseros.detalle_orden', orden_id=borrador.id))
+
     nueva_orden = Orden(
-        mesero_id=session.get('user_id'), es_para_llevar=True, estado=OrdenEstado.PENDIENTE,
+        mesero_id=user_id, es_para_llevar=True, estado=OrdenEstado.PENDIENTE,
         sucursal_id=g.sucursal_id,
     )
     db.session.add(nueva_orden)
     db.session.commit()
     logger.info('Orden para llevar creada: id=%s', nueva_orden.id)
-    flash('Nueva orden para llevar creada. Añade productos.', 'success')
     return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
 
 
@@ -221,9 +243,18 @@ def seleccionar_mesa():
             # Si ya hay cuentas y el mesero no pidió explícitamente una nueva,
             # se le muestra el selector de cuentas de esa mesa.
             forzar_nueva = request.form.get('forzar_nueva') == '1'
+            # Cuentas que el mesero debe ver antes de abrir otra. Se ignora sólo su
+            # PROPIO borrador vacío (ese se reutiliza más abajo); el borrador de otro
+            # mesero sí cuenta, para que no dos levanten la misma mesa sin enterarse.
+            mi_borrador_vacio = db.and_(
+                Orden.mesero_id == session.get('user_id'),
+                Orden.estado == OrdenEstado.PENDIENTE,
+                ~Orden.detalles.any(),
+            )
             cuentas_activas = Orden.query.filter(
                 Orden.mesa_id == mesa_id_int,
                 Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+                db.not_(mi_borrador_vacio),
             ).count()
             if cuentas_activas and not forzar_nueva:
                 db.session.rollback()  # release lock, nothing created
@@ -235,19 +266,33 @@ def seleccionar_mesa():
             except (ValueError, TypeError):
                 num_personas = None
 
-            nueva_orden = Orden(
-                mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
-                es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
-                sucursal_id=g.sucursal_id,
-                alias=alias, num_personas=num_personas,
-            )
-            db.session.add(nueva_orden)
-            db.session.commit()
-            # Auto-ocupar mesa (Sprint 2 — 3.3)
-            actualizar_estado_mesa(mesa_id_int, 'ocupada')
-            db.session.commit()
-            etiqueta = f' ({alias})' if alias else ''
-            flash(f'Cuenta{etiqueta} creada para Mesa {nueva_orden.mesa.numero}.', 'success')
+            # Si el mesero ya dejó un borrador vacío en esta mesa, se reutiliza en vez
+            # de amontonar cuentas fantasma cada vez que entra y se regresa.
+            nueva_orden = Orden.query.filter(
+                Orden.mesa_id == mesa_id_int,
+                Orden.mesero_id == session.get('user_id'),
+                Orden.estado == OrdenEstado.PENDIENTE,
+                ~Orden.detalles.any(),
+            ).order_by(Orden.id.desc()).first()
+
+            if nueva_orden:
+                db.session.rollback()  # suelta el lock: no hay nada que crear
+                if alias:
+                    nueva_orden.alias = alias
+                if num_personas:
+                    nueva_orden.num_personas = num_personas
+                db.session.commit()
+            else:
+                nueva_orden = Orden(
+                    mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
+                    es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
+                    sucursal_id=g.sucursal_id,
+                    alias=alias, num_personas=num_personas,
+                )
+                db.session.add(nueva_orden)
+                db.session.commit()
+            # La mesa se marca ocupada al agregar el primer producto, no antes: una
+            # cuenta vacía no debe bloquear la mesa si el mesero se arrepiente.
             return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
         flash('Debes seleccionar una mesa.', 'warning')
         return redirect(url_for('meseros.seleccionar_mesa'))
@@ -398,6 +443,13 @@ def agregar_productos_a_orden(orden_id):
                 nuevos.append(d)
 
         db.session.commit()
+        # Con el primer producto deja de ser borrador: folio del día y mesa ocupada
+        from backend.services.folio import asignar_folio
+        asignar_folio(orden)
+        db.session.commit()
+        if orden.mesa_id:
+            actualizar_estado_mesa(orden.mesa_id)
+            db.session.commit()
         if orden_ya_enviada and nuevos:
             socketio.emit('nueva_orden_cocina', {
                 'orden_id': orden.id,
@@ -485,7 +537,7 @@ def entregar_item(orden_id, detalle_id):
 @login_required(roles=['mesero', 'admin', 'superadmin'])
 @verificar_propiedad_orden
 def cancelar_orden(orden_id):
-    # Lock the order row so a concurrent payment (registrar_pago/cobrar_orden_post,
+    # Lock the order row so a concurrent payment (registrar_pago,
     # which also lock via with_for_update) can't be silently overwritten by this
     # cancellation — whoever gets the lock first wins, and we re-check state
     # against the just-locked row instead of a stale pre-lock read.
@@ -763,98 +815,6 @@ def registrar_pago(orden_id):
         saldo_pendiente=float(max(orden.saldo_pendiente(), Decimal('0'))),
         cambio=float(orden.cambio or 0),
         orden_pagada=(orden.estado == OrdenEstado.PAGADA),
-    )
-
-
-# =====================================================================
-# Cobrar (legacy — redirige a nuevo flujo de pagos)
-# =====================================================================
-@meseros_bp.route('/ordenes/<int:orden_id>/cobrar', methods=['POST'])
-@login_required(roles='mesero')
-@verificar_propiedad_orden
-def cobrar_orden_post(orden_id):
-    """Compatibilidad: convierte pago único legacy al nuevo modelo multi-pago."""
-    orden = db.session.get(Orden, orden_id, with_for_update=True)
-    if not orden:
-        return jsonify(success=False, message='Orden no encontrada.'), 404
-    db.session.refresh(orden)
-    orden.detalles
-    orden.pagos
-
-    if orden.estado not in ('completada', 'lista_para_entregar'):
-        return jsonify(success=False, message=f"No lista para cobro ({orden.estado})."), 400
-
-    data = request.get_json()
-    if not data or 'monto_recibido' not in data:
-        return jsonify(success=False, message="Falta monto_recibido."), 400
-
-    try:
-        monto_recibido = Decimal(str(data['monto_recibido']))
-    except Exception:
-        return jsonify(success=False, message="Monto inválido."), 400
-
-    orden.calcular_totales()
-
-    if monto_recibido < orden.total:
-        return jsonify(success=False, message=f"Insuficiente (total=${orden.total}).",
-                       total_orden=float(orden.total)), 400
-
-    # Registrar como pago efectivo
-    pago = Pago(
-        orden_id=orden.id, metodo='efectivo', monto=monto_recibido,
-        registrado_por=session.get('user_id'),
-    )
-    db.session.add(pago)
-
-    orden.monto_recibido = monto_recibido
-    orden.cambio = monto_recibido - orden.total
-    orden.fecha_pago = utc_now()
-    orden.estado = OrdenEstado.PAGADA
-
-    venta = Sale(mesa_id=orden.mesa_id, usuario_id=session.get('user_id'),
-                 total=orden.total, estado='cerrada',
-                 sucursal_id=getattr(g, 'sucursal_id', None))
-    db.session.add(venta)
-    db.session.flush()
-
-    for det in orden.detalles:
-        precio = float(det.precio_unitario) if det.precio_unitario else float(det.producto.precio)
-        db.session.add(SaleItem(
-            sale_id=venta.id, producto_id=det.producto_id,
-            cantidad=det.cantidad, precio_unitario=precio,
-            subtotal=det.cantidad * precio,
-        ))
-
-    # Descontar inventario before final commit (savepoint)
-    try:
-        db.session.begin_nested()
-        descontar_inventario_por_orden(orden, session.get('user_id'))
-        db.session.commit()  # release savepoint
-    except Exception:
-        db.session.rollback()  # rollback savepoint only
-        logger.exception('Error descontando inventario en cobrar_orden_post orden %s — requiere reconciliación', orden_id)
-        try:
-            from backend.models.models import ConfiguracionSistema
-            pending = ConfiguracionSistema.get('inventario_pendiente', '')
-            ids = f"{pending},{orden_id}" if pending else str(orden_id)
-            ConfiguracionSistema.set('inventario_pendiente', ids)
-        except Exception:
-            pass
-
-    db.session.commit()
-    # Liberar mesa si no quedan órdenes activas (Sprint 2 — 3.3)
-    actualizar_estado_mesa(orden.mesa_id)
-    db.session.commit()
-    logger.info('Orden #%s pagada (legacy). Total=$%.2f', orden_id, float(orden.total))
-
-    socketio.emit('orden_pagada_notificacion', {
-        'orden_id': orden.id, 'mensaje': f'Orden #{orden.id} pagada.',
-    })
-
-    return jsonify(
-        success=True, message="Pago confirmado.",
-        cambio=float(orden.cambio), orden_id=orden.id,
-        subtotal=float(orden.subtotal), iva=float(orden.iva), total=float(orden.total),
     )
 
 

@@ -26,15 +26,18 @@ if (-not $composeCmd) {
     exit 1
 }
 
-# ── Determine compose file ──
+# ── Determine compose file (misma regla que update.sh) ──
+# install.ps1 instala con docker-compose.yml (build local) tanto si clona con Git
+# como si corre desde la carpeta copiada en USB. Cambiar a prod a media vida haria
+# jalar una imagen distinta a la que tiene corriendo el equipo, asi que la regla es:
+# si existe docker-compose.yml, esa es la instalacion. docker-compose.prod.yml es
+# solo para despliegues que nunca tuvieron el archivo de build (imagen publicada).
 $composeFile = ""
-if (Test-Path "docker-compose.prod.yml") {
-    $composeFile = "-f docker-compose.prod.yml"
-    Write-Host "  Usando docker-compose.prod.yml (modo produccion)" -ForegroundColor Cyan
-} elseif (Test-Path "docker-compose.yml") {
-    $composeFile = ""
-    Write-Host "  Usando docker-compose.yml (modo desarrollo)" -ForegroundColor Cyan
-    # In dev mode, pull latest code if git repo
+$buildFlag = ""
+if (Test-Path "docker-compose.yml") {
+    $buildFlag = "--build"
+    Write-Host "  Usando docker-compose.yml (build local)" -ForegroundColor Cyan
+    # Solo hay codigo nuevo que traer si la instalacion se hizo clonando con Git.
     if (Test-Path ".git") {
         Write-Host "  Descargando ultima version del codigo..." -ForegroundColor Cyan
         try {
@@ -42,11 +45,17 @@ if (Test-Path "docker-compose.prod.yml") {
         } catch {
             Write-Host "  No se pudo hacer git pull." -ForegroundColor Yellow
         }
+    } else {
+        Write-Host "  Instalacion sin Git: se reconstruye con el codigo de esta carpeta." -ForegroundColor Yellow
     }
+} elseif (Test-Path "docker-compose.prod.yml") {
+    $composeFile = "-f docker-compose.prod.yml"
+    Write-Host "  Usando docker-compose.prod.yml (imagen pre-construida)" -ForegroundColor Cyan
 } else {
     Write-Host "  ERROR: No se encontro docker-compose.yml ni docker-compose.prod.yml" -ForegroundColor Red
     exit 1
 }
+$compose = ("$composeCmd $composeFile").Trim()
 
 # ── Create backup before updating ──
 Write-Host "  Creando backup de la base de datos..." -ForegroundColor Cyan
@@ -55,30 +64,48 @@ if (-not (Test-Path "backups")) { New-Item -ItemType Directory -Path "backups" |
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupFile = "backups\pre_update_$timestamp.dump"
 
-try {
-    if ($composeCmd -eq "docker compose") {
-        docker compose $composeFile exec -T db pg_dump -Fc -U casaleones casaleones > $backupFile 2>$null
-    } else {
-        docker-compose $composeFile exec -T db pg_dump -Fc -U casaleones casaleones > $backupFile 2>$null
-    }
+# La redireccion de PowerShell convierte la salida a texto y corrompe el .dump
+# binario, por eso pg_dump va via cmd /c (redireccion de bytes).
+cmd /c "$compose exec -T db pg_dump -Fc -U casaleones casaleones > ""$backupFile"" 2>nul"
+if ((Test-Path $backupFile) -and ((Get-Item $backupFile).Length -gt 0)) {
     Write-Host "  Backup creado: $backupFile" -ForegroundColor Green
-} catch {
+} else {
     Write-Host "  No se pudo crear backup (primera instalacion?)." -ForegroundColor Yellow
+    if (Test-Path $backupFile) { Remove-Item $backupFile -Force }
 }
 
 # ── Pull latest image / rebuild ──
-Write-Host "  Descargando ultima version..." -ForegroundColor Cyan
-if ($composeCmd -eq "docker compose") {
-    docker compose $composeFile pull 2>&1 | Select-Object -Last 3
+if ($buildFlag) {
+    Write-Host "  Reconstruyendo la aplicacion..." -ForegroundColor Cyan
 } else {
-    docker-compose $composeFile pull 2>&1 | Select-Object -Last 3
+    Write-Host "  Descargando ultima version..." -ForegroundColor Cyan
+    cmd /c "$compose pull" 2>&1 | Select-Object -Last 3
 }
 
 Write-Host "  Aplicando actualizacion..." -ForegroundColor Cyan
-if ($composeCmd -eq "docker compose") {
-    docker compose $composeFile up -d 2>&1 | Select-Object -Last 5
+cmd /c "$compose up -d $buildFlag" 2>&1 | Select-Object -Last 5
+
+# ── Apply schema migrations ──
+# create_all() del arranque solo crea tablas nuevas, nunca altera existentes.
+# Alembic aplica los cambios de schema pendientes. En una base creada por
+# create_all sin historial alembic, se marca el head actual primero (el schema
+# ya coincide) para que futuros upgrades apliquen solo lo nuevo.
+Write-Host "  Aplicando migraciones de base de datos..." -ForegroundColor Cyan
+Start-Sleep -Seconds 5  # dar tiempo a que los contenedores esten exec-ready
+$tieneAlembic = (cmd /c "$compose exec -T db psql -U casaleones -d casaleones -tAc ""SELECT to_regclass('alembic_version') IS NOT NULL"" 2>nul") -join ""
+if ($tieneAlembic.Trim() -ne "t") {
+    cmd /c "$compose exec -T web flask db stamp head 2>nul" | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "  Base marcada en head (primera vez con Alembic)" -ForegroundColor Green
+    } else {
+        Write-Host "  No se pudo hacer stamp (se reintentara en la proxima actualizacion)." -ForegroundColor Yellow
+    }
+}
+cmd /c "$compose exec -T web flask db upgrade 2>nul" | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "  Migraciones aplicadas" -ForegroundColor Green
 } else {
-    docker-compose $composeFile up -d 2>&1 | Select-Object -Last 5
+    Write-Host "  No se pudieron aplicar migraciones. Revisa: $compose logs web" -ForegroundColor Yellow
 }
 
 # ── Wait for health ──
@@ -126,10 +153,6 @@ for ($i = 1; $i -le $maxRetries; $i++) {
 Write-Host ""
 if (-not $healthy) {
     Write-Host "  La app no respondio en 120s." -ForegroundColor Red
-    if ($composeCmd -eq "docker compose") {
-        Write-Host "  Revisa: docker compose $composeFile logs web" -ForegroundColor Yellow
-    } else {
-        Write-Host "  Revisa: docker-compose $composeFile logs web" -ForegroundColor Yellow
-    }
+    Write-Host "  Revisa: $compose logs web" -ForegroundColor Yellow
     exit 1
 }

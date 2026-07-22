@@ -24,7 +24,7 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
   {# Card header #}
   <div class="cl-kds-card__hdr">
     <div>
-      <div class="cl-kds-card__num">#{{ orden.id }}</div>
+      <div class="cl-kds-card__num">#{{ orden.numero }}</div>
       <div class="cl-kds-card__meta">
         {% if orden.es_para_llevar %}
         <i data-lucide="shopping-bag" style="width:14px;height:14px;display:inline;"></i> Para Llevar
@@ -98,7 +98,7 @@ Variables: ordenes_data (dict: Orden → [OrdenDetalle]), now_utc (datetime) #}
     <button class="cl-kds-btn cl-kds-btn--done"
       data-action="marcar-todos" data-orden-id="{{ orden.id }}"
       data-pending-ids="[{% for item in detalles if item.estado != 'listo' %}{{ item.id }}{% if not loop.last %},{% endif %}{% endfor %}]"
-      aria-label="Marcar orden #{{ orden.id }} como lista">
+      aria-label="Marcar orden #{{ orden.numero }} como lista">
       <i data-lucide="check-circle" style="width:18px;height:18px;"></i>
       LISTO
     </button>

@@ -891,6 +891,49 @@ select.cl-input {
 }
 
 /* ════════════════════════
+   Fila de filtros
+   Los contadores viven DENTRO de los filtros (antes había además una fila de chips
+   que repetía lo mismo). En celular la fila se desliza de lado en vez de partirse en
+   tres renglones: así el chrome deja de comerse media pantalla antes de la 1ª orden.
+   ════════════════════════ */
+.cl-filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 767.98px) {
+    .cl-filter-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        /* Sangría para que el primer/último filtro no queden pegados al borde */
+        padding: 2px 16px;
+        margin-left: -16px;
+        margin-right: -16px;
+        scroll-snap-type: x proximity;
+    }
+
+    .cl-filter-row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cl-filter-row .cl-filter-pill {
+        flex: 0 0 auto;
+        scroll-snap-align: start;
+    }
+}
+
+/* Filtro de urgentes: se distingue sin depender sólo del color */
+.cl-filter-pill--urgente {
+    border-color: var(--cl-error-500);
+    color: var(--cl-error-text);
+}
+
+/* ════════════════════════
    FAB (Floating Action Button)
    ════════════════════════ */
 .cl-fab-container {
@@ -1144,6 +1187,15 @@ select.cl-input {
     .cl-fab-container {
         bottom: 16px;
         right: 16px;
+    }
+
+    /* En celular la barra inferior de pestañas (56px, .d-md-none) ocupa el mismo
+       espacio: sin este despeje los FABs quedan ENCIMA del botón "Cobrar" de la
+       primera tarjeta y de las pestañas de estación.
+       Clase explícita (no :has()) porque los WebView viejos de gama baja no lo
+       soportan y ahí es justo donde más apretado está el espacio. */
+    .cl-fab-container--sobre-tabs {
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 16px);
     }
 
     .cl-period-pills {
