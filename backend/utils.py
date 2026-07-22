@@ -9,6 +9,50 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================================
+# Órdenes borrador
+# =====================================================================
+
+def no_es_borrador():
+    """Condición SQL: la orden ya es real (no un borrador vacío).
+
+    Al tocar "Nueva orden" se crea la fila antes de agregar nada, porque el carrito
+    se guarda producto por producto (así no se pierde la orden si el celular se
+    bloquea a media captura). Mientras esté vacía no debe existir para nadie: ni en
+    la lista, ni en los contadores, ni ocupando la mesa.
+    """
+    return db.or_(Orden.estado != OrdenEstado.PENDIENTE, Orden.detalles.any())
+
+
+def limpiar_borradores(mesero_id, minutos=10):
+    """Borra los borradores vacíos que el mesero abandonó hace rato.
+
+    Se llama al abrir la lista de órdenes: barre solo, sin depender de que el mesero
+    use el botón "Regresar" (puede salir con el gesto del teléfono o cerrar la app).
+    """
+    from datetime import timedelta
+    from backend.models.models import utc_now
+
+    limite = utc_now().replace(tzinfo=None) - timedelta(minutes=minutos)
+    viejos = Orden.query.filter(
+        Orden.mesero_id == mesero_id,
+        Orden.estado == OrdenEstado.PENDIENTE,
+        Orden.tiempo_registro < limite,
+        ~Orden.detalles.any(),
+    ).all()
+    if not viejos:
+        return 0
+    mesas = {o.mesa_id for o in viejos if o.mesa_id}
+    for o in viejos:
+        db.session.delete(o)
+    db.session.commit()
+    for mesa_id in mesas:
+        actualizar_estado_mesa(mesa_id)
+    db.session.commit()
+    logger.info('Borradores vacíos eliminados: %s (mesero=%s)', len(viejos), mesero_id)
+    return len(viejos)
+
+
+# =====================================================================
 # Multi-sucursal: filtrado de queries (Sprint 2 — 2.2)
 # =====================================================================
 
@@ -93,9 +137,12 @@ def actualizar_estado_mesa(mesa_id, nuevo_estado=None):
 
     if nuevo_estado is None:
         # Calcular: ¿hay órdenes activas en esta mesa?
+        # Un borrador vacío no ocupa la mesa: si el mesero se arrepiente y regresa,
+        # la mesa debe seguir libre para quien sea.
         ordenes_activas = Orden.query.filter(
             Orden.mesa_id == mesa_id,
             Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+            no_es_borrador(),
         ).count()
         nuevo_estado = 'ocupada' if ordenes_activas > 0 else 'disponible'
 

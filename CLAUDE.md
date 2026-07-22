@@ -724,3 +724,45 @@ filtros partidos en **tres renglones**. Los chips y los filtros decían lo mismo
 Medido: primera tarjeta de **319 px → 184 px**, filtros de **96 px en 3 filas → 48 px en
 1**, y de 1 a **3 órdenes visibles** sin hacer scroll. En la vista de mesero el botón
 "Cobrar" de la primera orden ya se ve sin desplazarse.
+
+## Órdenes borrador: nada existe hasta que hay algo pedido (v6.6)
+Tocar "Nueva orden" creaba la fila al instante: si el mesero se regresaba quedaba una
+cuenta fantasma ocupando la mesa y contando como activa. En la base de la demo había
+**4 de 6 órdenes vacías**.
+
+### Por qué no se crea "hasta confirmar"
+El carrito **no es local**: cada producto se guarda al tocarlo (`POST /api/ordenes/<id>/detalle`).
+Mover el carrito al navegador significaría perder la orden completa si el celular se
+bloquea a media captura — en gama baja el WebView mata pestañas en segundo plano. Además
+la mesa se marca ocupada al crear, y el sistema permite agregar productos a una orden ya
+enviada a cocina, así que habría que mantener dos flujos.
+
+La solución conserva el guardado por toque, pero **mientras la orden esté vacía no existe
+para nadie**:
+- `utils.no_es_borrador()` — condición SQL (`estado != pendiente OR tiene detalles`).
+  Aplicada a la lista de órdenes y al conteo de ocupación de mesa
+- **Reutilización**: si el mesero ya tiene un borrador vacío de esa mesa (o para llevar),
+  se reutiliza en vez de crear otro. Tocar 3 veces = 1 orden
+- La mesa se ocupa **con el primer producto**, no al elegirla (en `orders.py` y en
+  `agregar_productos_a_orden`)
+- `utils.limpiar_borradores(mesero_id, minutos=10)` — barrido al abrir la lista; no
+  depende de que el mesero use "Regresar" (puede salir con el gesto del teléfono)
+- El selector de cuentas ignora **sólo el borrador propio**: el de otro mesero sí avisa,
+  para que dos no levanten la misma mesa sin enterarse
+
+### `crear_orden_para_llevar` pasó a POST
+Era un enlace `GET` sin CSRF: bastaba con que el navegador precargara la liga para crear
+una orden. Ahora responde 405 a GET. Los 6 enlaces usan `data-post-link`, manejado con
+delegación en `base.html` (arma un form con CSRF y lo envía; bloquea el doble tap).
+
+- Tests: `tests/test_ordenes_borrador.py` (10). Los de mesas compartidas se actualizaron
+  para darle producto a la cuenta antes de exigir el selector — sin productos ya no es
+  una cuenta. Suite total 128 passed.
+
+## Salida homogénea desde los paneles de cocina (v6.6)
+El KDS tenía una flecha pelona de 15px sin etiqueta, en un encabezado que **se desbordaba
+de lado** (625 px en una pantalla de 360), así que competía con chips cortados.
+- `.cl-kds-salir` — botón con etiqueta visible ("← Panel" para admin, "← Mis Órdenes"
+  para mesero), siempre arriba a la izquierda
+- El encabezado del KDS envuelve en celular en vez de desbordarse; en tablet sigue en
+  una sola fila de 60px

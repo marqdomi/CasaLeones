@@ -10,7 +10,9 @@ from backend.extensions import db, socketio
 from backend.services.tiempo import hoy_local, rango_utc
 from backend.services.cobro import cerrar_orden_pagada
 from backend.services.pagos import metodos_pago_detalle, metodos_pago_habilitados
-from backend.utils import login_required, verificar_propiedad_orden, filtrar_por_sucursal, verificar_stock_disponible, actualizar_estado_mesa
+from backend.utils import (login_required, verificar_propiedad_orden, filtrar_por_sucursal,
+                           verificar_stock_disponible, actualizar_estado_mesa,
+                           no_es_borrador, limpiar_borradores)
 from backend.services.sanitizer import sanitizar_texto
 from collections import defaultdict
 from sqlalchemy.orm import joinedload
@@ -56,12 +58,16 @@ def _revertir_inventario_orden(orden, usuario_id):
 def view_meseros():
     is_admin = session.get('rol') in ('admin', 'superadmin')
     user_id = session.get('user_id')
+    # Barrido de borradores abandonados (ver utils.limpiar_borradores)
+    if not is_admin:
+        limpiar_borradores(user_id)
     query = Orden.query.options(
         joinedload(Orden.mesa),
         joinedload(Orden.detalles).joinedload(OrdenDetalle.producto),
         joinedload(Orden.mesero),
     ).filter(
         Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+        no_es_borrador(),
     )
     if not is_admin:
         query = query.filter(Orden.mesero_id == user_id)
@@ -184,17 +190,33 @@ def historial_csv():
 # =====================================================================
 # Crear órdenes
 # =====================================================================
-@meseros_bp.route('/crear_orden_para_llevar')
+@meseros_bp.route('/crear_orden_para_llevar', methods=['POST'])
 @login_required(roles='mesero')
 def crear_orden_para_llevar():
+    """Crea (o reutiliza) la orden para llevar del mesero.
+
+    POST y no GET: como enlace, bastaba con que el navegador precargara la liga para
+    generar una orden fantasma sin que nadie la pidiera.
+    """
+    user_id = session.get('user_id')
+
+    # Si ya dejó un borrador vacío para llevar, se reutiliza en vez de crear otro.
+    borrador = Orden.query.filter(
+        Orden.mesero_id == user_id,
+        Orden.es_para_llevar.is_(True),
+        Orden.estado == OrdenEstado.PENDIENTE,
+        ~Orden.detalles.any(),
+    ).order_by(Orden.id.desc()).first()
+    if borrador:
+        return redirect(url_for('meseros.detalle_orden', orden_id=borrador.id))
+
     nueva_orden = Orden(
-        mesero_id=session.get('user_id'), es_para_llevar=True, estado=OrdenEstado.PENDIENTE,
+        mesero_id=user_id, es_para_llevar=True, estado=OrdenEstado.PENDIENTE,
         sucursal_id=g.sucursal_id,
     )
     db.session.add(nueva_orden)
     db.session.commit()
     logger.info('Orden para llevar creada: id=%s', nueva_orden.id)
-    flash('Nueva orden para llevar creada. Añade productos.', 'success')
     return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
 
 
@@ -221,9 +243,18 @@ def seleccionar_mesa():
             # Si ya hay cuentas y el mesero no pidió explícitamente una nueva,
             # se le muestra el selector de cuentas de esa mesa.
             forzar_nueva = request.form.get('forzar_nueva') == '1'
+            # Cuentas que el mesero debe ver antes de abrir otra. Se ignora sólo su
+            # PROPIO borrador vacío (ese se reutiliza más abajo); el borrador de otro
+            # mesero sí cuenta, para que no dos levanten la misma mesa sin enterarse.
+            mi_borrador_vacio = db.and_(
+                Orden.mesero_id == session.get('user_id'),
+                Orden.estado == OrdenEstado.PENDIENTE,
+                ~Orden.detalles.any(),
+            )
             cuentas_activas = Orden.query.filter(
                 Orden.mesa_id == mesa_id_int,
                 Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+                db.not_(mi_borrador_vacio),
             ).count()
             if cuentas_activas and not forzar_nueva:
                 db.session.rollback()  # release lock, nothing created
@@ -235,19 +266,33 @@ def seleccionar_mesa():
             except (ValueError, TypeError):
                 num_personas = None
 
-            nueva_orden = Orden(
-                mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
-                es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
-                sucursal_id=g.sucursal_id,
-                alias=alias, num_personas=num_personas,
-            )
-            db.session.add(nueva_orden)
-            db.session.commit()
-            # Auto-ocupar mesa (Sprint 2 — 3.3)
-            actualizar_estado_mesa(mesa_id_int, 'ocupada')
-            db.session.commit()
-            etiqueta = f' ({alias})' if alias else ''
-            flash(f'Cuenta{etiqueta} creada para Mesa {nueva_orden.mesa.numero}.', 'success')
+            # Si el mesero ya dejó un borrador vacío en esta mesa, se reutiliza en vez
+            # de amontonar cuentas fantasma cada vez que entra y se regresa.
+            nueva_orden = Orden.query.filter(
+                Orden.mesa_id == mesa_id_int,
+                Orden.mesero_id == session.get('user_id'),
+                Orden.estado == OrdenEstado.PENDIENTE,
+                ~Orden.detalles.any(),
+            ).order_by(Orden.id.desc()).first()
+
+            if nueva_orden:
+                db.session.rollback()  # suelta el lock: no hay nada que crear
+                if alias:
+                    nueva_orden.alias = alias
+                if num_personas:
+                    nueva_orden.num_personas = num_personas
+                db.session.commit()
+            else:
+                nueva_orden = Orden(
+                    mesero_id=session.get('user_id'), mesa_id=mesa_id_int,
+                    es_para_llevar=False, estado=OrdenEstado.PENDIENTE,
+                    sucursal_id=g.sucursal_id,
+                    alias=alias, num_personas=num_personas,
+                )
+                db.session.add(nueva_orden)
+                db.session.commit()
+            # La mesa se marca ocupada al agregar el primer producto, no antes: una
+            # cuenta vacía no debe bloquear la mesa si el mesero se arrepiente.
             return redirect(url_for('meseros.detalle_orden', orden_id=nueva_orden.id))
         flash('Debes seleccionar una mesa.', 'warning')
         return redirect(url_for('meseros.seleccionar_mesa'))
@@ -398,6 +443,10 @@ def agregar_productos_a_orden(orden_id):
                 nuevos.append(d)
 
         db.session.commit()
+        # La mesa se ocupa con el primer producto (antes la orden era un borrador)
+        if orden.mesa_id:
+            actualizar_estado_mesa(orden.mesa_id)
+            db.session.commit()
         if orden_ya_enviada and nuevos:
             socketio.emit('nueva_orden_cocina', {
                 'orden_id': orden.id,

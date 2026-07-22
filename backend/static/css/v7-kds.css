@@ -22,6 +22,50 @@
     justify-content: space-between;
     padding: 0 20px;
     flex-shrink: 0;
+    gap: 10px;
+}
+
+/* Salida del tablero: mismo lugar y con etiqueta en todas las pantallas de cocina */
+.cl-kds-salir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 14px 0 10px;
+    margin-right: 4px;
+    border-radius: var(--cl-radius-full, 9999px);
+    border: 1px solid var(--cl-overlay-strong);
+    background: var(--cl-overlay-subtle);
+    color: var(--cl-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background var(--cl-transition-fast), color var(--cl-transition-fast);
+}
+
+.cl-kds-salir:hover,
+.cl-kds-salir:focus-visible {
+    background: var(--cl-overlay);
+    color: var(--cl-text-primary);
+}
+
+/* En celular el encabezado medía 625px en una pantalla de 360 y se desbordaba de
+   lado, dejando la salida compitiendo con chips cortados. */
+@media (max-width: 767.98px) {
+    .cl-kds-header {
+        height: auto;
+        min-height: 56px;
+        flex-wrap: wrap;
+        padding: 8px 12px;
+        row-gap: 8px;
+    }
+
+    .cl-kds-pending__num+span {
+        display: none;
+        /* el número se entiende solo junto al ícono de la estación */
+    }
 }
 
 .cl-kds-station {
