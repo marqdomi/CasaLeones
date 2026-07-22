@@ -787,4 +787,20 @@ salta cuando se descarta un borrador: al tercer día el cliente escucharía "ord
 
 Verificado contra el servidor: 3 borradores abandonados → 0 folios usados; luego 3
 órdenes reales con ids internos 5, 6, 7 → folios 1, 2, 3.
-- Tests: `tests/test_folio_diario.py` (8). Suite total 136 passed.
+
+### El contador guarda 0, nunca NULL (bug encontrado en revisión)
+`Orden.sucursal_id` viene **NULL** en la instalación de una sola sucursal (que es la del
+cliente). El contador arrancó con esa columna nullable y `UNIQUE(sucursal_id, fecha)`:
+en SQL **dos NULL nunca son iguales**, así que el UNIQUE no impedía filas duplicadas.
+Probado contra PostgreSQL real con 12 órdenes simultáneas: se crearon **5 contadores** y
+**3 órdenes recibieron el folio 1**, sin ningún error visible.
+
+`FolioDiario.sucursal_id` es ahora `NOT NULL DEFAULT 0` (0 = sin sucursal, sin FK porque
+0 no es una sucursal real) y el servicio normaliza con `sucursal_id or 0`. Revalidado:
+60 órdenes simultáneas en 3 sucursales → 1..20 en cada una, cero duplicados, 3
+contadores. **SQLite ignora `with_for_update`, así que la concurrencia sólo se puede
+probar contra PostgreSQL** — los tests en SQLite fijan el invariante (el contador nunca
+guarda NULL), no la serialización.
+
+- Tests: `tests/test_folio_diario.py` (10, con control negativo verificado).
+  Suite total 138 passed.

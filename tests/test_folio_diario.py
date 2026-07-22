@@ -131,6 +131,41 @@ class TestFlujoReal:
         assert orden.numero == orden.folio
 
 
+class TestSinSucursal:
+    """La instalación de una sola sucursal deja `Orden.sucursal_id` en NULL.
+
+    Con NULL en el contador, el UNIQUE(sucursal_id, fecha) NO impide duplicados —en
+    SQL dos NULL nunca son iguales— y bajo carga se creaban varios contadores: tres
+    clientes recibían el folio 1. Por eso el contador guarda 0, no NULL.
+    """
+
+    def test_el_contador_nunca_guarda_null(self, app, db, mesero_user):
+        from backend.models.models import FolioDiario
+        from backend.services.folio import asignar_folio
+
+        orden = _orden(db, mesero_user)
+        assert orden.sucursal_id is None
+        asignar_folio(orden)
+        db.session.commit()
+
+        contador = FolioDiario.query.one()
+        assert contador.sucursal_id == 0, \
+            'con NULL el UNIQUE no protege y se duplican los contadores'
+
+    def test_comparten_un_solo_contador(self, app, db, mesero_user):
+        from backend.models.models import FolioDiario
+        from backend.services.folio import asignar_folio
+
+        folios = []
+        for _ in range(3):
+            o = _orden(db, mesero_user)
+            folios.append(asignar_folio(o))
+            db.session.commit()
+
+        assert folios == [1, 2, 3]
+        assert FolioDiario.query.count() == 1, 'se creó más de un contador para el día'
+
+
 class TestOrdenesViejas:
     def test_sin_folio_cae_al_id(self, db, mesero_user, sample_mesa):
         """Las órdenes anteriores a esta función no tienen folio y siguen usable."""

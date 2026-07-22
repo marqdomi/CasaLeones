@@ -45,7 +45,12 @@ class FolioDiario(db.Model):
     """
     __tablename__ = 'folios_diarios'
     id = db.Column(db.Integer, primary_key=True)
-    sucursal_id = db.Column(db.Integer, db.ForeignKey('sucursales.id'), nullable=True)
+    # 0 = sin sucursal. NO admite NULL a propósito: en SQL dos NULL nunca son iguales,
+    # así que un UNIQUE sobre una columna nullable NO impide filas duplicadas — y en la
+    # instalación de una sola sucursal el id viene vacío. Con NULL se creaban varios
+    # contadores en paralelo y tres clientes recibían el folio 1.
+    # Sin ForeignKey porque 0 no es una sucursal real.
+    sucursal_id = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     fecha = db.Column(db.Date, nullable=False)
     ultimo = db.Column(db.Integer, nullable=False, default=0)
 

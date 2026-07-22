@@ -38,7 +38,10 @@ def upgrade():
         op.create_table(
             'folios_diarios',
             sa.Column('id', sa.Integer(), primary_key=True),
-            sa.Column('sucursal_id', sa.Integer(), sa.ForeignKey('sucursales.id'), nullable=True),
+            # NOT NULL con 0 = "sin sucursal": un UNIQUE sobre columna nullable no
+            # impide duplicados (NULL != NULL), y con eso se creaban varios
+            # contadores en paralelo y varios clientes recibían el folio 1.
+            sa.Column('sucursal_id', sa.Integer(), nullable=False, server_default='0'),
             sa.Column('fecha', sa.Date(), nullable=False),
             sa.Column('ultimo', sa.Integer(), nullable=False, server_default='0'),
             sa.UniqueConstraint('sucursal_id', 'fecha', name='uq_folio_sucursal_fecha'),
