@@ -4,6 +4,7 @@
 ═══════════════════════════════════════════════════════ #}
 {% extends 'layouts/_layout_operations.html' %}
 {% set active_op_tab = 'meseros' %}
+{% set tiene_fab = true %}{# reserva espacio extra abajo para los botones flotantes #}
 {% block page_title %}Mis Órdenes{% endblock %}
 
 {% block ops_content %}
@@ -66,7 +67,7 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
-      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--cl-text-tertiary);" id="socketStatus" title="Socket.IO">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--cl-text-tertiary);" id="socketStatus" title="Socket.IO">
         <span class="cl-live-dot" id="liveDot"></span>
         <span id="liveLabel">Conectando...</span>
       </div>
@@ -76,7 +77,7 @@
       <button class="cl-btn--v7-outline cl-btn--sm" id="btnRefresh" type="button" aria-label="Actualizar">
         <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Actualizar
       </button>
-      <div style="font-size:10px;color:var(--cl-text-tertiary);" id="autoRefreshLabel"></div>
+      <div style="font-size:12px;color:var(--cl-text-tertiary);" id="autoRefreshLabel"></div>
     </div>
   </div>
 
@@ -176,27 +177,27 @@
           {% endif %}
           {# Status badge #}
           {% if orden.estado == 'pendiente' %}
-          <span class="cl-status cl-status--pending" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--pending" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="clock" style="width:10px;height:10px;"></i> Pendiente
           </span>
           {% elif orden.estado in ['enviado','en_preparacion'] %}
-          <span class="cl-status cl-status--kitchen" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--kitchen" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="chef-hat" style="width:10px;height:10px;"></i> En cocina
           </span>
           {% elif orden.estado == 'lista_para_entregar' %}
-          <span class="cl-status cl-status--ready" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--ready" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="check-circle" style="width:10px;height:10px;"></i> Lista
           </span>
           {% elif orden.estado == 'completada' %}
-          <span class="cl-status cl-status--done" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--done" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="check-circle" style="width:10px;height:10px;"></i> Completada
           </span>
           {% elif urgency == 'urgent' %}
-          <span class="cl-status cl-status--urgent" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--urgent" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="alert-triangle" style="width:10px;height:10px;"></i> Retrasada
           </span>
           {% else %}
-          <span class="cl-status cl-status--kitchen" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--kitchen" style="font-size:12px;padding:2px 8px;">
             {{ orden.estado|capitalize }}
           </span>
           {% endif %}
@@ -210,7 +211,7 @@
         {% set listos = orden.detalles|selectattr('estado','equalto','listo')|list|length %}
         {% set entregados = orden.detalles|selectattr('estado','equalto','entregado')|list|length %}
         {% set pct_done = ((listos + entregados) * 100 / total_items)|int if total_items > 0 else 0 %}
-        <div class="cl-progress-row" data-orden-id="{{ orden.id }}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:10px;color:var(--cl-text-tertiary);">
+        <div class="cl-progress-row" data-orden-id="{{ orden.id }}" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;color:var(--cl-text-tertiary);">
           <div style="flex:1;height:4px;background:var(--cl-overlay-strong);border-radius:2px;overflow:hidden;">
             <div class="cl-progress-fill" style="height:100%;border-radius:2px;transition:width 0.4s ease;width:{{ pct_done }}%;
               background:{% if entregados == total_items %}var(--cl-success-500){% elif pct_done > 0 %}var(--cl-warning-500){% else %}transparent{% endif %};">
@@ -253,17 +254,17 @@
               <span class="accion-producto" style="flex-shrink:0;">
                 {% if detalle.estado == 'listo' %}
                 <button type="button" class="btn-entregar-item" data-detalle-id="{{ detalle.id }}" data-orden-id="{{ orden.id }}"
-                  style="font-size:10px;padding:2px 8px;border-radius:6px;border:none;background:var(--cl-primary-500);color:#fff;cursor:pointer;font-weight:600;">
+                  style="font-size:12px;padding:2px 8px;border-radius:6px;border:none;background:var(--cl-primary-500);color:#fff;cursor:pointer;font-weight:600;">
                   Entregar
                 </button>
                 {% elif detalle.estado == 'entregado' %}
-                <span style="font-size:10px;color:var(--cl-success-text);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
+                <span style="font-size:12px;color:var(--cl-success-text);font-weight:600;"><i data-lucide="check-circle" style="width:10px;height:10px;"></i></span>
                 {% endif %}
               </span>
             </div>
             {# Item notes #}
             {% if detalle.notas %}
-            <div style="margin-left:14px;font-size:11px;color:var(--cl-warning-text);display:flex;align-items:center;gap:4px;">
+            <div style="margin-left:14px;font-size:12px;color:var(--cl-warning-text);display:flex;align-items:center;gap:4px;">
               <i data-lucide="message-circle" style="width:10px;height:10px;flex-shrink:0;"></i>
               <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ detalle.notas }}</span>
             </div>
@@ -271,14 +272,14 @@
           </div>
           {% endfor %}
           {% if orden.detalles|length > 5 %}
-          <div class="cl-scroll-hint" style="text-align:center;padding:2px 0;font-size:10px;color:var(--cl-text-tertiary);opacity:0.6;">
+          <div class="cl-scroll-hint" style="text-align:center;padding:2px 0;font-size:12px;color:var(--cl-text-tertiary);opacity:0.6;">
             <i data-lucide="chevrons-down" style="width:12px;height:12px;"></i> Scroll para ver todos
           </div>
           {% endif %}
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:12px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
             {{ orden.tiempo_registro|hora_local }}
@@ -333,7 +334,7 @@
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
           <span class="cl-timer cl-timer--fresh" style="opacity:0.7;">{{ orden.tiempo_registro|hora_local }}</span>
-          <span class="cl-status cl-status--paid" style="font-size:10px;padding:2px 8px;">
+          <span class="cl-status cl-status--paid" style="font-size:12px;padding:2px 8px;">
             <i data-lucide="circle-check" style="width:10px;height:10px;"></i> Pagada
           </span>
         </div>
@@ -352,12 +353,12 @@
           </div>
           {% endfor %}
           {% if orden.detalles|length > 4 %}
-          <span style="font-size:11px;color:var(--cl-text-tertiary);">+{{ orden.detalles|length - 4 }} más...</span>
+          <span style="font-size:12px;color:var(--cl-text-tertiary);">+{{ orden.detalles|length - 4 }} más...</span>
           {% endif %}
         </div>
 
         {# Meta row #}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:11px;color:var(--cl-text-tertiary);">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--cl-overlay);font-size:12px;color:var(--cl-text-tertiary);">
           <div style="display:flex;align-items:center;gap:4px;">
             <i data-lucide="clock" style="width:11px;height:11px;"></i>
             {% if orden.fecha_pago %}Pagada {{ orden.fecha_pago|hora_local }}{% else %}{{ orden.tiempo_registro|hora_local }}{% endif %}
@@ -391,7 +392,7 @@
   </div>
 
   {# ═══════════ FABs ═══════════ #}
-  <div class="cl-fab-container">
+  <div class="cl-fab-container cl-fab-container--sobre-tabs">
     <a href="{{ url_for('meseros.crear_orden_para_llevar') }}" class="cl-fab--secondary" id="fabParaLlevar">
       <i data-lucide="package" style="width:15px;height:15px;"></i>
       <span>Para Llevar</span>

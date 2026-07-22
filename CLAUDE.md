@@ -666,3 +666,42 @@ roto (el default de fábrica de cualquier tablet).
 ### Regla
 Nada de colores de superficie hardcodeados. Todo fondo/borde/texto va por token para
 que herede el tema. Colores semánticos como texto → `--cl-*-text`, no `-500`.
+
+## Auditoría móvil — celulares y tablets (v6.5)
+Medición en 360×640 (gama baja), 390×844, 430×932 y tablet 768×1024, sobre las
+pantallas del mesero, cobro, KDS, dashboard y transferencias.
+
+### Lo que ya estaba bien
+Cero scroll horizontal en todas las pantallas y tamaños. KDS en tablet impecable
+(tipografía grande, LISTO enorme, oscuro forzado). Sin tablas desbordadas en el admin.
+
+### Corregido
+- **Los FAB tapaban el botón "Cobrar"** y las pestañas de estación, en TODOS los anchos
+  de celular (el contenedor iba de 822 a 916 y la barra inferior arranca en 876).
+  `.cl-fab-container--sobre-tabs` los sube por encima de la barra (56px + notch).
+  Clase explícita en vez de `:has()`: los WebView viejos de gama baja no lo soportan
+- La regla que reservaba espacio inferior apuntaba a `.cl-ops-main`, clase que el
+  `<main>` **no tenía** — por eso el contenido quedaba debajo de la barra. Se conectó,
+  y las pantallas con FAB reservan además su pila (`tiene_fab` → `--con-fab`)
+- **La bandeja de transferencias era una tabla de 6 columnas**: 594px en un contenedor
+  de 328, con el botón "Llegó" en x=468, fuera de la pantalla. Patrón nuevo
+  `.cl-tabla-cards`: en <768px cada fila se apila como tarjeta con su `data-label` y el
+  botón principal a todo lo ancho (thead se oculta accesible, no con display:none)
+- **"Confirmar Pago" caía fuera de la vista** (y=883 en pantalla de 640): ahora es
+  `position:sticky` al pie en celular
+- **Zoom automático de iOS**: 5 campos bajo 16px. Regla global de 16px + alto 44px
+- **Objetivos táctiles**: de 21 a 8 por pantalla, y los que quedan son 38–43px (antes
+  había de 14×14 —cerrar sesión— y 18×25 —estrella de favorito—)
+- **Letra bajo 12px**: de 46 a 1 en detalle de orden. El piso usa prefijo `html` para
+  ganarle a los `<style>` de cada plantilla, que si no vencen por orden de cascada
+
+### Compresión (lo que más pesa en gama baja)
+Los estáticos viajaban **sin comprimir**: `lucide.min.js` son 356 KB en crudo.
+- Flask-Compress con `COMPRESS_ALGORITHM` y **`COMPRESS_ALGORITHM_STREAMING`** — este
+  segundo es clave: los estáticos van en streaming y usan su propia lista, que por
+  defecto no incluye gzip, así que un navegador sin brotli se quedaba sin comprimir
+- Medido con cabeceras de navegador viejo (`gzip, deflate`): **842 KB → 188 KB (−78%)**
+
+### Pendiente
+La librería de iconos son 348 KB para ~107 iconos usados; un subconjunto ahorraría otro
+tanto, pero requiere paso de build (hoy todo es vendorizado a mano).

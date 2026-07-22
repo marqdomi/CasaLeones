@@ -385,6 +385,17 @@
   z-index: 2;
 }
 .tile-fav-btn:hover, .tile-fav-btn.is-fav { opacity: 1; color: var(--cl-gold-500, #D4A843); }
+/* En celular estos botones medían 18x25 y 26x29: imposibles de atinar con el dedo. */
+@media (max-width: 767.98px) {
+  .tile-fav-btn, .tile-notes-btn {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tile-fav-btn { top: 0; right: 0; }
+}
 .tile-fav-btn.is-fav i { fill: var(--cl-gold-500, #D4A843); }
 
 /* Tile notes button */

@@ -328,6 +328,23 @@
 .pago-confirm:hover:not(:disabled) { background: var(--cl-gold-600, #C09838); transform: translateY(-1px); box-shadow: var(--cl-shadow-lg); }
 .pago-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* En celular la pantalla de cobro mide ~960px: el botón quedaba fuera de la vista y
+   había que bajar hasta el fondo en CADA cobro. Aquí se ancla al pie. */
+@media (max-width: 767.98px) {
+  .pago-confirm {
+    position: sticky;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    margin-top: var(--cl-space-4);
+    box-shadow: 0 -6px 24px rgba(16, 24, 40, .18), var(--cl-shadow-lg);
+    z-index: 5;
+  }
+
+  /* Espacio para que la última sección no quede debajo del botón anclado */
+  .pago-panel {
+    padding-bottom: 12px;
+  }
+}
+
 /* Success overlay */
 .pago-success-overlay {
   position: fixed;

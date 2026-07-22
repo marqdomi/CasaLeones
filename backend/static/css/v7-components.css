@@ -1146,6 +1146,15 @@ select.cl-input {
         right: 16px;
     }
 
+    /* En celular la barra inferior de pestañas (56px, .d-md-none) ocupa el mismo
+       espacio: sin este despeje los FABs quedan ENCIMA del botón "Cobrar" de la
+       primera tarjeta y de las pestañas de estación.
+       Clase explícita (no :has()) porque los WebView viejos de gama baja no lo
+       soportan y ahí es justo donde más apretado está el espacio. */
+    .cl-fab-container--sobre-tabs {
+        bottom: calc(56px + env(safe-area-inset-bottom, 0px) + 16px);
+    }
+
     .cl-period-pills {
         width: 100%;
     }

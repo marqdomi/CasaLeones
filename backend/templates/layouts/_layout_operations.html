@@ -57,7 +57,7 @@ Usage:
         <i data-lucide="chef-hat" class="icon-sm"></i>
         <span>{{ est.nombre }}</span>
         <span class="cl-est-badge" data-est-badge="{{ est.id }}"
-          style="display:none;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--cl-warning-500);color:#1a1a1a;font-size:10px;font-weight:800;line-height:18px;text-align:center;"></span>
+          style="display:none;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--cl-warning-500);color:#1a1a1a;font-size:12px;font-weight:800;line-height:18px;text-align:center;"></span>
       </a>
       {% endfor %}
     </div>
@@ -145,7 +145,7 @@ Usage:
     <i data-lucide="chef-hat" class="icon-sm"></i>
     <span>{{ est.nombre|truncate(9, True, '·') }}</span>
     <span class="cl-est-badge" data-est-badge="{{ est.id }}"
-      style="display:none;position:absolute;top:2px;right:8px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--cl-warning-500);color:#1a1a1a;font-size:9px;font-weight:800;line-height:16px;text-align:center;"></span>
+      style="display:none;position:absolute;top:2px;right:8px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--cl-warning-500);color:#1a1a1a;font-size:12px;font-weight:800;line-height:16px;text-align:center;"></span>
   </a>
   {% endfor %}
 </nav>
@@ -180,7 +180,7 @@ Usage:
 {% endif %}
 
 {# ── Content ── #}
-<main id="main-content" style="background:var(--cl-canvas);min-height:calc(100vh - var(--cl-topbar-h, 60px));">
+<main id="main-content" class="cl-ops-main{% if tiene_fab|default(false) %} cl-ops-main--con-fab{% endif %}" style="background:var(--cl-canvas);min-height:calc(100vh - var(--cl-topbar-h, 60px));">
   {# Flash messages #}
   {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}

@@ -35,7 +35,7 @@
   </div>
 
   <div class="table-responsive">
-    <table class="cl-table" style="margin-bottom:0;">
+    <table class="cl-table cl-tabla-cards" style="margin-bottom:0;">
       <thead>
         <tr>
           <th>Hora</th>
@@ -49,10 +49,10 @@
       <tbody>
         {% for p in pendientes %}
         <tr id="pago-{{ p.id }}">
-          <td style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
+          <td data-label="Hora" style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
             {{ p.fecha|hora_local }}
           </td>
-          <td>
+          <td data-label="Cuenta">
             <a href="{{ url_for('meseros.detalle_orden', orden_id=p.orden_id) }}"
                style="font-weight:var(--cl-font-semibold);">#{{ p.orden_id }}</a>
             {% if p.orden and p.orden.mesa %}
@@ -62,12 +62,12 @@
             <span style="color:var(--cl-text-tertiary);font-size:12px;">· {{ p.orden.alias }}</span>
             {% endif %}
           </td>
-          <td style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
-          <td style="color:var(--cl-text-secondary);">{{ p.usuario.nombre if p.usuario else '—' }}</td>
-          <td class="text-end" style="font-family:var(--cl-font-mono);font-weight:700;">
+          <td data-label="Referencia" style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
+          <td data-label="Cobró" style="color:var(--cl-text-secondary);">{{ p.usuario.nombre if p.usuario else '—' }}</td>
+          <td data-label="Monto" class="text-end" style="font-family:var(--cl-font-mono);font-weight:700;">
             ${{ '%.2f'|format(p.monto) }}
           </td>
-          <td class="text-end">
+          <td class="text-end cl-td-acciones">
             <div class="d-flex gap-1 justify-content-end">
               <button type="button" class="cl-btn--v7-success cl-btn--sm btn-verificar"
                       data-pago-id="{{ p.id }}">
@@ -106,7 +106,7 @@
     <strong>Confirmadas hoy</strong>
   </div>
   <div class="table-responsive">
-    <table class="cl-table" style="margin-bottom:0;">
+    <table class="cl-table cl-tabla-cards" style="margin-bottom:0;">
       <thead>
         <tr>
           <th>Confirmada</th>
@@ -119,13 +119,13 @@
       <tbody>
         {% for p in verificados_hoy %}
         <tr>
-          <td style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
+          <td data-label="Confirmada" style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
             {{ p.fecha_verificacion|hora_local }}
           </td>
-          <td>#{{ p.orden_id }}</td>
-          <td style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
-          <td style="color:var(--cl-text-secondary);">{{ p.verificador.nombre if p.verificador else '—' }}</td>
-          <td class="text-end" style="font-family:var(--cl-font-mono);">${{ '%.2f'|format(p.monto) }}</td>
+          <td data-label="Cuenta">#{{ p.orden_id }}</td>
+          <td data-label="Referencia" style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
+          <td data-label="Confirmó" style="color:var(--cl-text-secondary);">{{ p.verificador.nombre if p.verificador else '—' }}</td>
+          <td data-label="Monto" class="text-end" style="font-family:var(--cl-font-mono);">${{ '%.2f'|format(p.monto) }}</td>
         </tr>
         {% endfor %}
       </tbody>
