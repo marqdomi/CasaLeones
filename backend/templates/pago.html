@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════ #}
 {% extends 'layouts/_layout_operations.html' %}
 {% set active_op_tab = 'meseros' %}
-{% block page_title %}Cobro #{{ orden.id }}{% endblock %}
+{% block page_title %}Cobro #{{ orden.numero }}{% endblock %}
 
 {% block ops_content %}
 <div class="pago-layout">
@@ -16,7 +16,7 @@
         <i data-lucide="arrow-left" class="icon-xs"></i> Regresar
       </a>
       <h2 style="margin: 0; font-size: var(--cl-text-xl); font-weight: var(--cl-font-bold);">
-        Orden #{{ orden.id }}
+        Orden #{{ orden.numero }}
       </h2>
       <span class="cl-badge cl-badge--pill" style="background: var(--cl-primary-100); color: var(--cl-primary-700);">
         {% if orden.es_para_llevar %}

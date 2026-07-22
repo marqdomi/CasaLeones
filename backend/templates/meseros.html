@@ -110,7 +110,7 @@
 
     <div class="cl-order-card cl-order-card--{{ urgency }}" id="orden-card-{{ orden.id }}"
       data-orden-id="{{ orden.id }}"
-      data-orden-num="#{{ orden.id }}"
+      data-orden-num="#{{ orden.numero }}"
       data-mesa-label="{% if orden.es_para_llevar %}Para llevar{% else %}Mesa {{ orden.mesa.numero if orden.mesa else '?' }}{% endif %}"
       data-mesa-icon="{% if orden.es_para_llevar %}package{% else %}armchair{% endif %}"
       data-total="{{ '%.2f'|format(orden.total if orden.total is not none else 0) }}"
@@ -118,13 +118,13 @@
       data-filters="{{ filter_tags|join(' ') }}"
       data-href="{{ url_for('meseros.detalle_orden', orden_id=orden.id) }}"
       role="button" tabindex="0"
-      aria-label="Orden #{{ orden.id }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
+      aria-label="Orden #{{ orden.numero }}{% if orden.mesa %}, Mesa {{ orden.mesa.numero }}{% endif %}">
 
       {# ── Card Header ── #}
       <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-primary);">
-            #{{ orden.id }}
+            #{{ orden.numero }}
           </div>
           <div style="font-size:12px;color:var(--cl-text-tertiary);margin-top:4px;display:flex;align-items:center;gap:4px;">
             {% if orden.es_para_llevar %}
@@ -284,13 +284,13 @@
     <div class="cl-order-card cl-order-card--paid" id="orden-paid-{{ orden.id }}"
       data-orden-id="{{ orden.id }}"
       data-filters="pagadas"
-      aria-label="Orden #{{ orden.id }} — Pagada">
+      aria-label="Orden #{{ orden.numero }} — Pagada">
 
       {# ── Card Header ── #}
       <div style="padding:14px 16px 12px;border-bottom:1px solid var(--cl-overlay);display:flex;align-items:flex-start;justify-content:space-between;">
         <div>
           <div style="font-family:var(--cl-font-mono);font-size:20px;font-weight:900;letter-spacing:-0.02em;line-height:1;color:var(--cl-text-secondary);">
-            #{{ orden.id }}
+            #{{ orden.numero }}
           </div>
           <div style="font-size:12px;color:var(--cl-text-tertiary);margin-top:4px;display:flex;align-items:center;gap:4px;">
             {% if orden.es_para_llevar %}

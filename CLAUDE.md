@@ -766,3 +766,25 @@ de lado** (625 px en una pantalla de 360), así que competía con chips cortados
   para mesero), siempre arriba a la izquierda
 - El encabezado del KDS envuelve en celular en vez de desbordarse; en tablet sigue en
   una sola fila de 60px
+
+## Folio diario por sucursal (v6.6)
+El `id` de Orden es una secuencia global compartida por todas las sucursales, y además
+salta cuando se descarta un borrador: al tercer día el cliente escucharía "orden 247".
+
+- `FolioDiario(sucursal_id, fecha, ultimo)` con UNIQUE — contador por sucursal y día
+  contable (`hoy_local()`, así que respeta la zona del negocio)
+- `Orden.folio` + `Orden.folio_fecha` (migración c013, idempotente)
+- `Orden.numero` — property: el folio, o el `id` si no tiene. Las órdenes anteriores a
+  esta función siguen mostrándose sin romperse
+- `services/folio.py::asignar_folio()` — idempotente (agregar un segundo producto no
+  renumera). Bloquea el contador con `with_for_update()` para que dos meseros que
+  registran su primer producto al mismo tiempo no se lleven el mismo número; la
+  creación del contador va en savepoint y tolera la carrera por el UNIQUE
+- **Se asigna con el primer producto**, cuando la orden deja de ser borrador: un
+  borrador abandonado no quema número
+- El `id` sigue siendo la llave para URLs y relaciones; sólo cambió lo que se muestra
+  (20 lugares en templates + `data-orden-num` que usa meseros.js)
+
+Verificado contra el servidor: 3 borradores abandonados → 0 folios usados; luego 3
+órdenes reales con ids internos 5, 6, 7 → folios 1, 2, 3.
+- Tests: `tests/test_folio_diario.py` (8). Suite total 136 passed.

@@ -443,7 +443,10 @@ def agregar_productos_a_orden(orden_id):
                 nuevos.append(d)
 
         db.session.commit()
-        # La mesa se ocupa con el primer producto (antes la orden era un borrador)
+        # Con el primer producto deja de ser borrador: folio del día y mesa ocupada
+        from backend.services.folio import asignar_folio
+        asignar_folio(orden)
+        db.session.commit()
         if orden.mesa_id:
             actualizar_estado_mesa(orden.mesa_id)
             db.session.commit()

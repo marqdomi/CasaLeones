@@ -123,8 +123,11 @@ def add_product_to_order(orden_id):
             'mensaje': f'Nuevos productos en orden #{orden.id}.',
         })
 
-    # La mesa se ocupa con el primer producto: hasta aquí la orden era un borrador
-    # y no debía bloquear la mesa.
+    # Con el primer producto la orden deja de ser borrador: recibe su folio del día
+    # y ocupa la mesa. Antes no debía consumir número ni bloquear la mesa.
+    from backend.services.folio import asignar_folio
+    asignar_folio(orden)
+    db.session.commit()
     if orden.mesa_id:
         actualizar_estado_mesa(orden.mesa_id)
         db.session.commit()

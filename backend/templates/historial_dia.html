@@ -55,7 +55,7 @@
         {% for orden in ordenes %}
         <tr>
           <td>
-            <span style="font-weight: var(--cl-font-semibold); color: var(--cl-text-primary);">#{{ orden.id }}</span>
+            <span style="font-weight: var(--cl-font-semibold); color: var(--cl-text-primary);">#{{ orden.numero }}</span>
           </td>
           <td>
             <span style="color: var(--cl-text-secondary);">{{ orden.tiempo_registro|hora_local }}</span>

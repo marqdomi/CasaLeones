@@ -5,7 +5,7 @@
    ═══════════════════════════════════════════════════════ #}
 {% extends 'layouts/_layout_operations.html' %}
 {% set active_op_tab = 'meseros' %}
-{% block page_title %}Orden #{{ orden.id }}{% endblock %}
+{% block page_title %}Orden #{{ orden.numero }}{% endblock %}
 
 {% block ops_content %}
 <div class="split-panel">
@@ -76,7 +76,7 @@
     {# M8: Mobile close button in cart header #}
     <div class="cart-header">
       <div>
-        <h2 class="cart-header__title">Orden #{{ orden.id }}</h2>
+        <h2 class="cart-header__title">Orden #{{ orden.numero }}</h2>
         <div class="cart-header__meta">
           {% if orden.es_para_llevar %}
             <span class="cl-badge cl-badge--pill cart-badge--warning">
@@ -176,7 +176,7 @@
     <div class="modal-content" style="border-radius: var(--cl-radius-xl); overflow: hidden;">
       <div class="modal-header" style="background: var(--cl-error-500); color: white;">
         <h5 class="modal-title" id="modalCancelarLabel">
-          <i data-lucide="alert-triangle" class="icon-sm"></i> Cancelar Orden #{{ orden.id }}
+          <i data-lucide="alert-triangle" class="icon-sm"></i> Cancelar Orden #{{ orden.numero }}
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>

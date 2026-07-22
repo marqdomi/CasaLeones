@@ -54,7 +54,7 @@
           </td>
           <td data-label="Cuenta">
             <a href="{{ url_for('meseros.detalle_orden', orden_id=p.orden_id) }}"
-               style="font-weight:var(--cl-font-semibold);">#{{ p.orden_id }}</a>
+               style="font-weight:var(--cl-font-semibold);">#{{ p.orden.numero if p.orden else p.orden_id }}</a>
             {% if p.orden and p.orden.mesa %}
             <span style="color:var(--cl-text-tertiary);font-size:12px;">· Mesa {{ p.orden.mesa.numero }}</span>
             {% endif %}
@@ -122,7 +122,7 @@
           <td data-label="Confirmada" style="font-family:var(--cl-font-mono);color:var(--cl-text-secondary);">
             {{ p.fecha_verificacion|hora_local }}
           </td>
-          <td data-label="Cuenta">#{{ p.orden_id }}</td>
+          <td data-label="Cuenta">#{{ p.orden.numero if p.orden else p.orden_id }}</td>
           <td data-label="Referencia" style="font-family:var(--cl-font-mono);">{{ p.referencia or '—' }}</td>
           <td data-label="Confirmó" style="color:var(--cl-text-secondary);">{{ p.verificador.nombre if p.verificador else '—' }}</td>
           <td data-label="Monto" class="text-end" style="font-family:var(--cl-font-mono);">${{ '%.2f'|format(p.monto) }}</td>
