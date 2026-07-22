@@ -955,20 +955,8 @@ $(document).ready(function() {
             }
         });
 
-        // Update header counter chips
-        var counterTotal = document.getElementById('counterTotal');
-        var counterCocina = document.getElementById('counterCocina');
-        var counterListas = document.getElementById('counterListas');
-        if (counterTotal) counterTotal.innerHTML = '<i data-lucide="clipboard-list" style="width:11px;height:11px;"></i> ' + totalCount + ' activa' + (totalCount !== 1 ? 's' : '');
-        if (counterCocina) {
-            counterCocina.innerHTML = '<i data-lucide="clock" style="width:11px;height:11px;"></i> ' + enCocinaCount + ' en cocina';
-            counterCocina.style.display = enCocinaCount > 0 ? '' : 'none';
-        }
-        if (counterListas) {
-            counterListas.innerHTML = '<i data-lucide="check-circle" style="width:11px;height:11px;"></i> ' + listasCount + (listasCount === 1 ? ' lista' : ' listas');
-            counterListas.style.display = listasCount > 0 ? '' : 'none';
-        }
-
+        // Los contadores viven dentro de los filtros: la fila de chips que repetía
+        // esto mismo se eliminó porque se comía media pantalla en celular.
         // Update filter pill counters
         var pillAll = document.getElementById('pillCountAll');
         var pillCocina = document.getElementById('pillCountCocina');

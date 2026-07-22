@@ -705,3 +705,22 @@ Los estáticos viajaban **sin comprimir**: `lucide.min.js` son 356 KB en crudo.
 ### Pendiente
 La librería de iconos son 348 KB para ~107 iconos usados; un subconjunto ahorraría otro
 tanto, pero requiere paso de build (hoy todo es vendorizado a mano).
+
+## Encabezado de órdenes: contadores dentro de los filtros (v6.5)
+En 360×640 el chrome se comía **319 px de 640** antes de la primera orden: una fila de
+chips ("5 activas / 5 en cocina / 5 urgentes"), otra con el botón Actualizar, y los
+filtros partidos en **tres renglones**. Los chips y los filtros decían lo mismo.
+
+- Los contadores viven ahora **dentro de los filtros** (`cl-pill-count`); la fila de
+  chips se eliminó en `meseros.html` y `admin/ordenes_activas.html`
+- `.cl-filter-row`: una sola fila que **se desliza de lado** en celular
+  (`flex-wrap:nowrap` + `overflow-x:auto` + `scroll-snap`), y sigue envolviendo normal
+  en ≥768px. La sangría negativa deja los filtros a ras del borde al deslizar
+- Filtros de Urgentes y Llevar sólo aparecen si hay algo que filtrar
+- El botón Actualizar queda sólo icono en celular (ahorraba una fila entera al envolver)
+- `updateFilterCounters()` en meseros.js: se quitó el bloque que actualizaba los chips
+  (código muerto; los ids ya no existen)
+
+Medido: primera tarjeta de **319 px → 184 px**, filtros de **96 px en 3 filas → 48 px en
+1**, y de 1 a **3 órdenes visibles** sin hacer scroll. En la vista de mesero el botón
+"Cobrar" de la primera orden ya se ve sin desplazarse.

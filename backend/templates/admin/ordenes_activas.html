@@ -22,61 +22,35 @@
 {% set pendientes_count = ordenes_mesero|selectattr('estado','equalto','pendiente')|list|length %}
 {% set listas = ordenes_mesero|selectattr('estado','equalto','completada')|list|length
    + ordenes_mesero|selectattr('estado','equalto','lista_para_entregar')|list|length %}
+{% set urgentes_list = [] %}
+{% for o in ordenes_mesero %}
+  {% set mins = ((now_utc - o.tiempo_registro).total_seconds() / 60)|int if now_utc is defined else 0 %}
+  {% if mins > 20 and o.estado not in ['completada','lista_para_entregar'] %}
+    {% if urgentes_list.append(1) %}{% endif %}
+  {% endif %}
+{% endfor %}
+{% set urgentes_count = urgentes_list|length %}
+{% set para_llevar_count = ordenes_mesero|selectattr('es_para_llevar')|list|length %}
+
 
 <div style="padding:0 0 24px;">
 
   {# ═══════════ Page Header ═══════════ #}
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
-    <div>
-      <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;">Órdenes Activas</h1>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        <span class="cl-chip cl-chip--neutral" id="counterTotal" aria-live="polite">
-          <i data-lucide="clipboard-list" style="width:11px;height:11px;"></i>
-          {{ total_activas }} activa{{ 's' if total_activas != 1 else '' }}
-        </span>
-        {% if en_cocina + pendientes_count > 0 %}
-        <span class="cl-chip cl-chip--yellow">
-          <i data-lucide="clock" style="width:11px;height:11px;"></i>
-          {{ en_cocina + pendientes_count }} en cocina
-        </span>
-        {% endif %}
-        {% if listas > 0 %}
-        <span class="cl-chip cl-chip--green">
-          <i data-lucide="check-circle" style="width:11px;height:11px;"></i>
-          {{ listas }} {{ 'lista' if listas == 1 else 'listas' }}
-        </span>
-        {% endif %}
-        {# Urgentes counter #}
-        {% set urgentes_count = [] %}
-        {% for o in ordenes_mesero %}
-          {% set mins = ((now_utc - o.tiempo_registro).total_seconds() / 60)|int if now_utc is defined else 0 %}
-          {% if mins > 20 and o.estado not in ['completada','lista_para_entregar'] %}
-            {% if urgentes_count.append(1) %}{% endif %}
-          {% endif %}
-        {% endfor %}
-        {% if urgentes_count|length > 0 %}
-        <span class="cl-chip cl-chip--red">
-          <i data-lucide="alert-triangle" style="width:11px;height:11px;"></i>
-          {{ urgentes_count|length }} urgente{{ 's' if urgentes_count|length != 1 else '' }}
-        </span>
-        {% endif %}
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button class="cl-btn--v7-outline cl-btn--sm" id="btnRefresh" type="button" aria-label="Actualizar">
-        <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Actualizar
-      </button>
-    </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:12px;">
+    <h1 style="font-size:20px;font-weight:800;letter-spacing:-0.02em;margin:0;">Órdenes Activas</h1>
+    <button class="cl-btn--v7-outline cl-btn--sm" id="btnRefresh" type="button" aria-label="Actualizar">
+      <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> <span class="d-none d-sm-inline">Actualizar</span>
+    </button>
   </div>
 
   {# ═══════════ Filter Pills ═══════════ #}
-  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;" id="filterRow">
-    <button class="cl-filter-pill active" data-filter="all" type="button">Todas</button>
-    <button class="cl-filter-pill" data-filter="pendiente" type="button">Pendientes</button>
-    <button class="cl-filter-pill" data-filter="cocina" type="button">En Cocina</button>
-    <button class="cl-filter-pill" data-filter="lista" type="button">Listas</button>
-    <button class="cl-filter-pill" data-filter="urgente" type="button">Urgentes</button>
-    <button class="cl-filter-pill" data-filter="para_llevar" type="button">Para Llevar</button>
+  <div class="cl-filter-row" id="filterRow" role="group" aria-label="Filtrar órdenes">
+    <button class="cl-filter-pill active" data-filter="all" type="button">Todas <span class="cl-pill-count" id="pillCountAll">{{ total_activas }}</span></button>
+    <button class="cl-filter-pill" data-filter="cocina" type="button">En Cocina <span class="cl-pill-count" id="pillCountCocina">{{ en_cocina + pendientes_count }}</span></button>
+    {% if urgentes_count %}<button class="cl-filter-pill cl-filter-pill--urgente" data-filter="urgente" type="button">Urgentes <span class="cl-pill-count">{{ urgentes_count }}</span></button>{% endif %}
+    <button class="cl-filter-pill" data-filter="lista" type="button">Listas <span class="cl-pill-count" id="pillCountListas">{{ listas }}</span></button>
+    <button class="cl-filter-pill" data-filter="pendiente" type="button">Pendientes <span class="cl-pill-count">{{ pendientes_count }}</span></button>
+    {% if para_llevar_count %}<button class="cl-filter-pill" data-filter="para_llevar" type="button">Llevar <span class="cl-pill-count">{{ para_llevar_count }}</span></button>{% endif %}
   </div>
 
   {% if not ordenes_mesero %}
