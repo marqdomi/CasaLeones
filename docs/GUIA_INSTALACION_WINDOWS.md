@@ -150,4 +150,46 @@ respaldo automático antes de actualizar.
 
 ---
 
+## Si se te olvidó la contraseña 🔑
+
+Nadie puede entrar a devolverte el acceso desde el sistema, pero se recupera
+desde la computadora donde está instalado KaiRest.
+
+1. Abre **PowerShell** en la carpeta de KaiRest (normalmente `C:\Users\TuUsuario\kairest`).
+2. Para ver con qué correos está registrado tu equipo:
+
+   ```
+   docker compose exec web flask usuarios
+   ```
+
+3. Para poner una contraseña nueva (te la va a pedir dos veces, no se ve al
+   escribirla):
+
+   ```
+   docker compose exec web flask reset-password correo@ejemplo.com
+   ```
+
+La contraseña nueva debe tener al menos 8 caracteres, una mayúscula, una
+minúscula y un número. El cambio queda registrado en el historial del sistema.
+
+---
+
+## Recuperar los datos de un respaldo 💾
+
+KaiRest guarda un respaldo cada hora en la carpeta `backups`. Si algo salió muy
+mal (se borraron datos, la base quedó dañada), puedes volver a un respaldo:
+
+Clic derecho en **`restore.ps1`** → "Ejecutar con PowerShell".
+
+Restaura el respaldo **más reciente**. Te va a pedir que escribas `SI` para
+confirmar, porque **reemplaza todos los datos actuales**. Antes de reemplazar
+nada guarda una copia del estado actual (`pre_restore_...`), así que si te
+arrepientes todavía se puede volver atrás.
+
+> ⚠️ Todo lo capturado *después* del respaldo que elijas se pierde. Si el
+> respaldo es de las 3 pm y son las 6 pm, las ventas de esas 3 horas no vuelven.
+> Ante la duda, llama a tu proveedor antes de restaurar.
+
+---
+
 *KaiRest POS — hecho por KAINET*

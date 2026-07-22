@@ -294,6 +294,10 @@ def create_app():
     # Onboarding
     app.register_blueprint(setup_bp)
 
+    # Comandos de consola (recuperar acceso sin poder entrar al sistema)
+    from backend.cli import registrar_comandos
+    registrar_comandos(app)
+
     # Exempt ONLY the delivery webhook blueprint (JSON-only, no forms, HMAC-verified)
     csrf.exempt(delivery_bp)
     # NOTE: inventario_bp and clientes_bp no longer exempt — they use Jinja2 forms

@@ -804,3 +804,55 @@ guarda NULL), no la serialización.
 
 - Tests: `tests/test_folio_diario.py` (10, con control negativo verificado).
   Suite total 138 passed.
+
+## Operación sin poder entrar: recuperar acceso y restaurar (v6.6)
+Preparación para que el cliente lo use sin Marco enfrente. Los tres huecos no eran de
+producto sino de **operación**: qué hace el negocio cuando algo sale mal y nadie del
+equipo técnico está ahí.
+
+### Contraseña olvidada
+No había ningún camino de recuperación: olvidar la contraseña del admin dejaba el
+sistema inservible salvo entrando a mano a la base. `backend/cli.py` agrega dos comandos
+al `flask` de la app (registrados en `create_app`):
+- `flask usuarios` — lista correo/nombre/rol/sucursal (el dueño no recuerda con qué
+  correo se dio de alta)
+- `flask reset-password <correo>` — pide la contraseña sin mostrarla (o `--password`),
+  la valida con `validar_password()` y la deja en auditoría
+
+Se pasa `usuario_id` explícito a `registrar_auditoria`: fuera de request, la línea
+`session.get('user_id')` lanza `RuntimeError` **fuera del try** del servicio.
+
+En Docker: `docker compose exec web flask reset-password correo@ejemplo.com`
+(`FLASK_APP=backend.app` ya viene en el compose).
+
+### `restore.ps1` — el backup que no se podía restaurar
+Los respaldos corren cada hora y la guía del cliente es de Windows, pero `restore.sh`
+sólo existía en bash. Portado con la misma secuencia: respaldo de seguridad previo →
+parar `web` (no la db) → `pg_restore --clean --if-exists` → arrancar → health check.
+
+**Los .dump binarios NO pueden pasar por la redirección de PowerShell**: `>` convierte
+la salida a texto y corrompe el archivo, y `<` ni siquiera existe como operador. Ambos
+`pg_dump`/`pg_restore` van por `cmd /c "... > archivo"`. Por esto los backups que
+generaba `update.ps1` estaban **corruptos desde siempre** — no se habrían podido usar.
+
+### `update.ps1` no aplicaba migraciones
+El bug más caro del camino Windows: `update.sh` hace `flask db stamp head` (si la base
+nació de `create_all`) + `flask db upgrade`, y la versión PowerShell **no tenía ese
+paso**. Actualizar en Windows dejaba el código nuevo contra el schema viejo — sin la
+columna `folio`, cada orden truena. Portado igual que el bash.
+
+Además `update.ps1` elegía `docker-compose.prod.yml` en cuanto el archivo existiera,
+pero `install.ps1` instala con `docker-compose.yml` (build local) y el clon de git trae
+ambos: la primera actualización cambiaba al equipo a jalar `ghcr.io/marqdomi/kairest`,
+una imagen distinta a la que tenía corriendo. Ahora usa la regla de `update.sh`: con
+`.git` → build local; `prod.yml` sólo para despliegues sin git.
+
+### Ruta legacy de cobro eliminada
+`POST /meseros/ordenes/<id>/cobrar` guardaba `Pago.monto = monto_recibido`, **con el
+cambio incluido**: cobrar $75 con un billete de $100 registraba $100 e inflaba el corte.
+Ningún frontend la llamaba (el flujo vivo es `/ordenes/<id>/pago`) pero seguía expuesta.
+Borrada junto con sus imports huérfanos.
+
+- Tests: `tests/test_cli.py` (7, con control negativo verificado). Suite total 145 passed.
+- **No verificado**: la instalación en frío en Windows real (Docker Desktop → `install.ps1`
+  → wizard) y la sintaxis de los `.ps1` — no hay PowerShell en el Mac de desarrollo.
