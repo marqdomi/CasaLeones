@@ -1,23 +1,23 @@
-# ═══════════════════════════════════════════════════
-# KaiRest POS — Desinstalar (Windows)
+# ===================================================
+# KaiRest POS - Desinstalar (Windows)
 # Detiene containers y opcionalmente elimina datos
-# ═══════════════════════════════════════════════════
+# ===================================================
 #Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
 Write-Host ""
-Write-Host "  KaiRest POS — Desinstalar" -ForegroundColor Red
+Write-Host "  KaiRest POS - Desinstalar" -ForegroundColor Red
 Write-Host ""
 
-# ── Detect compose command ──
+# -- Detect compose command --
 $composeCmd = $null
 try {
-    docker compose version 2>&1 | Out-Null
+    docker compose version | Out-Null
     if ($LASTEXITCODE -eq 0) { $composeCmd = "docker compose" }
 } catch {}
 if (-not $composeCmd) {
     try {
-        docker-compose version 2>&1 | Out-Null
+        docker-compose version | Out-Null
         if ($LASTEXITCODE -eq 0) { $composeCmd = "docker-compose" }
     } catch {}
 }
@@ -31,17 +31,17 @@ Write-Host ""
 $deleteDb = Read-Host "  Eliminar tambien la base de datos? (s/N)"
 
 if ($composeCmd -eq "docker compose") {
-    docker compose down 2>&1 | Out-Null
+    docker compose down | Out-Null
 } else {
-    docker-compose down 2>&1 | Out-Null
+    docker-compose down | Out-Null
 }
 
 if ($deleteDb -match "^[sS]([iI])?$") {
     Write-Host "  Eliminando volumenes de datos..." -ForegroundColor Yellow
     if ($composeCmd -eq "docker compose") {
-        docker compose down -v 2>&1 | Out-Null
+        docker compose down -v | Out-Null
     } else {
-        docker-compose down -v 2>&1 | Out-Null
+        docker-compose down -v | Out-Null
     }
     Write-Host "  Containers y base de datos eliminados." -ForegroundColor Green
 } else {

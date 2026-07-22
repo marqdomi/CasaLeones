@@ -1,26 +1,26 @@
-# ═══════════════════════════════════════════════════
-# KaiRest POS — Instalación para Windows
+# ===================================================
+# KaiRest POS - Instalacion para Windows
 # Ejecuta este script en PowerShell como Administrador
 # Requisito: Docker Desktop instalado y corriendo
-# ═══════════════════════════════════════════════════
+# ===================================================
 #Requires -Version 5.1
 $ErrorActionPreference = "Stop"
 
-# ── Colors helper ──
+# -- Colors helper --
 function Write-Color($color, $text) { Write-Host $text -ForegroundColor $color }
 function Write-Step($text) { Write-Host "  $text" -ForegroundColor Green }
 function Write-Info($text) { Write-Host "  $text" -ForegroundColor Cyan }
 function Write-Warn($text) { Write-Host "  $text" -ForegroundColor Yellow }
 
 Write-Host ""
-Write-Host "  ╔════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║    KaiRest POS — Instalacion Windows   ║" -ForegroundColor Cyan
-Write-Host "  ╚════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  +========================================+" -ForegroundColor Cyan
+Write-Host "  |    KaiRest POS - Instalacion Windows   |" -ForegroundColor Cyan
+Write-Host "  +========================================+" -ForegroundColor Cyan
 Write-Host ""
 
-# ── Verify Docker ──
+# -- Verify Docker --
 try {
-    $dockerInfo = docker info 2>&1
+    $dockerInfo = docker info
     if ($LASTEXITCODE -ne 0) { throw "Docker not running" }
     Write-Step "Docker esta corriendo"
 } catch {
@@ -32,16 +32,16 @@ try {
     exit 1
 }
 
-# ── Verify docker compose ──
+# -- Verify docker compose --
 $composeCmd = $null
 try {
-    docker compose version 2>&1 | Out-Null
+    docker compose version | Out-Null
     if ($LASTEXITCODE -eq 0) { $composeCmd = "docker compose" }
 } catch {}
 
 if (-not $composeCmd) {
     try {
-        docker-compose version 2>&1 | Out-Null
+        docker-compose version | Out-Null
         if ($LASTEXITCODE -eq 0) { $composeCmd = "docker-compose" }
     } catch {}
 }
@@ -53,9 +53,9 @@ if (-not $composeCmd) {
 }
 Write-Step "Docker Compose disponible"
 
-# ── Locate code: in-place (ZIP/USB) or clone with git ──
+# -- Locate code: in-place (ZIP/USB) or clone with git --
 # Modo 1 (recomendado para clientes): el script corre DENTRO de la carpeta del
-# proyecto (entregada en ZIP/USB) — no se necesita Git ni acceso al repositorio.
+# proyecto (entregada en ZIP/USB) - no se necesita Git ni acceso al repositorio.
 # Modo 2: si no hay docker-compose.yml junto al script, se clona con Git.
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -66,7 +66,7 @@ if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
     Push-Location $installDir
 } else {
     try {
-        git --version 2>&1 | Out-Null
+        git --version | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "Git not found" }
         Write-Step "Git disponible"
     } catch {
@@ -84,13 +84,13 @@ if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
         Write-Info "Actualizando codigo existente..."
         Push-Location $installDir
         try {
-            git pull --rebase 2>&1 | Out-Null
+            git pull --rebase | Out-Null
         } catch {
             Write-Warn "No se pudo actualizar el codigo."
         }
     } else {
         Write-Info "Descargando KaiRest..."
-        git clone https://github.com/marqdomi/kairest.git $installDir 2>&1 | Select-Object -Last 2
+        git clone https://github.com/marqdomi/kairest.git $installDir | Select-Object -Last 2
         Push-Location $installDir
     }
 }
@@ -99,7 +99,7 @@ if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
 if (-not (Test-Path "backups")) { New-Item -ItemType Directory -Path "backups" | Out-Null }
 Write-Step "Codigo descargado"
 
-# ── Configure .env ──
+# -- Configure .env --
 $envFile = Join-Path $installDir ".env"
 if (-not (Test-Path $envFile)) {
     # Generate random secrets
@@ -124,22 +124,22 @@ CORS_ORIGINS=http://localhost:5005
     Set-Content -Path $envFile -Value $envContent -Encoding UTF8
     Write-Step ".env creado con SECRET_KEY automatica"
 } else {
-    Write-Warn ".env ya existe — no se modifico"
+    Write-Warn ".env ya existe - no se modifico"
 }
 
-# ── Start services ──
+# -- Start services --
 Write-Host ""
 Write-Info "Iniciando KaiRest POS..."
 Write-Host "  (primera vez puede tardar 2-5 min compilando la imagen)" -ForegroundColor DarkGray
 Write-Host ""
 
 if ($composeCmd -eq "docker compose") {
-    docker compose up -d --build 2>&1 | Select-Object -Last 8
+    docker compose up -d --build | Select-Object -Last 8
 } else {
-    docker-compose up -d --build 2>&1 | Select-Object -Last 8
+    docker-compose up -d --build | Select-Object -Last 8
 }
 
-# ── Wait for health ──
+# -- Wait for health --
 Write-Info "Esperando a que la aplicacion inicie..."
 
 # Read port from .env or default
@@ -169,9 +169,9 @@ Write-Host ""
 
 if ($healthy) {
     Write-Host ""
-    Write-Host "  ╔════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "  ║   KaiRest instalado exitosamente!      ║" -ForegroundColor Green
-    Write-Host "  ╚════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "  +========================================+" -ForegroundColor Green
+    Write-Host "  |   KaiRest instalado exitosamente!      |" -ForegroundColor Green
+    Write-Host "  +========================================+" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Abre tu navegador en:" -ForegroundColor White
     Write-Host "  --> http://localhost:${port}" -ForegroundColor Cyan
