@@ -27,25 +27,30 @@ if (-not $composeCmd) {
 }
 
 # ── Determine compose file (misma regla que update.sh) ──
-# Si hay .git, la instalacion construye la imagen localmente con docker-compose.yml:
-# cambiar a prod a media vida la haria jalar una imagen distinta y romper el equipo.
-# docker-compose.prod.yml es solo para despliegues sin git (imagen pre-construida).
+# install.ps1 instala con docker-compose.yml (build local) tanto si clona con Git
+# como si corre desde la carpeta copiada en USB. Cambiar a prod a media vida haria
+# jalar una imagen distinta a la que tiene corriendo el equipo, asi que la regla es:
+# si existe docker-compose.yml, esa es la instalacion. docker-compose.prod.yml es
+# solo para despliegues que nunca tuvieron el archivo de build (imagen publicada).
 $composeFile = ""
 $buildFlag = ""
-if ((Test-Path ".git") -and (Test-Path "docker-compose.yml")) {
+if (Test-Path "docker-compose.yml") {
     $buildFlag = "--build"
     Write-Host "  Usando docker-compose.yml (build local)" -ForegroundColor Cyan
-    Write-Host "  Descargando ultima version del codigo..." -ForegroundColor Cyan
-    try {
-        git pull --rebase 2>&1 | Out-Null
-    } catch {
-        Write-Host "  No se pudo hacer git pull." -ForegroundColor Yellow
+    # Solo hay codigo nuevo que traer si la instalacion se hizo clonando con Git.
+    if (Test-Path ".git") {
+        Write-Host "  Descargando ultima version del codigo..." -ForegroundColor Cyan
+        try {
+            git pull --rebase 2>&1 | Out-Null
+        } catch {
+            Write-Host "  No se pudo hacer git pull." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  Instalacion sin Git: se reconstruye con el codigo de esta carpeta." -ForegroundColor Yellow
     }
 } elseif (Test-Path "docker-compose.prod.yml") {
     $composeFile = "-f docker-compose.prod.yml"
     Write-Host "  Usando docker-compose.prod.yml (imagen pre-construida)" -ForegroundColor Cyan
-} elseif (Test-Path "docker-compose.yml") {
-    Write-Host "  Usando docker-compose.yml (modo desarrollo)" -ForegroundColor Cyan
 } else {
     Write-Host "  ERROR: No se encontro docker-compose.yml ni docker-compose.prod.yml" -ForegroundColor Red
     exit 1

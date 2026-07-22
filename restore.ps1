@@ -34,15 +34,14 @@ if (-not $composeCmd) {
     exit 1
 }
 
-# ── Determine compose file (misma regla que update.sh / restore.sh) ──
-# Si hay .git, la instalacion construye la imagen localmente: docker-compose.yml.
-# docker-compose.prod.yml es solo para despliegues sin git (imagen pre-construida).
-if ((Test-Path ".git") -and (Test-Path "docker-compose.yml")) {
+# ── Determine compose file (misma regla que update.ps1) ──
+# Si existe docker-compose.yml, esa es la instalacion (install.ps1 siempre usa ese,
+# clone con Git o corra desde la carpeta copiada). prod.yml es solo para despliegues
+# con imagen pre-construida, que nunca tienen el archivo de build.
+if (Test-Path "docker-compose.yml") {
     $composeFile = ""
 } elseif (Test-Path "docker-compose.prod.yml") {
     $composeFile = "-f docker-compose.prod.yml"
-} elseif (Test-Path "docker-compose.yml") {
-    $composeFile = ""
 } else {
     Write-Host "  ERROR: No se encontro docker-compose.yml ni docker-compose.prod.yml" -ForegroundColor Red
     Write-Host "  Ejecuta este script desde la carpeta de KaiRest (normalmente %USERPROFILE%\kairest)." -ForegroundColor Yellow
