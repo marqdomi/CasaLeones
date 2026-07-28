@@ -570,7 +570,52 @@ def lista_estaciones():
         .group_by(Producto.estacion_id).all()
     )
     slugs = {e.id: _slugify(e.nombre) for e in estaciones}
-    return render_template('admin/estaciones.html', estaciones=estaciones, conteos=conteos, slugs=slugs)
+    # Un producto sin estación no aparece en ningún KDS: nadie lo prepara, la
+    # orden nunca pasa a lista_para_entregar y no se puede cobrar. Se listan
+    # aquí para que el negocio pueda destrabarlas asignándoles estación (el KDS
+    # resuelve la estación al consultar, así que la orden abierta se destraba sola).
+    huerfanos = Producto.query.filter(Producto.estacion_id.is_(None)).order_by(Producto.nombre).all()
+    return render_template('admin/estaciones.html', estaciones=estaciones, conteos=conteos,
+                           slugs=slugs, huerfanos=huerfanos)
+
+
+def _estacion_con_mismo_slug(nombre, excluir_id=None):
+    """Otra estación cuya URL de KDS sería la misma.
+
+    El KDS se resuelve por slug (`/cocina/plancha-fria`), así que dos nombres
+    distintos que normalizan igual —"Plancha Fría" y "Plancha Fria", "Bar" y
+    "Bar!"— comparten dirección y sólo se alcanza una. Los items de la otra no
+    se pueden marcar listos y la orden queda incobrable.
+    """
+    from backend.routes.cocina import _slugify
+
+    objetivo = _slugify(nombre)
+    if not objetivo:
+        return None
+    consulta = Estacion.query
+    if excluir_id is not None:
+        consulta = consulta.filter(Estacion.id != excluir_id)
+    for otra in consulta.all():
+        if _slugify(otra.nombre) == objetivo:
+            return otra
+    return None
+
+
+def _validar_nombre_estacion(nombre, excluir_id=None):
+    """Devuelve un mensaje de error, o None si el nombre sirve."""
+    if not nombre:
+        return 'El nombre es obligatorio.'
+    consulta = Estacion.query.filter(db.func.lower(Estacion.nombre) == nombre.lower())
+    if excluir_id is not None:
+        consulta = consulta.filter(Estacion.id != excluir_id)
+    if consulta.first():
+        return f'Ya existe una estación con el nombre "{nombre}".'
+    choque = _estacion_con_mismo_slug(nombre, excluir_id)
+    if choque:
+        return (f'"{nombre}" se confundiría con "{choque.nombre}": las dos quedarían '
+                f'en la misma dirección del KDS y una de ellas no se podría abrir. '
+                f'Usa un nombre más distinto.')
+    return None
 
 
 @admin_bp.route('/estaciones/nueva', methods=['GET', 'POST'])
@@ -578,11 +623,9 @@ def lista_estaciones():
 def estacion_nueva():
     if request.method == 'POST':
         nombre = (request.form.get('nombre') or '').strip()
-        if not nombre:
-            flash('El nombre es obligatorio.', 'danger')
-            return render_template('admin/estacion_form.html')
-        if Estacion.query.filter(db.func.lower(Estacion.nombre) == nombre.lower()).first():
-            flash(f'Ya existe una estación con el nombre "{nombre}".', 'danger')
+        error = _validar_nombre_estacion(nombre)
+        if error:
+            flash(error, 'danger')
             return render_template('admin/estacion_form.html')
         e = Estacion(nombre=nombre)
         db.session.add(e)
@@ -598,14 +641,9 @@ def estacion_editar(id):
     e = db.get_or_404(Estacion, id)
     if request.method == 'POST':
         nombre = (request.form.get('nombre') or '').strip()
-        if not nombre:
-            flash('El nombre es obligatorio.', 'danger')
-            return render_template('admin/estacion_form.html', estacion=e)
-        dup = Estacion.query.filter(
-            db.func.lower(Estacion.nombre) == nombre.lower(), Estacion.id != e.id,
-        ).first()
-        if dup:
-            flash(f'Ya existe una estación con el nombre "{nombre}".', 'danger')
+        error = _validar_nombre_estacion(nombre, excluir_id=e.id)
+        if error:
+            flash(error, 'danger')
             return render_template('admin/estacion_form.html', estacion=e)
         e.nombre = nombre
         db.session.commit()

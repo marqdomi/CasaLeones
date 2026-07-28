@@ -129,12 +129,25 @@ class TestZonaHorariaVisible:
     """
 
     @staticmethod
-    def _orden_de_la_noche(db, mesa, mesero, producto):
-        """Orden guardada a las 03:05 UTC = 21:05 locales del día anterior."""
-        from datetime import datetime
+    def _utc_de_la_cena():
+        """UTC de las 21:05 locales de HOY.
+
+        Se calcula desde la fecha local en vez de fijarla: con una fecha escrita
+        a mano el caso deja de caer en "hoy" al día siguiente y el historial
+        (que filtra por el día contable) devuelve vacío.
+        """
+        from datetime import datetime, time, timezone
+        from backend.services.tiempo import hoy_local, zona
+
+        local = datetime.combine(hoy_local(), time(21, 5), tzinfo=zona())
+        return local.astimezone(timezone.utc).replace(tzinfo=None)
+
+    @classmethod
+    def _orden_de_la_noche(cls, db, mesa, mesero, producto):
+        """Orden de las 21:05 locales — en UTC cae en la madrugada del día siguiente."""
         from backend.models.models import Orden, OrdenDetalle, OrdenEstado
 
-        utc = datetime(2026, 7, 28, 3, 5)
+        utc = cls._utc_de_la_cena()
         o = Orden(mesa_id=mesa.id, mesero_id=mesero.id, estado=OrdenEstado.PAGADA,
                   tiempo_registro=utc, fecha_pago=utc, folio=1, total=75)
         db.session.add(o)
@@ -190,11 +203,10 @@ class TestZonaHorariaVisible:
                                                   sample_mesa, mesero_user):
         """El peor caso: sin convertir, la venta se exporta con la fecha del día
         siguiente y el CSV no cuadra contra el corte de caja."""
-        from datetime import datetime
         from backend.models.models import Sale
-        from backend.services.tiempo import a_local
+        from backend.services.tiempo import a_local, hoy_local
 
-        utc = datetime(2026, 7, 28, 3, 5)
+        utc = self._utc_de_la_cena()
         db.session.add(Sale(usuario_id=mesero_user.id, mesa_id=sample_mesa.id,
                             total=75, estado='cerrada', fecha_hora=utc))
         db.session.commit()
@@ -206,7 +218,11 @@ class TestZonaHorariaVisible:
         cuerpo = [f for f in filas[1:] if f]
         assert cuerpo, 'el CSV salió vacío'
         assert cuerpo[0][1] == a_local(utc).strftime('%Y-%m-%d %H:%M')
-        assert cuerpo[0][1].startswith('2026-07-27'), 'la venta se fue al día siguiente'
+        # Sin convertir, la cena se exportaría con la fecha del día siguiente.
+        assert cuerpo[0][1].startswith(hoy_local().isoformat()), \
+            'la venta se fue al día siguiente'
+        assert not cuerpo[0][1].startswith(utc.strftime('%Y-%m-%d')), \
+            'el test sólo vale si la fecha UTC y la local difieren'
 
     def test_ticket_impreso_usa_hora_local_y_folio(self, db, sample_mesa, mesero_user,
                                                    producto_en_estacion):

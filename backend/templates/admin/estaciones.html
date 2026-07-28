@@ -26,6 +26,32 @@
   </div>
 </div>
 
+{# ── Productos sin estación: bloquean el cobro de su orden ── #}
+{% if huerfanos %}
+<div class="cl-card" style="border-left:3px solid var(--cl-error-text);margin-bottom:20px;">
+  <div class="cl-card__hdr">
+    <span class="cl-card__title">
+      <i data-lucide="alert-triangle" style="width:15px;height:15px;color:var(--cl-error-text);"></i>
+      {{ huerfanos|length }} producto{{ 's' if huerfanos|length != 1 else '' }} sin estación
+    </span>
+  </div>
+  <div class="cl-card__body">
+    <p style="margin:0 0 12px;color:var(--cl-text-secondary);font-size:13px;">
+      Estos productos no aparecen en ningún panel de cocina: nadie los prepara y la
+      cuenta que los incluya <strong>no se puede cobrar</strong>. Asígnales una estación
+      para destrabarlas — las órdenes abiertas se corrigen solas.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      {% for p in huerfanos %}
+      <a href="{{ url_for('admin.producto_editar', id=p.id) }}" class="cl-btn--v7-outline cl-btn--sm">
+        <i data-lucide="wrench" style="width:13px;height:13px;"></i> {{ p.nombre }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {# ── Table Card ── #}
 <div class="cl-card">
   {% if estaciones %}

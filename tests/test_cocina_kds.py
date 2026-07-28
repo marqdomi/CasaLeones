@@ -258,6 +258,145 @@ class TestDeshacer:
         assert resp.status_code == 403
 
 
+class TestSlugDeEstacion:
+    """El KDS se resuelve por slug: dos nombres que normalizan igual comparten
+    dirección y sólo se alcanza uno. Los items del otro no se pueden marcar
+    listos y su orden queda incobrable.
+    """
+
+    @pytest.mark.parametrize('primero,segundo', [
+        ('Plancha Fria', 'Plancha Fría'),   # acento
+        ('Bar', 'Bar!'),                    # puntuación
+        ('Sushi Bar', 'Sushi-Bar'),         # separador
+    ])
+    def test_no_admite_dos_estaciones_con_el_mismo_slug(self, client, superadmin_user, db,
+                                                        primero, segundo):
+        from backend.models.models import Estacion
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/estaciones/nueva', data={'nombre': primero})
+        client.post('/admin/estaciones/nueva', data={'nombre': segundo})
+
+        assert Estacion.query.count() == 1, \
+            f'"{primero}" y "{segundo}" coexisten y comparten URL de KDS'
+
+    def test_nombres_realmente_distintos_si_conviven(self, client, superadmin_user, db):
+        """Control positivo: la validación no debe bloquear nombres legítimos."""
+        from backend.models.models import Estacion
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/estaciones/nueva', data={'nombre': 'Parrilla'})
+        client.post('/admin/estaciones/nueva', data={'nombre': 'Plancha'})
+        assert Estacion.query.count() == 2
+
+    def test_tampoco_al_renombrar(self, client, superadmin_user, db):
+        from backend.models.models import Estacion
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/estaciones/nueva', data={'nombre': 'Plancha Fria'})
+        client.post('/admin/estaciones/nueva', data={'nombre': 'Parrilla'})
+        parrilla = Estacion.query.filter_by(nombre='Parrilla').first()
+
+        client.post(f'/admin/estaciones/{parrilla.id}/editar',
+                    data={'nombre': 'Plancha Fría'})
+
+        db.session.refresh(parrilla)
+        assert parrilla.nombre == 'Parrilla'
+
+    def test_renombrar_mueve_el_kds_al_slug_nuevo(self, client, superadmin_user, db,
+                                                  estaciones):
+        _entrar(client, db, 'super_test@test.com')
+        client.post(f"/admin/estaciones/{estaciones['parrilla'].id}/editar",
+                    data={'nombre': 'Parrilla Norte'})
+
+        assert client.get('/cocina/parrilla').status_code == 404
+        assert client.get('/cocina/parrilla-norte').status_code == 200
+
+
+class TestProductoSinEstacion:
+    """Un producto sin estación no aparece en ningún KDS: nadie lo prepara, la
+    orden nunca pasa a lista_para_entregar y no se puede cobrar.
+    """
+
+    @pytest.fixture
+    def orden_con_huerfano(self, db, mesero_user, sample_mesa, sample_categoria, productos):
+        from backend.models.models import Orden, OrdenDetalle, OrdenEstado, Producto
+
+        huerfano = Producto(nombre='Huerfano', precio=30,
+                            categoria_id=sample_categoria.id, estacion_id=None)
+        db.session.add(huerfano)
+        db.session.flush()
+
+        o = Orden(mesa_id=sample_mesa.id, mesero_id=mesero_user.id,
+                  estado=OrdenEstado.ENVIADO)
+        db.session.add(o)
+        db.session.flush()
+        d_taco = OrdenDetalle(orden_id=o.id, producto_id=productos['taco'].id,
+                              cantidad=1, precio_unitario=25, estado=OrdenEstado.PENDIENTE)
+        d_h = OrdenDetalle(orden_id=o.id, producto_id=huerfano.id, cantidad=1,
+                           precio_unitario=30, estado=OrdenEstado.PENDIENTE)
+        db.session.add_all([d_taco, d_h])
+        db.session.commit()
+        return {'orden': o, 'taco': d_taco, 'huerfano_detalle': d_h, 'producto': huerfano}
+
+    def test_la_alta_por_la_ui_no_deja_crear_huerfanos(self, client, superadmin_user, db,
+                                                       sample_categoria, estaciones):
+        from backend.models.models import Producto
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/productos/nuevo', data={
+            'nombre': 'Sin Estacion', 'precio': '30',
+            'categoria_id': str(sample_categoria.id),
+        })
+        assert Producto.query.filter_by(nombre='Sin Estacion').first() is None
+
+    def test_la_orden_con_huerfano_queda_atorada(self, client, superadmin_user, db,
+                                                 orden_con_huerfano):
+        """Documenta la consecuencia que justifica el aviso y la recuperación."""
+        from backend.models.models import OrdenEstado
+
+        _entrar(client, db, 'super_test@test.com')
+        oid = orden_con_huerfano['orden'].id
+        client.post(f"/cocina/parrilla/marcar/{oid}/{orden_con_huerfano['taco'].id}")
+
+        db.session.refresh(orden_con_huerfano['orden'])
+        assert orden_con_huerfano['orden'].estado == OrdenEstado.EN_PREPARACION
+
+    def test_estaciones_avisa_de_los_huerfanos(self, client, superadmin_user, db,
+                                               orden_con_huerfano, estaciones):
+        _entrar(client, db, 'super_test@test.com')
+        html = client.get('/admin/estaciones').data.decode()
+        assert 'sin estación' in html
+        assert 'Huerfano' in html
+
+    def test_asignar_estacion_destraba_la_orden_abierta(self, client, superadmin_user, db,
+                                                        orden_con_huerfano, estaciones,
+                                                        sample_categoria):
+        """La salida del problema: el KDS resuelve la estación al consultar, así
+        que la orden ya abierta se corrige sola."""
+        from backend.models.models import OrdenEstado
+
+        _entrar(client, db, 'super_test@test.com')
+        oid = orden_con_huerfano['orden'].id
+        client.post(f"/cocina/parrilla/marcar/{oid}/{orden_con_huerfano['taco'].id}")
+
+        client.post(f"/admin/productos/{orden_con_huerfano['producto'].id}/editar", data={
+            'nombre': 'Huerfano', 'precio': '30',
+            'categoria_id': str(sample_categoria.id),
+            'estacion_id': str(estaciones['parrilla'].id),
+        })
+
+        html = client.get('/cocina/parrilla').data.decode()
+        assert 'Huerfano' in html, 'el item atorado sigue invisible en el KDS'
+
+        resp = client.post(
+            f"/cocina/parrilla/marcar/{oid}/{orden_con_huerfano['huerfano_detalle'].id}")
+        assert resp.status_code == 200
+
+        db.session.refresh(orden_con_huerfano['orden'])
+        assert orden_con_huerfano['orden'].estado == OrdenEstado.LISTA_PARA_ENTREGAR
+
+
 class TestPantallasKds:
     @pytest.mark.parametrize('ruta', ['/cocina/api/estaciones', '/cocina/api/orders',
                                       '/cocina/parrilla', '/cocina/parrilla/stats',
