@@ -56,11 +56,13 @@ Source: "{#RepoRoot}install.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}update.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}uninstall.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}restore.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#RepoRoot}respaldo-externo.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\detener.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\reiniciar.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\actualizar.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "scripts\restaurar_backup.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "scripts\respaldo_externo.cmd"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\kairest.url"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\kairest.ico"; DestDir: "{app}\windows-installer-assets"; Flags: ignoreversion
 
@@ -70,6 +72,7 @@ Name: "{group}\Detener KaiRest"; Filename: "{app}\detener.cmd"; IconFilename: "{
 Name: "{group}\Reiniciar KaiRest"; Filename: "{app}\reiniciar.cmd"; IconFilename: "{app}\windows-installer-assets\kairest.ico"; WorkingDir: "{app}"
 Name: "{group}\Actualizar KaiRest"; Filename: "{app}\actualizar.cmd"; IconFilename: "{app}\windows-installer-assets\kairest.ico"; WorkingDir: "{app}"
 Name: "{group}\Restaurar backup"; Filename: "{app}\restaurar_backup.cmd"; IconFilename: "{app}\windows-installer-assets\kairest.ico"; WorkingDir: "{app}"
+Name: "{group}\Respaldo fuera de la laptop"; Filename: "{app}\respaldo_externo.cmd"; IconFilename: "{app}\windows-installer-assets\kairest.ico"; WorkingDir: "{app}"
 Name: "{group}\Desinstalar KaiRest"; Filename: "{uninstallexe}"; IconFilename: "{app}\windows-installer-assets\kairest.ico"
 Name: "{userdesktop}\Abrir KaiRest"; Filename: "{app}\kairest.url"; IconFilename: "{app}\windows-installer-assets\kairest.ico"; Tasks: desktopicon
 
