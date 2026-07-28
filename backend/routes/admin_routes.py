@@ -1,5 +1,5 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from flask import (Blueprint, render_template, request, redirect, url_for, flash, jsonify,
                    current_app, g, session, Response)
 from backend.utils import login_required, filtrar_por_sucursal
@@ -12,7 +12,7 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 from datetime import date, datetime, timedelta
 from backend.models.models import utc_now
-from backend.services.tiempo import hoy_local, rango_utc, dia_local
+from backend.services.tiempo import hoy_local, rango_utc, dia_local, a_local
 from flask_login import current_user
 
 logger = logging.getLogger(__name__)
@@ -234,13 +234,15 @@ def api_actividad_reciente():
     items = []
     for o in recientes:
         items.append({
-            'id': o.id,
+            'id': o.numero,
             'estado': o.estado,
             'mesa': o.mesa.numero if o.mesa else None,
             'alias': o.alias,
             'mesero': o.mesero.nombre if o.mesero else '—',
             'total': float(o.total) if o.total else 0,
-            'hora': o.tiempo_registro.strftime('%H:%M'),
+            # tiempo_registro se guarda en UTC: sin convertir, una orden de las
+            # 21:00 se muestra como 03:00 del día siguiente.
+            'hora': a_local(o.tiempo_registro).strftime('%H:%M'),
         })
     return jsonify({'items': items})
 
@@ -356,52 +358,86 @@ def lista_productos():
     ).order_by(Producto.nombre).all()
     return render_template('admin/productos.html', productos=productos)
 
+def _leer_form_producto():
+    """Valida el formulario de producto. Devuelve (datos, error).
+
+    Un precio negativo restaría del total de la cuenta y descuadraría el corte,
+    así que se rechaza en el servidor (el `min` del HTML no basta: cualquiera
+    puede mandar el POST directo). Los casts van protegidos porque un `float()`
+    sobre texto libre revienta con un 500 en vez de avisar al usuario.
+    """
+    nombre = sanitizar_texto(request.form.get('nombre', ''), 100)
+    if not nombre.strip():
+        return None, 'El nombre del producto es obligatorio.'
+
+    try:
+        precio = Decimal(str(request.form.get('precio', '')).strip())
+    except (InvalidOperation, ValueError, TypeError):
+        return None, 'El precio debe ser un número.'
+    if precio < 0:
+        return None, 'El precio no puede ser negativo.'
+
+    try:
+        categoria_id = int(request.form['categoria_id'])
+        estacion_id = int(request.form['estacion_id'])
+    except (KeyError, ValueError, TypeError):
+        return None, 'Selecciona una categoría y una estación válidas.'
+
+    if not db.session.get(Categoria, categoria_id):
+        return None, 'La categoría seleccionada no existe.'
+    # Un producto sin estación válida nunca aparece en el KDS y deja la orden
+    # incobrable: se valida la FK antes de guardar.
+    if not db.session.get(Estacion, estacion_id):
+        return None, 'La estación seleccionada no existe.'
+
+    return {
+        'nombre': nombre,
+        'precio': precio,
+        'unidad': sanitizar_texto(request.form.get('unidad'), 30) if request.form.get('unidad') else None,
+        'descripcion': sanitizar_texto(request.form.get('descripcion'), 500) if request.form.get('descripcion') else None,
+        'categoria_id': categoria_id,
+        'estacion_id': estacion_id,
+    }, None
+
+
+def _render_producto_form(producto=None):
+    return render_template(
+        'admin/producto_form.html',
+        producto=producto,
+        categorias=Categoria.query.order_by(Categoria.nombre).all(),
+        estaciones=Estacion.query.order_by(Estacion.nombre).all(),
+    )
+
+
 @admin_bp.route('/productos/nuevo', methods=['GET', 'POST'])
 @login_required(roles=['superadmin'])
 def producto_nuevo():
     if request.method == 'POST':
-        p = Producto(
-            nombre=sanitizar_texto(request.form['nombre'], 100),
-            precio=float(request.form['precio']),
-            unidad=sanitizar_texto(request.form.get('unidad'), 30) if request.form.get('unidad') else None,
-            descripcion=sanitizar_texto(request.form.get('descripcion'), 500) if request.form.get('descripcion') else None,
-            categoria_id=int(request.form['categoria_id']),
-            estacion_id=int(request.form['estacion_id'])
-        )
-        db.session.add(p)
+        datos, error = _leer_form_producto()
+        if error:
+            flash(error, 'danger')
+            return _render_producto_form()
+        db.session.add(Producto(**datos))
         db.session.commit()
         flash('Producto creado', 'success')
         return redirect(url_for('admin.lista_productos'))
-    categorias = Categoria.query.order_by(Categoria.nombre).all()
-    estaciones = Estacion.query.order_by(Estacion.nombre).all()
-    return render_template(
-        'admin/producto_form.html',
-        categorias=categorias,
-        estaciones=estaciones
-    )
+    return _render_producto_form()
 
 @admin_bp.route('/productos/<int:id>/editar', methods=['GET', 'POST'])
 @login_required(roles=['superadmin'])
 def producto_editar(id):
     p = db.get_or_404(Producto, id)
     if request.method == 'POST':
-        p.nombre = sanitizar_texto(request.form['nombre'], 100)
-        p.precio = float(request.form['precio'])
-        p.unidad = sanitizar_texto(request.form.get('unidad'), 30) if request.form.get('unidad') else None
-        p.descripcion = sanitizar_texto(request.form.get('descripcion'), 500) if request.form.get('descripcion') else None
-        p.categoria_id = int(request.form['categoria_id'])
-        p.estacion_id = int(request.form['estacion_id'])
+        datos, error = _leer_form_producto()
+        if error:
+            flash(error, 'danger')
+            return _render_producto_form(p)
+        for campo, valor in datos.items():
+            setattr(p, campo, valor)
         db.session.commit()
         flash('Producto actualizado', 'success')
         return redirect(url_for('admin.lista_productos'))
-    categorias = Categoria.query.order_by(Categoria.nombre).all()
-    estaciones = Estacion.query.order_by(Estacion.nombre).all()
-    return render_template(
-        'admin/producto_form.html',
-        producto=p,
-        categorias=categorias,
-        estaciones=estaciones
-    )
+    return _render_producto_form(p)
 
 @admin_bp.route('/productos/<int:id>/eliminar', methods=['POST'])
 @login_required(roles=['superadmin'])
@@ -424,25 +460,45 @@ def lista_mesas():
     mesas = filtrar_por_sucursal(Mesa.query, Mesa).order_by(Mesa.numero).all()
     return render_template('admin/mesas.html', mesas=mesas)
 
+def _leer_form_mesa():
+    """Valida el formulario de mesa. Devuelve (datos, error).
+
+    Los casts van protegidos: `int()` sobre texto libre revienta con un 500 en
+    vez de avisar al usuario.
+    """
+    numero = sanitizar_texto(request.form.get('numero', ''), 20).strip()
+    if not numero:
+        return None, 'El número de mesa es obligatorio.'
+    try:
+        capacidad = int(request.form.get('capacidad') or 4)
+    except (ValueError, TypeError):
+        return None, 'La capacidad debe ser un número entero.'
+    if capacidad < 1:
+        return None, 'La capacidad debe ser de al menos 1 persona.'
+    return {
+        'numero': numero,
+        'capacidad': capacidad,
+        'zona': sanitizar_texto(request.form.get('zona', ''), 50),
+    }, None
+
+
 @admin_bp.route('/mesas/nuevo', methods=['GET', 'POST'])
 @login_required(roles=['superadmin'])
 def mesa_nuevo():
     if request.method == 'POST':
-        numero = request.form['numero']
+        datos, error = _leer_form_mesa()
+        if error:
+            flash(error, 'danger')
+            return render_template('admin/mesa_form.html')
         # Uniqueness check
         suc_id = getattr(g, 'sucursal_id', None)
-        existing = Mesa.query.filter_by(numero=numero)
+        existing = Mesa.query.filter_by(numero=datos['numero'])
         if suc_id is not None:
             existing = existing.filter_by(sucursal_id=suc_id)
         if existing.first():
-            flash(f'Ya existe una mesa con número "{numero}".', 'danger')
+            flash(f'Ya existe una mesa con número "{datos["numero"]}".', 'danger')
             return render_template('admin/mesa_form.html')
-        m = Mesa(
-            numero=numero,
-            capacidad=int(request.form.get('capacidad', 4)),
-            zona=request.form.get('zona', ''),
-        )
-        db.session.add(m)
+        db.session.add(Mesa(**datos))
         db.session.commit()
         flash('Mesa creada', 'success')
         return redirect(url_for('admin.lista_mesas'))
@@ -453,9 +509,21 @@ def mesa_nuevo():
 def mesa_editar(id):
     m = db.get_or_404(Mesa, id)
     if request.method == 'POST':
-        m.numero = request.form['numero']
-        m.capacidad = int(request.form.get('capacidad', 4))
-        m.zona = request.form.get('zona', '')
+        datos, error = _leer_form_mesa()
+        if error:
+            flash(error, 'danger')
+            return render_template('admin/mesa_form.html', mesa=m)
+        # Otra mesa con ese número rompería la referencia del mesero al levantar
+        # la orden: dos "Mesa 3" en el mismo piso.
+        suc_id = getattr(g, 'sucursal_id', None)
+        dup = Mesa.query.filter(Mesa.numero == datos['numero'], Mesa.id != m.id)
+        if suc_id is not None:
+            dup = dup.filter_by(sucursal_id=suc_id)
+        if dup.first():
+            flash(f'Ya existe una mesa con número "{datos["numero"]}".', 'danger')
+            return render_template('admin/mesa_form.html', mesa=m)
+        for campo, valor in datos.items():
+            setattr(m, campo, valor)
         db.session.commit()
         flash('Mesa actualizada', 'success')
         return redirect(url_for('admin.lista_mesas'))
@@ -488,6 +556,82 @@ def mesa_guardar_posicion(id):
     m.pos_y = int(data.get('pos_y', 0))
     db.session.commit()
     return jsonify(success=True)
+
+
+# --- Estaciones (KDS) ---
+@admin_bp.route('/estaciones')
+@login_required(roles=['superadmin'])
+def lista_estaciones():
+    from backend.routes.cocina import _slugify
+    estaciones = Estacion.query.order_by(Estacion.nombre).all()
+    conteos = dict(
+        db.session.query(Producto.estacion_id, func.count(Producto.id))
+        .filter(Producto.estacion_id.isnot(None))
+        .group_by(Producto.estacion_id).all()
+    )
+    slugs = {e.id: _slugify(e.nombre) for e in estaciones}
+    return render_template('admin/estaciones.html', estaciones=estaciones, conteos=conteos, slugs=slugs)
+
+
+@admin_bp.route('/estaciones/nueva', methods=['GET', 'POST'])
+@login_required(roles=['superadmin'])
+def estacion_nueva():
+    if request.method == 'POST':
+        nombre = (request.form.get('nombre') or '').strip()
+        if not nombre:
+            flash('El nombre es obligatorio.', 'danger')
+            return render_template('admin/estacion_form.html')
+        if Estacion.query.filter(db.func.lower(Estacion.nombre) == nombre.lower()).first():
+            flash(f'Ya existe una estación con el nombre "{nombre}".', 'danger')
+            return render_template('admin/estacion_form.html')
+        e = Estacion(nombre=nombre)
+        db.session.add(e)
+        db.session.commit()
+        flash('Estación creada', 'success')
+        return redirect(url_for('admin.lista_estaciones'))
+    return render_template('admin/estacion_form.html')
+
+
+@admin_bp.route('/estaciones/<int:id>/editar', methods=['GET', 'POST'])
+@login_required(roles=['superadmin'])
+def estacion_editar(id):
+    e = db.get_or_404(Estacion, id)
+    if request.method == 'POST':
+        nombre = (request.form.get('nombre') or '').strip()
+        if not nombre:
+            flash('El nombre es obligatorio.', 'danger')
+            return render_template('admin/estacion_form.html', estacion=e)
+        dup = Estacion.query.filter(
+            db.func.lower(Estacion.nombre) == nombre.lower(), Estacion.id != e.id,
+        ).first()
+        if dup:
+            flash(f'Ya existe una estación con el nombre "{nombre}".', 'danger')
+            return render_template('admin/estacion_form.html', estacion=e)
+        e.nombre = nombre
+        db.session.commit()
+        flash('Estación actualizada', 'success')
+        return redirect(url_for('admin.lista_estaciones'))
+    return render_template('admin/estacion_form.html', estacion=e)
+
+
+@admin_bp.route('/estaciones/<int:id>/eliminar', methods=['POST'])
+@login_required(roles=['superadmin'])
+def estacion_eliminar(id):
+    e = db.get_or_404(Estacion, id)
+    productos_count = Producto.query.filter_by(estacion_id=e.id).count()
+    usuarios_count = Usuario.query.filter_by(estacion_id=e.id).count()
+    if productos_count or usuarios_count:
+        partes = []
+        if productos_count:
+            partes.append(f'{productos_count} producto(s)')
+        if usuarios_count:
+            partes.append(f'{usuarios_count} usuario(s)')
+        flash(f'No se puede eliminar "{e.nombre}": tiene {" y ".join(partes)} asignados. Reasígnalos primero.', 'danger')
+        return redirect(url_for('admin.lista_estaciones'))
+    db.session.delete(e)
+    db.session.commit()
+    flash('Estación eliminada', 'success')
+    return redirect(url_for('admin.lista_estaciones'))
 
 
 # --- Corte de Caja con Conciliación (Fase 2 - Item 14) ---

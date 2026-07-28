@@ -7,7 +7,7 @@ from backend.models.models import (
     Cliente, MovimientoInventario, OrdenEstado,
 )
 from backend.extensions import db, socketio
-from backend.services.tiempo import hoy_local, rango_utc
+from backend.services.tiempo import hoy_local, rango_utc, a_local
 from backend.services.cobro import cerrar_orden_pagada
 from backend.services.pagos import metodos_pago_detalle, metodos_pago_habilitados
 from backend.utils import (login_required, verificar_propiedad_orden, filtrar_por_sucursal,
@@ -177,7 +177,10 @@ def historial_csv():
         mesa = f'Mesa {o.mesa.numero}' if o.mesa else 'Para llevar'
         productos = '; '.join(f'{d.producto.nombre} x{d.cantidad}' for d in o.detalles)
         total = float(o.total or 0)
-        writer.writerow([f'#{o.id}', o.tiempo_registro.strftime('%H:%M'), mesa, o.estado, productos, f'${total:.2f}'])
+        # Folio del día (lo que ve el cliente), no el id interno; y la hora
+        # convertida a la zona del negocio (la columna se guarda en UTC).
+        writer.writerow([f'#{o.numero}', a_local(o.tiempo_registro).strftime('%H:%M'),
+                         mesa, o.estado, productos, f'${total:.2f}'])
 
     output.seek(0)
     return Response(
