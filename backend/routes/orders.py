@@ -8,7 +8,12 @@ from backend.extensions import db, socketio
 orders_bp = Blueprint('orders', __name__, url_prefix='/api')
 
 @orders_bp.route('/ordenes', methods=['POST'])
-@login_required()
+# Levantar una orden es trabajo de piso. Las pantallas que lo hacen
+# (seleccionar_mesa, crear_orden_para_llevar) ya son de mesero, pero esta API
+# quedaba abierta a cualquier sesión: un usuario de cocina podía crear órdenes,
+# quedaba como su dueño (mesero_id) y le aparecían acreditadas en el reporte de
+# meseros. El resto de endpoints ya está cubierto por @verificar_propiedad_orden.
+@login_required(roles=['mesero', 'admin', 'superadmin'])
 def create_order():
     data = request.get_json()
     if not data:
