@@ -302,17 +302,30 @@ def seleccionar_mesa():
 
     mesas = filtrar_por_sucursal(Mesa.query, Mesa).order_by(Mesa.numero).all()
 
-    # Mesas compartidas: cada mesa puede tener VARIAS cuentas activas
+    # Mesas compartidas: cada mesa puede tener VARIAS cuentas activas.
+    # `no_es_borrador` excluye las cuentas vacías: una que el mesero abrió y
+    # abandonó no debe pintar la mesa como ocupada (la mesa sólo se ocupa con el
+    # primer producto, así que si no, el mosaico y el estado real no coinciden).
     active_orders = Orden.query.filter(
         Orden.estado.notin_([OrdenEstado.PAGADA, OrdenEstado.FINALIZADA, OrdenEstado.CANCELADA]),
+        no_es_borrador(),
     ).order_by(Orden.tiempo_registro).all()
     mesa_order_map = {}
     for o in active_orders:
         if o.mesa_id:
             mesa_order_map.setdefault(o.mesa_id, []).append(o)
 
+    # Cuánta gente hay sentada por mesa, sumando todas sus cuentas: una mesa de
+    # 12 con dos clientes no está "llena", y el mesero necesita verlo para
+    # sentar a alguien más ahí.
+    mesa_personas = {
+        mesa_id: sum(o.num_personas or 0 for o in ordenes)
+        for mesa_id, ordenes in mesa_order_map.items()
+    }
+
     zonas = sorted(set(m.zona for m in mesas if m.zona))
     return render_template('seleccionar_mesa.html', mesas=mesas,
+                           mesa_personas=mesa_personas,
                            mesa_order_map=mesa_order_map, zonas=zonas)
 
 
