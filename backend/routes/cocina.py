@@ -313,9 +313,20 @@ def station_view(slug):
     cfg = _build_cfg(estacion)
     detalles = _query_pending_detalles(estacion.nombre)
     ordenes_data = _group_by_orden(detalles)
+
+    # Admin/superadmin can jump between stations from the KDS header; cocina staff
+    # stay locked to their assigned station (_require_station_access already enforces it).
+    estaciones_todas = []
+    if session.get('rol') in ('admin', 'superadmin'):
+        estaciones_todas = [
+            {'nombre': e.nombre, 'slug': _slugify(e.nombre), 'activa': e.id == estacion.id}
+            for e in Estacion.query.order_by(Estacion.nombre).all()
+        ]
+
     return render_template('kds_station.html',
                            ordenes_data=ordenes_data, now_utc=datetime.now(timezone.utc).replace(tzinfo=None),
-                           station=cfg['slug'], station_slug=cfg['slug'], cfg=cfg)
+                           station=cfg['slug'], station_slug=cfg['slug'], cfg=cfg,
+                           estaciones_todas=estaciones_todas)
 
 
 # ── Dynamic fragment endpoint (AJAX refresh) ───────────────────
