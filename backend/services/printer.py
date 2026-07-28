@@ -148,13 +148,19 @@ def imprimir_comanda(orden):
         return False
 
 
-def imprimir_ticket_cuenta(orden, nombre_negocio='Mi Restaurante'):
+def imprimir_ticket_cuenta(orden, nombre_negocio=None):
     """
     Imprime ticket de cuenta / recibo para el cliente.
 
     Incluye: datos del negocio, detalle de productos, subtotal, IVA,
     descuentos, total, métodos de pago y cambio.
     """
+    # Sin nombre explicito se toma el del negocio configurado en el wizard:
+    # el default fijo imprimia "Mi Restaurante" en el ticket del cliente.
+    if nombre_negocio is None:
+        from backend.services.negocio import nombre_negocio as _nombre
+        nombre_negocio = _nombre()
+
     printer = _get_printer()
     if not printer:
         logger.info('Impresora no disponible, ticket no impreso para orden=%s', orden.id)
@@ -239,12 +245,18 @@ def imprimir_ticket_cuenta(orden, nombre_negocio='Mi Restaurante'):
         return False
 
 
-def imprimir_corte_caja(corte, nombre_negocio='Mi Restaurante'):
+def imprimir_corte_caja(corte, nombre_negocio=None):
     """
     Imprime reporte de corte de caja.
 
     Incluye: fecha, totales por método de pago, diferencia, notas.
     """
+    # Sin nombre explicito se toma el del negocio configurado en el wizard:
+    # el default fijo imprimia "Mi Restaurante" en el ticket del cliente.
+    if nombre_negocio is None:
+        from backend.services.negocio import nombre_negocio as _nombre
+        nombre_negocio = _nombre()
+
     printer = _get_printer()
     if not printer:
         logger.info('Impresora no disponible, corte no impreso id=%s', corte.id)
@@ -345,10 +357,16 @@ def generar_texto_comanda(orden):
     return '\n'.join(lines)
 
 
-def generar_texto_ticket(orden, nombre_negocio='Mi Restaurante'):
+def generar_texto_ticket(orden, nombre_negocio=None):
     """
     Genera el texto de ticket como string (para fallback window.print).
     """
+    # Sin nombre explicito se toma el del negocio configurado en el wizard:
+    # el default fijo imprimia "Mi Restaurante" en el ticket del cliente.
+    if nombre_negocio is None:
+        from backend.services.negocio import nombre_negocio as _nombre
+        nombre_negocio = _nombre()
+
     lines = []
     # El contenedor corre en UTC: datetime.now() imprimiría tickets con la hora
     # corrida (una venta de las 21:00 saldría como 03:00 del día siguiente).

@@ -845,8 +845,6 @@ def toggle_modo():
 def personalizacion():
     """Admin panel for restaurant branding customization."""
     from backend.models.models import Sucursal
-    import os
-    from werkzeug.utils import secure_filename
 
     sucursal = Sucursal.query.first()
     if not sucursal:
@@ -861,19 +859,11 @@ def personalizacion():
         sucursal.direccion = sanitizar_texto(request.form.get('direccion', '').strip(), 300) or None
         sucursal.telefono = request.form.get('telefono', '').strip() or None
 
-        # Handle logo upload
-        logo = request.files.get('logo')
-        if logo and logo.filename:
-            ALLOWED = {'png', 'jpg', 'jpeg', 'svg', 'webp'}
-            ext = logo.filename.rsplit('.', 1)[-1].lower() if '.' in logo.filename else ''
-            if ext in ALLOWED:
-                upload_dir = os.path.join(current_app.static_folder, 'uploads', 'logos')
-                os.makedirs(upload_dir, exist_ok=True)
-                filename = secure_filename(f'logo_{sucursal.id}.{ext}')
-                logo.save(os.path.join(upload_dir, filename))
-                sucursal.logo_url = url_for('static', filename=f'uploads/logos/{filename}')
-            else:
-                flash('Formato de imagen no soportado. Usa PNG, JPG, SVG o WebP.', 'warning')
+        # Handle logo upload (mismo helper que usa el wizard de instalación)
+        from backend.services.negocio import guardar_logo
+        _guardado, error_logo = guardar_logo(sucursal, request.files.get('logo'))
+        if error_logo:
+            flash(error_logo, 'warning')
 
         # Métodos de pago que acepta el negocio (al menos efectivo)
         from backend.models.models import ConfiguracionSistema

@@ -11,3 +11,4 @@ flask_session/
 cookies.txt
 pytest_results.txt
 windows-installer/dist/
+backend/static/uploads/

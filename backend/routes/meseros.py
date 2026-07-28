@@ -666,8 +666,14 @@ def get_cobrar_orden_info(orden_id):
         'referencia': p.referencia,
     } for p in orden.pagos]
 
+    from backend.services.negocio import datos_negocio
+
     return jsonify({
         "orden_id": orden.id,
+        # Lo que se le dice al cliente es el folio del día, no el id interno.
+        "orden_numero": orden.numero,
+        # El ticket traía "CASA LEONES" escrito a mano: sale del negocio real.
+        "negocio": datos_negocio(),
         "mesa_numero": orden.mesa.numero if orden.mesa else None,
         "alias": orden.alias,
         "es_para_llevar": orden.es_para_llevar,

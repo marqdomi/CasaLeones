@@ -76,6 +76,13 @@ def paso1():
             db.session.add(sucursal)
 
         ConfiguracionSistema.set('nombre_negocio', nombre)
+        # El logo va aquí y no sólo en Personalización: es lo que encabeza el
+        # ticket que se lleva el cliente desde la primera venta.
+        db.session.flush()  # necesita el id de la sucursal para nombrar el archivo
+        from backend.services.negocio import guardar_logo
+        _guardado, error_logo = guardar_logo(sucursal, request.files.get('logo'))
+        if error_logo:
+            flash(error_logo, 'warning')
         db.session.commit()
 
         # Store in wizard session
