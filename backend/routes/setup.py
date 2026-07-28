@@ -346,8 +346,14 @@ def paso5():
             if rol_raw.startswith('cocina:'):
                 station_name = rol_raw.split(':', 1)[1].strip()
                 estacion = estaciones_map.get(station_name.lower())
-                if estacion:
-                    estacion_id = estacion.id
+                # Sin estación, el usuario de cocina entra y recibe 403: se
+                # queda sin poder trabajar y sin nada que se lo explique.
+                # Mejor no darlo de alta y avisar.
+                if not estacion:
+                    flash(f'No se dio de alta a {nombre}: la estación '
+                          f'"{station_name}" no existe.', 'warning')
+                    continue
+                estacion_id = estacion.id
                 rol = 'cocina'
             else:
                 rol = rol_raw

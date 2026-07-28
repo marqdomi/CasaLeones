@@ -397,6 +397,165 @@ class TestProductoSinEstacion:
         assert orden_con_huerfano['orden'].estado == OrdenEstado.LISTA_PARA_ENTREGAR
 
 
+class TestAsignacionDeCocinerosAEstaciones:
+    """Es la única vía para dar de alta cocina después de la instalación.
+
+    El selector manda "cocina:<Estación>". Si esa estación no resolvía, el
+    usuario se creaba con `estacion_id` nulo: al entrar, el KDS lo mandaba a la
+    primera estación y le respondía 403. Se quedaba sin poder trabajar y sin
+    ningún mensaje que lo explicara.
+    """
+
+    @staticmethod
+    def _sesion_de(client, usuario):
+        with client.session_transaction() as s:
+            s['user_id'] = usuario.id
+            s['rol'] = usuario.rol
+            if usuario.estacion_id:
+                s['estacion_id'] = usuario.estacion_id
+
+    def test_alta_con_estacion_valida(self, client, superadmin_user, db, estaciones):
+        from backend.models.models import Usuario
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/usuarios/nuevo', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com',
+            'rol': 'cocina:Parrilla', 'password': 'Test1234!',
+        })
+
+        u = Usuario.query.filter_by(email='nuevo_coci@test.com').first()
+        assert u is not None
+        assert u.rol == 'cocina'
+        assert u.estacion_id == estaciones['parrilla'].id
+
+    def test_el_cocinero_aterriza_en_su_estacion(self, client, superadmin_user, db,
+                                                 estaciones):
+        from backend.models.models import Usuario
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/usuarios/nuevo', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com',
+            'rol': 'cocina:Parrilla', 'password': 'Test1234!',
+        })
+        u = Usuario.query.filter_by(email='nuevo_coci@test.com').first()
+
+        self._sesion_de(client, u)
+        resp = client.get('/cocina/', follow_redirects=False)
+        assert 'parrilla' in (resp.headers.get('Location') or '')
+        assert client.get('/cocina/parrilla').status_code == 200
+        assert client.get('/cocina/bebidas').status_code == 403
+
+    def test_reasignar_a_otra_estacion(self, client, superadmin_user, db, estaciones):
+        from backend.models.models import Usuario
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/usuarios/nuevo', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com',
+            'rol': 'cocina:Parrilla', 'password': 'Test1234!',
+        })
+        u = Usuario.query.filter_by(email='nuevo_coci@test.com').first()
+
+        client.post(f'/admin/usuarios/{u.id}/editar', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com', 'rol': 'cocina:Bebidas',
+        })
+        db.session.refresh(u)
+        assert u.estacion_id == estaciones['bebidas'].id
+
+        self._sesion_de(client, u)
+        assert client.get('/cocina/bebidas').status_code == 200
+        assert client.get('/cocina/parrilla').status_code == 403
+
+    def test_no_crea_un_cocinero_sin_estacion_valida(self, client, superadmin_user, db,
+                                                     estaciones):
+        from backend.models.models import Usuario
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/usuarios/nuevo', data={
+            'nombre': 'Fantasma', 'email': 'fantasma@test.com',
+            'rol': 'cocina:Estacion Que No Existe', 'password': 'Test1234!',
+        })
+        assert Usuario.query.filter_by(email='fantasma@test.com').first() is None, \
+            'se creó un usuario de cocina que al entrar recibe 403'
+
+    def test_editar_a_una_estacion_inexistente_no_lo_deja_huerfano(self, client,
+                                                                   superadmin_user, db,
+                                                                   estaciones):
+        from backend.models.models import Usuario
+
+        _entrar(client, db, 'super_test@test.com')
+        client.post('/admin/usuarios/nuevo', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com',
+            'rol': 'cocina:Parrilla', 'password': 'Test1234!',
+        })
+        u = Usuario.query.filter_by(email='nuevo_coci@test.com').first()
+
+        client.post(f'/admin/usuarios/{u.id}/editar', data={
+            'nombre': 'Coci', 'email': 'nuevo_coci@test.com', 'rol': 'cocina:No Existe',
+        })
+        db.session.refresh(u)
+        assert u.estacion_id == estaciones['parrilla'].id, \
+            'se quedó sin estación y no puede abrir ningún KDS'
+
+    @pytest.fixture
+    def wizard_listo(self, db, superadmin_user, sample_mesa, estaciones):
+        """Paso 5 exige pasos previos: superadmin y mesas."""
+        from backend.models.models import ConfiguracionSistema, Sucursal
+
+        db.session.add(Sucursal(nombre='Puesto'))
+        ConfiguracionSistema.set('nombre_negocio', 'Puesto')
+        db.session.commit()
+
+    def test_el_wizard_da_de_alta_cocina_con_estacion_valida(self, client, db, wizard_listo,
+                                                             estaciones):
+        """Control positivo: sin esto, el test de abajo pasaría aunque el paso 5
+        ni siquiera se ejecutara."""
+        from backend.models.models import Usuario
+
+        client.post('/setup/paso/5', data={
+            'user_nombre[]': ['Coci Wizard'],
+            'user_email[]': ['coci_wizard@test.com'],
+            'user_password[]': ['Test1234!'],
+            'user_rol[]': ['cocina:Parrilla'],
+        })
+        u = Usuario.query.filter_by(email='coci_wizard@test.com').first()
+        assert u is not None, 'el paso 5 no dio de alta al equipo'
+        assert u.rol == 'cocina'
+        assert u.estacion_id == estaciones['parrilla'].id
+
+    def test_el_wizard_no_da_de_alta_cocina_sin_estacion(self, client, db, wizard_listo):
+        """Paso 5 del wizard: mismo riesgo al capturar el equipo inicial."""
+        from backend.models.models import Usuario
+
+        client.post('/setup/paso/5', data={
+            'user_nombre[]': ['Fantasma'],
+            'user_email[]': ['fantasma@test.com'],
+            'user_password[]': ['Test1234!'],
+            'user_rol[]': ['cocina:No Existe'],
+        })
+        assert Usuario.query.filter_by(email='fantasma@test.com').first() is None
+
+
+class TestContadorPorEstacion:
+    """Los badges de las pestañas de estación."""
+
+    def test_cuenta_los_pendientes_de_cada_estacion(self, client, superadmin_user, db,
+                                                    orden_mixta):
+        _entrar(client, db, 'super_test@test.com')
+        datos = {e['nombre']: e for e in client.get('/cocina/api/estaciones').get_json()}
+        assert datos['Parrilla']['pendientes'] == 1
+        assert datos['Bebidas']['pendientes'] == 1
+
+    def test_baja_al_marcar_listo(self, client, superadmin_user, db, orden_mixta):
+        _entrar(client, db, 'super_test@test.com')
+        client.post(
+            f"/cocina/parrilla/marcar/{orden_mixta['orden'].id}/{orden_mixta['taco'].id}")
+
+        datos = {e['nombre']: e for e in client.get('/cocina/api/estaciones').get_json()}
+        assert datos['Parrilla']['pendientes'] == 0
+        assert datos['Bebidas']['pendientes'] == 1, \
+            'marcar en una estación afectó el contador de la otra'
+
+
 class TestPantallasKds:
     @pytest.mark.parametrize('ruta', ['/cocina/api/estaciones', '/cocina/api/orders',
                                       '/cocina/parrilla', '/cocina/parrilla/stats',

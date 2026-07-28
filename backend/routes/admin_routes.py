@@ -247,6 +247,27 @@ def api_actividad_reciente():
     return jsonify({'items': items})
 
 # --- Usuarios CRUD ---
+def _resolver_rol_y_estacion(rol_raw):
+    """Traduce el valor del selector de rol. Devuelve (rol, estacion_id, error).
+
+    El selector manda "cocina:<Estación>". Si esa estación no se encuentra
+    —porque la renombraron con el formulario abierto, por ejemplo— antes se
+    creaba el usuario con `estacion_id` nulo: al entrar, el KDS lo mandaba a la
+    primera estación y le respondía 403. Quedaba sin poder trabajar y sin
+    ningún mensaje que lo explicara.
+    """
+    if not rol_raw or not rol_raw.startswith('cocina:'):
+        return rol_raw, None, None
+
+    nombre_estacion = rol_raw.split(':', 1)[1].strip()
+    est = Estacion.query.filter(
+        db.func.lower(Estacion.nombre) == nombre_estacion.lower()).first()
+    if not est:
+        return None, None, (f'La estación "{nombre_estacion}" ya no existe. '
+                            f'Vuelve a elegir la estación del usuario de cocina.')
+    return 'cocina', est.id, None
+
+
 @admin_bp.route('/usuarios')
 @login_required(roles=['admin', 'superadmin'])
 def lista_usuarios():
@@ -270,16 +291,10 @@ def usuario_nuevo():
             for err in pw_errores:
                 flash(err, 'danger')
             return redirect(url_for('admin.usuario_nuevo'))
-        # Parse cocina:station_name → rol='cocina' + estacion_id
-        estacion_id = None
-        if rol_raw.startswith('cocina:'):
-            station_name = rol_raw.split(':', 1)[1].strip()
-            est = Estacion.query.filter(db.func.lower(Estacion.nombre) == station_name.lower()).first()
-            if est:
-                estacion_id = est.id
-            rol = 'cocina'
-        else:
-            rol = rol_raw
+        rol, estacion_id, error_rol = _resolver_rol_y_estacion(rol_raw)
+        if error_rol:
+            flash(error_rol, 'danger')
+            return redirect(url_for('admin.usuario_nuevo'))
         u = Usuario(nombre=nombre, email=email, rol=rol, estacion_id=estacion_id)
         u.set_password(password)
         db.session.add(u)
@@ -297,15 +312,13 @@ def usuario_editar(id):
         u.nombre = sanitizar_texto(request.form['nombre'], 100)
         u.email = sanitizar_email(request.form['email']) or request.form['email'].strip()
         rol_raw = request.form['rol']
-        # Parse cocina:station_name → rol='cocina' + estacion_id
-        if rol_raw.startswith('cocina:'):
-            station_name = rol_raw.split(':', 1)[1].strip()
-            est = Estacion.query.filter(db.func.lower(Estacion.nombre) == station_name.lower()).first()
-            u.rol = 'cocina'
-            u.estacion_id = est.id if est else None
-        else:
-            u.rol = rol_raw
-            u.estacion_id = None
+        rol, estacion_id, error_rol = _resolver_rol_y_estacion(rol_raw)
+        if error_rol:
+            flash(error_rol, 'danger')
+            estaciones = Estacion.query.order_by(Estacion.nombre).all()
+            return render_template('admin/usuario_form.html', usuario=u, estaciones=estaciones)
+        u.rol = rol
+        u.estacion_id = estacion_id
         # Optional password update
         new_pw = request.form.get('password', '').strip()
         if new_pw:
