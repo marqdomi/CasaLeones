@@ -247,6 +247,37 @@ def api_actividad_reciente():
     return jsonify({'items': items})
 
 # --- Usuarios CRUD ---
+def _es_superadmin():
+    return session.get('rol') == 'superadmin'
+
+
+def _veto_sobre_superadmin(rol_objetivo=None, usuario=None):
+    """Impide que un admin escale privilegios. Devuelve un mensaje o None.
+
+    Sin esto, un admin (el gerente) podía crear un superadmin, auto-promoverse,
+    degradar a la dueña a mesero y hasta cambiarle la contraseña para entrar
+    como ella. La cuenta de superadmin es la única que puede recuperar el
+    sistema, así que sólo un superadmin la administra.
+    """
+    if _es_superadmin():
+        return None
+    if usuario is not None and usuario.rol == 'superadmin':
+        return 'Sólo un superadmin puede modificar o eliminar una cuenta de superadmin.'
+    if rol_objetivo == 'superadmin':
+        return 'Sólo un superadmin puede otorgar el rol de superadmin.'
+    return None
+
+
+def _queda_algun_superadmin(excluyendo_id=None, nuevo_rol=None):
+    """Evita quedarse sin ninguna cuenta que pueda administrar el sistema."""
+    consulta = Usuario.query.filter_by(rol='superadmin')
+    if excluyendo_id is not None:
+        consulta = consulta.filter(Usuario.id != excluyendo_id)
+    if consulta.count() > 0:
+        return True
+    return nuevo_rol == 'superadmin'
+
+
 def _resolver_rol_y_estacion(rol_raw):
     """Traduce el valor del selector de rol. Devuelve (rol, estacion_id, error).
 
@@ -295,6 +326,10 @@ def usuario_nuevo():
         if error_rol:
             flash(error_rol, 'danger')
             return redirect(url_for('admin.usuario_nuevo'))
+        veto = _veto_sobre_superadmin(rol_objetivo=rol)
+        if veto:
+            flash(veto, 'danger')
+            return redirect(url_for('admin.usuario_nuevo'))
         u = Usuario(nombre=nombre, email=email, rol=rol, estacion_id=estacion_id)
         u.set_password(password)
         db.session.add(u)
@@ -309,9 +344,31 @@ def usuario_nuevo():
 def usuario_editar(id):
     u = db.get_or_404(Usuario, id)
     if request.method == 'POST':
-        u.nombre = sanitizar_texto(request.form['nombre'], 100)
-        u.email = sanitizar_email(request.form['email']) or request.form['email'].strip()
         rol_raw = request.form['rol']
+        rol_previsto = 'cocina' if rol_raw.startswith('cocina:') else rol_raw
+
+        # Un admin no puede tocar una cuenta de superadmin (ni cambiarle la
+        # contraseña, que era secuestro directo) ni promover a nadie a ese rol.
+        veto = _veto_sobre_superadmin(rol_objetivo=rol_previsto, usuario=u)
+        if veto:
+            flash(veto, 'danger')
+            return redirect(url_for('admin.lista_usuarios'))
+
+        # Dejar el sistema sin superadmin lo vuelve inadministrable.
+        if u.rol == 'superadmin' and rol_previsto != 'superadmin' and not \
+                _queda_algun_superadmin(excluyendo_id=u.id):
+            flash('Es el único superadmin: primero nombra a otro.', 'danger')
+            return redirect(url_for('admin.lista_usuarios'))
+
+        nuevo_email = sanitizar_email(request.form['email']) or request.form['email'].strip()
+        # Dos cuentas con el mismo correo dejan un login ambiguo.
+        if Usuario.query.filter(Usuario.email == nuevo_email, Usuario.id != u.id).first():
+            flash(f'El correo {nuevo_email} ya está en uso por otro usuario.', 'danger')
+            estaciones = Estacion.query.order_by(Estacion.nombre).all()
+            return render_template('admin/usuario_form.html', usuario=u, estaciones=estaciones)
+
+        u.nombre = sanitizar_texto(request.form['nombre'], 100)
+        u.email = nuevo_email
         rol, estacion_id, error_rol = _resolver_rol_y_estacion(rol_raw)
         if error_rol:
             flash(error_rol, 'danger')
@@ -342,9 +399,21 @@ def usuario_editar(id):
 @login_required(roles=['admin', 'superadmin'])
 def usuario_eliminar(id):
     u = db.get_or_404(Usuario, id)
-    # Prevent self-delete
-    if u.id == current_user.id:
+    # Prevent self-delete. Se compara contra la sesión (como el resto del
+    # sistema) y no contra `current_user`: el decorador de acceso valida la
+    # sesión, así que una sesión válida sin estado de Flask-Login reventaba
+    # aquí con AttributeError en vez de proteger nada.
+    if u.id == session.get('user_id'):
         flash('No puedes eliminarte a ti mismo.', 'danger')
+        return redirect(url_for('admin.lista_usuarios'))
+
+    veto = _veto_sobre_superadmin(usuario=u)
+    if veto:
+        flash(veto, 'danger')
+        return redirect(url_for('admin.lista_usuarios'))
+
+    if u.rol == 'superadmin' and not _queda_algun_superadmin(excluyendo_id=u.id):
+        flash('Es el único superadmin: el sistema quedaría sin quien lo administre.', 'danger')
         return redirect(url_for('admin.lista_usuarios'))
     # Check active orders
     ordenes_count = Orden.query.filter_by(mesero_id=u.id).filter(
