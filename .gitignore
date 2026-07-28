@@ -10,3 +10,4 @@ flask_session/
 .DS_Store
 cookies.txt
 pytest_results.txt
+windows-installer/dist/
