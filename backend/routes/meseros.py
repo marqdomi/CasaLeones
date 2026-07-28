@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 meseros_bp = Blueprint('meseros', __name__, url_prefix='/meseros')
 
-ESTADOS_MODIFICABLES = [OrdenEstado.PENDIENTE, OrdenEstado.ENVIADO, OrdenEstado.EN_PREPARACION, OrdenEstado.LISTA_PARA_ENTREGAR]
+from backend.models.models import ESTADOS_MODIFICABLES  # noqa: E402  (re-export)
 
 
 def _revertir_inventario_orden(orden, usuario_id):
@@ -446,6 +446,17 @@ def agregar_productos_a_orden(orden_id):
                 nuevos.append(d)
 
         db.session.commit()
+
+        # Si la orden ya había salido de la cocina (todo listo) y ahora tiene
+        # items sin preparar, tiene que volver: el KDS sólo muestra órdenes en
+        # enviado/en_preparacion, así que sin esto el producto nuevo no le
+        # llegaba a nadie y la cuenta se podía cobrar con comida sin hacer.
+        if orden.estado == OrdenEstado.LISTA_PARA_ENTREGAR and any(
+                d.estado == OrdenEstado.PENDIENTE for d in orden.detalles):
+            orden.estado = OrdenEstado.EN_PREPARACION
+            db.session.commit()
+            logger.info('Orden %s regresa a en_preparacion: se agregaron productos', orden_id)
+
         # Con el primer producto deja de ser borrador: folio del día y mesa ocupada
         from backend.services.folio import asignar_folio
         asignar_folio(orden)

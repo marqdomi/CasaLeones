@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify, session, g, current_app
 from backend.utils import (login_required, verificar_orden_completa, verificar_stock_disponible,
                            verificar_propiedad_orden, actualizar_estado_mesa)
 from backend.services.sanitizer import sanitizar_texto
-from backend.models.models import Orden, OrdenDetalle, Producto, Mesa, OrdenEstado
+from backend.models.models import (Orden, OrdenDetalle, Producto, Mesa, OrdenEstado,
+                                   ESTADOS_MODIFICABLES)
 from backend.extensions import db, socketio
 
 orders_bp = Blueprint('orders', __name__, url_prefix='/api')
@@ -74,6 +75,12 @@ def add_product_to_order(orden_id):
     producto = db.get_or_404(Producto, producto_id)
     orden = db.get_or_404(Orden, orden_id)
 
+    # Este es el carrito vivo del mesero (guarda cada producto al tocarlo), y no
+    # validaba el estado: se le podían agregar productos a una cuenta ya pagada
+    # o cancelada.
+    if orden.estado not in ESTADOS_MODIFICABLES:
+        return jsonify({'error': f'No se pueden agregar productos ({orden.estado}).'}), 409
+
     # Validación de stock (Sprint 2 — 3.2)
     if current_app.config.get('INVENTARIO_VALIDAR_STOCK'):
         disponible, faltantes, warns = verificar_stock_disponible(producto_id, cantidad)
@@ -108,6 +115,13 @@ def add_product_to_order(orden_id):
         db.session.add(detalle)
 
     db.session.commit()
+
+    # Si la orden ya había salido de la cocina, tiene que volver: el KDS sólo
+    # muestra enviado/en_preparacion, así que sin esto el producto nuevo no le
+    # llegaba a ninguna estación y la cuenta se podía cobrar con comida sin hacer.
+    if orden.estado == OrdenEstado.LISTA_PARA_ENTREGAR:
+        orden.estado = OrdenEstado.EN_PREPARACION
+        db.session.commit()
 
     # Emit real-time update
     socketio.emit('order_detail_added', {
