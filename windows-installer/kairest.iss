@@ -24,8 +24,11 @@ DefaultDirName={%USERPROFILE}\kairest
 DefaultGroupName=KaiRest POS
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
+; Siempre instalacion por usuario, sin pedir contrasena de administrador.
+; Con el override habilitado, que quedara per-user o per-machine dependia de
+; como se lanzara el instalador, y mezclar ambos modos aborta con un mensaje
+; que el cliente no puede resolver.
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=dist
 OutputBaseFilename=KaiRest-Setup
 SetupIconFile=assets\kairest.ico
@@ -43,14 +46,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Crear un acceso directo en el Escritorio para abrir KaiRest"; GroupDescription: "Accesos directos:"
 
 [Files]
-Source: "{#RepoRoot}backend\*"; DestDir: "{app}\backend"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "__pycache__,*.pyc,.pytest_cache"
-Source: "{#RepoRoot}migrations\*"; DestDir: "{app}\migrations"; Flags: recursesubdirs createallsubdirs ignoreversion; Excludes: "__pycache__,*.pyc"
+; Modo imagen: la aplicacion se descarga ya compilada desde GHCR, asi que el
+; instalador NO lleva el codigo fuente. Solo van los archivos de operacion.
+; Esto tambien hace el instalador chico y la instalacion mucho mas rapida.
 Source: "{#RepoRoot}docs\GUIA_INSTALACION_WINDOWS.md"; DestDir: "{app}\docs"; Flags: ignoreversion
-Source: "{#RepoRoot}config.py"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#RepoRoot}docker-compose.yml"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}docker-compose.prod.yml"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#RepoRoot}dockerfile"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#RepoRoot}.dockerignore"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}.env.example"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}install.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}update.ps1"; DestDir: "{app}"; Flags: ignoreversion

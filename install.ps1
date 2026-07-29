@@ -53,16 +53,29 @@ if (-not $composeCmd) {
 }
 Write-Step "Docker Compose disponible"
 
-# -- Locate code: in-place (ZIP/USB) or clone with git --
-# Modo 1 (recomendado para clientes): el script corre DENTRO de la carpeta del
-# proyecto (entregada en ZIP/USB) - no se necesita Git ni acceso al repositorio.
-# Modo 2: si no hay docker-compose.yml junto al script, se clona con Git.
+# -- Locate code: imagen publicada, carpeta del proyecto, o clone con git --
+# Modo IMAGEN (el del instalador para clientes): solo hay docker-compose.prod.yml.
+#   La aplicacion se descarga ya compilada desde GHCR, asi que la instalacion no
+#   compila nada, no necesita Git y el codigo no vive en la maquina del cliente.
+#   Actualizar es descargar la imagen nueva: un parche no requiere ir al negocio.
+# Modo BUILD: hay docker-compose.yml (codigo fuente al lado) y se compila local.
+# Modo GIT: no hay ninguno de los dos, se clona el repositorio.
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$composeFile = ""      # vacio = docker-compose.yml por omision
+$modoImagen = $false
 
 if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
     $installDir = $scriptDir
     Write-Host ""
-    Write-Info "Proyecto detectado en: $installDir (instalacion en sitio, sin Git)"
+    Write-Info "Proyecto detectado en: $installDir (compilacion local)"
+    Push-Location $installDir
+} elseif (Test-Path (Join-Path $scriptDir "docker-compose.prod.yml")) {
+    $installDir = $scriptDir
+    $composeFile = "-f docker-compose.prod.yml"
+    $modoImagen = $true
+    Write-Host ""
+    Write-Info "Instalando en: $installDir"
+    Write-Info "Se descargara la aplicacion ya preparada (no se compila nada aqui)."
     Push-Location $installDir
 } else {
     try {
@@ -97,7 +110,7 @@ if (Test-Path (Join-Path $scriptDir "docker-compose.yml")) {
 
 # Create backups directory
 if (-not (Test-Path "backups")) { New-Item -ItemType Directory -Path "backups" | Out-Null }
-Write-Step "Codigo descargado"
+Write-Step $(if ($modoImagen) { "Archivos listos" } else { "Codigo descargado" })
 
 # -- Configure .env --
 $envFile = Join-Path $installDir ".env"
@@ -130,13 +143,24 @@ CORS_ORIGINS=http://localhost:5005
 # -- Start services --
 Write-Host ""
 Write-Info "Iniciando KaiRest POS..."
-Write-Host "  (primera vez puede tardar 2-5 min compilando la imagen)" -ForegroundColor DarkGray
-Write-Host ""
+$compose = ("$composeCmd $composeFile").Trim()
 
-if ($composeCmd -eq "docker compose") {
-    docker compose up -d --build | Select-Object -Last 8
+if ($modoImagen) {
+    Write-Host "  (la primera vez descarga la aplicacion: unos minutos segun tu internet)" -ForegroundColor DarkGray
+    Write-Host ""
+    # `pull` por separado para que un fallo de descarga se vea claro y no se
+    # confunda con un problema al arrancar los servicios.
+    cmd /c "$compose pull" | Select-Object -Last 5
+    if ($LASTEXITCODE -ne 0) {
+        Write-Color Red "  ERROR: no se pudo descargar la aplicacion."
+        Write-Host "  Revisa la conexion a internet y vuelve a ejecutar el instalador." -ForegroundColor Yellow
+        exit 1
+    }
+    cmd /c "$compose up -d" | Select-Object -Last 8
 } else {
-    docker-compose up -d --build | Select-Object -Last 8
+    Write-Host "  (primera vez puede tardar 2-5 min compilando la imagen)" -ForegroundColor DarkGray
+    Write-Host ""
+    cmd /c "$compose up -d --build" | Select-Object -Last 8
 }
 
 # -- Wait for health --
@@ -179,9 +203,10 @@ if ($healthy) {
     Write-Host "  Veras el asistente de configuracion para" -ForegroundColor DarkGray
     Write-Host "  registrar tu restaurante y crear tu usuario." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "  Para actualizar:  cd ~\kairest; .\update.ps1" -ForegroundColor Yellow
-    Write-Host "  Para detener:     cd ~\kairest; docker compose down" -ForegroundColor Yellow
-    Write-Host "  Para reiniciar:   cd ~\kairest; docker compose restart" -ForegroundColor Yellow
+    Write-Host "  Usa los accesos directos de KaiRest en el menu inicio, o:" -ForegroundColor DarkGray
+    Write-Host "  Para actualizar:  .\update.ps1" -ForegroundColor Yellow
+    Write-Host "  Para detener:     $compose down" -ForegroundColor Yellow
+    Write-Host "  Para reiniciar:   $compose restart" -ForegroundColor Yellow
     Write-Host ""
 
     # Try to open in default browser
@@ -191,11 +216,7 @@ if ($healthy) {
 } else {
     Write-Host ""
     Write-Color Red "  La app no respondio en 3 minutos."
-    if ($composeCmd -eq "docker compose") {
-        Write-Host "  Revisa los logs con: docker compose logs web" -ForegroundColor Yellow
-    } else {
-        Write-Host "  Revisa los logs con: docker-compose logs web" -ForegroundColor Yellow
-    }
+    Write-Host "  Revisa los logs con: $compose logs web" -ForegroundColor Yellow
     exit 1
 }
 
